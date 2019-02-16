@@ -15,8 +15,8 @@ namespace clrays {
 
         private OpenCLKernel drawKernel;
         private long[] drawKernelWork;
-        private byte[] screenData;
-        private OpenCLBuffer<byte> render_buffer;
+        private int[] screenData;
+        private OpenCLBuffer<int> render_buffer;
 
         public Texture renderTexture;
 
@@ -31,14 +31,16 @@ namespace clrays {
                 climg = new OpenCLImage<int>(program, width, height);
             }
 
-            screenData = new byte[width * height];
-            render_buffer = new OpenCLBuffer<byte>(program, screenData);
+            screenData = new int[width * height];
+            render_buffer = new OpenCLBuffer<int>(program, screenData);
             drawKernel = new OpenCLKernel(program, "render");
             if (download) {
                 drawKernel.SetArgument(0, render_buffer);
             } else {
                 drawKernel.SetArgument(0, climg);
             }
+            drawKernel.SetArgument(1, (uint)width);
+            drawKernel.SetArgument(2, (uint)height);
 
             drawKernelWork = new long[] {width, height};
 
@@ -46,11 +48,11 @@ namespace clrays {
             renderTexture.Construct();
             renderTexture.Width = width;
             renderTexture.Height = height;
-            renderTexture.InternalFormat = PixelInternalFormat.R8;
-            renderTexture.Format = PixelFormat.Red;
+            renderTexture.InternalFormat = PixelInternalFormat.Rgba;
+            renderTexture.Format = PixelFormat.Bgra;
             renderTexture.Target = TextureTarget.Texture2D;
             renderTexture.PixelType = PixelType.UnsignedByte;
-            renderTexture.SetFilters(TextureMinFilter.Nearest, TextureMagFilter.Nearest);
+            renderTexture.SetFilters(TextureMinFilter.Linear, TextureMagFilter.Linear);
             renderTexture.SetWrapping(TextureWrapMode.ClampToEdge, TextureWrapMode.ClampToEdge);
         }
 
