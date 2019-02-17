@@ -8,6 +8,5 @@ in VertexData {
 } i;
 
 void main() {
-    float color = texture(uTexture, i.UV).r * 1000;
-    outColor = vec4(color, color, color, 1);
+    outColor = vec4(texture(uTexture, i.UV).rgb, 1);
 }

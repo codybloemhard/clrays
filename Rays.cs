@@ -20,7 +20,7 @@ namespace clrays {
             _raster = new Raster(Width, Height);
             _raster.AttachTexture();
 
-            _shader = Shader.Create("Assets/Shaders/game_of_life.vs.glsl", "Assets/Shaders/game_of_life.fs.glsl");
+            _shader = Shader.Create("Assets/Shaders/rays_vs.glsl", "Assets/Shaders/rays_fs.glsl");
             _shader.Use();
             _shader.AddUniformVar("uTexture");
             _shader.AddUniformVar("mTransform");

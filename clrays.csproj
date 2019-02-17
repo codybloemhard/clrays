@@ -74,10 +74,10 @@
     <Content Include="Assets\Levels\turing_js_r.rle">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Assets\Shaders\game_of_life.fs.glsl">
+    <Content Include="Assets\Shaders\rays_fs.glsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Assets\Shaders\game_of_life.vs.glsl">
+    <Content Include="Assets\Shaders\rays_vs.glsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="README.pdf" />

@@ -16,11 +16,11 @@ __kernel void render(
     
     float u = (float)x / w;
     float v = (float)y / h;
-    float2 uv = (float2)(u, v);
+    float2 uv = (float2)(u - 0.5f, v - 0.5f);
     
-    int r = 180;
-    int g = 243;
-    int b = 34;
+    int r = u * 255;
+    int g = v * 255;
+    int b = 0;
     int fres = (r << 16) + (g << 8) + b;
     
 #ifdef GLINTEROP
