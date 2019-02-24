@@ -29,6 +29,7 @@ namespace clrays {
             string kernel = "Assets/Kernels/raytrace.cl";
 
             Scene scene = new Scene();
+            scene.Add(new Plane(0,-1,0,0,1,0));
             scene.Add(new Sphere(1, 0, -5, 1));
             scene.Add(new Sphere(-1, 0, -5, 1));
             scene.Add(new Light(0, 2, -4, 2));

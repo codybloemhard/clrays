@@ -36,16 +36,45 @@ struct RayHit InterSphere(struct Ray* r, float3 spos, float srad){
     return hit;
 }
 
-struct RayHit InterScene(struct Ray* ray, global float* arr, const uint arrlen){
-    struct RayHit closest = NullRayHit();
+struct RayHit InterPlane(struct Ray* r, float3 ppos, float3 pnor){
+    float divisor = dot(r->dir, pnor);
+    if(fabs(divisor) < EPSILON) return NullRayHit();
+    float3 planevec = ppos - r->pos;
+    float t = dot(planevec, pnor) / divisor;
+    if(t < EPSILON) return NullRayHit();
+    struct RayHit hit;
+    hit.t = t;
+    hit.pos = r->pos + r->dir * t;
+    hit.nor = pnor;
+    return hit;
+}
+
+void InterSpheres(struct RayHit *closest, struct Ray *ray, global float *arr, const uint arrlen){
     for(int i = 0; i < arrlen; i++){
         int off = i * 4;
         float3 spos = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
         float srad = arr[off + 3];
         struct RayHit hit = InterSphere(ray, spos, srad);
-        if(closest.t > hit.t)
-            closest = hit;
+        if(closest->t > hit.t)
+            *closest = hit;
     }
+}
+
+void InterPlanes(struct RayHit *closest, struct Ray *ray, global float *arr, const uint arrlen){
+    for(int i = 0; i < arrlen; i++){
+        int off = i * 6;
+        float3 ppos = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
+        float3 pnor = (float3)(arr[off + 3], arr[off + 4], arr[off + 5]);
+        struct RayHit hit = InterPlane(ray, ppos, pnor);
+        if(closest->t > hit.t)
+            *closest = hit;
+    }
+}
+
+struct RayHit InterScene(struct Ray *ray, global float *spheres, const uint sphereslen, global float *planes, const uint planeslen){
+    struct RayHit closest = NullRayHit();
+    InterSpheres(&closest, ray, spheres, sphereslen);
+    InterPlanes(&closest, ray, planes, planeslen);
     return closest;
 }
 
@@ -61,7 +90,9 @@ __kernel void render(
     __global float *sc_spheres,
     const uint sc_spheres_count,
     __global float *sc_lights,
-    const uint sc_lights_count
+    const uint sc_lights_count,
+    __global float *sc_planes,
+    const uint sc_planes_count
 ){
     int x = get_global_id(0);
     int y = get_global_id(1);
@@ -78,7 +109,7 @@ __kernel void render(
     ray.pos = (float3)(0,0,0);
     ray.dir = normalize((float3)(uv.x,uv.y,-1) - ray.pos);
     //intersect all spheres
-    struct RayHit closest = InterScene(&ray, sc_spheres, sc_spheres_count);
+    struct RayHit closest = InterScene(&ray, sc_spheres, sc_spheres_count, sc_planes, sc_planes_count);
     float col = 0.0f;
     if(col >= MAX_RENDER_DIST) col = -1.0f;
     else{
@@ -90,7 +121,7 @@ __kernel void render(
             float3 toL = normalize(lpos - closest.pos);
             lray.pos = closest.pos + toL * EPSILON;
             lray.dir = toL;
-            struct RayHit lhit = InterScene(&ray, sc_spheres, sc_spheres_count);
+            struct RayHit lhit = InterScene(&ray, sc_spheres, sc_spheres_count, sc_planes, sc_planes_count);
             float isLit = 1.0f;
             if(lhit.t >= MAX_RENDER_DIST)
                 isLit = 0.0f;

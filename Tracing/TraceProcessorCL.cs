@@ -21,8 +21,10 @@ namespace clrays {
         private bool download;
         private OpenCLImage<int> climg;
 
-        private OpenCLBuffer<float> scene_spheres;
-        private OpenCLBuffer<float> scene_lights;
+        private OpenCLBuffer<float>
+            scene_spheres, 
+            scene_lights,
+            scene_planes;
 
         public TraceProcessorCL(int width, int height, Scene scene, string kernel) {
             program = new OpenCLProgram(kernel);
@@ -45,6 +47,7 @@ namespace clrays {
             var scene_raw = scene.GetBuffers();
             scene_spheres = new OpenCLBuffer<float>(program, scene_raw[0]);
             scene_lights = new OpenCLBuffer<float>(program, scene_raw[1]);
+            scene_planes = new OpenCLBuffer<float>(program, scene_raw[2]);
             //set constants
             drawKernel.SetArgument(1, (uint)width);
             drawKernel.SetArgument(2, (uint)height);
@@ -53,6 +56,8 @@ namespace clrays {
             drawKernel.SetArgument(4, (uint)(scene_spheres.Length / Scene.sphereSize));
             drawKernel.SetArgument(5, scene_lights);
             drawKernel.SetArgument(6, (uint)(scene_lights.Length / Scene.lightSize));
+            drawKernel.SetArgument(7, scene_planes);
+            drawKernel.SetArgument(8, (uint)(scene_planes.Length / Scene.planeSize));
             //work
             drawKernelWork = new long[] {width, height};
             //upload buffers
