@@ -1,5 +1,6 @@
 #define MAX_RENDER_DIST 1000000.0f
 #define EPSILON 0.001f
+#define PI4 12.5663f
 #define AMBIENT 0.05f
 
 struct RayHit{
@@ -121,18 +122,25 @@ __kernel void render(
             int off = i * 4;
             float3 lpos = (float3)(sc_lights[off + 0], sc_lights[off + 1], sc_lights[off + 2]);
             float lpow = sc_lights[off + 3];
-            struct Ray lray;
             float3 toL = normalize(lpos - closest.pos);
+            float angle = dot(closest.nor, toL);
+            if(angle <= EPSILON)
+                continue;
+            float d2 = dist2(closest.pos, lpos);
+            float power = lpow / (PI4 * d2);
+            if(power < 0.01f)
+                continue;
+            struct Ray lray;
             lray.pos = closest.pos + toL * EPSILON;
             lray.dir = toL;
             struct RayHit lhit = InterScene(&lray, sc_spheres, sc_spheres_count, sc_planes, sc_planes_count);
             float isLit = 1.0f;
-            if(lhit.t * lhit.t <= dist2(closest.pos, lpos))
+            if(lhit.t * lhit.t <= d2)
                 isLit = 0.0f;
-            col += isLit * lpow * max(AMBIENT, dot(closest.nor, toL));
+            col += isLit * power * max(0.0f, angle);
         }
     }
-    r = max(0.0f, col) * 100;
+    r = max(0.0f, col);
     //combine rgb for final colour
     int fres = (r << 16) + (g << 8) + b;
 
