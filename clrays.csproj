@@ -48,30 +48,16 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Rays.cs" />
-    <Compile Include="GameOfLife\GameProcessorCL.cs" />
+    <Compile Include="Tracing\TraceProcessorCL.cs" />
     <Compile Include="Helpers\opencl.cs" />
     <Compile Include="Helpers\OpenCLHelpers.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Tracing\Geo.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include=".gitignore" />
     <Content Include="Assets\Kernels\raytrace.cl">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Assets\Levels\c4-orthogonal.rle">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Assets\Levels\metapixel-galaxy.rle">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Assets\Levels\test.rle">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Assets\Levels\test2.rle">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Assets\Levels\turing_js_r.rle">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Assets\Shaders\rays_fs.glsl">

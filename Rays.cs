@@ -11,7 +11,7 @@ namespace clrays {
     public class Rays : Game {
         private Raster _raster;
         private Shader _shader;
-        private GameProcessorCL _processor = null;
+        private TraceProcessorCL _processor = null;
         private int _generation = 0;
         private Stopwatch _timer = new Stopwatch();
 
@@ -26,7 +26,12 @@ namespace clrays {
             _shader.AddUniformVar("mTransform");
             _shader.SetInt("uTexture", 0);
 
-            _processor = new GameProcessorCL(Width, Height);
+            string kernel = "Assets/Kernels/raytrace.cl";
+
+            Scene scene = new Scene();
+            scene.Add(new Sphere(0, 0, -3, 1));
+
+            _processor = new TraceProcessorCL(Width, Height, scene, kernel);
         }
 
         public override void Render(double dt)
@@ -36,7 +41,7 @@ namespace clrays {
             _processor.Render();
             Projection.ProjectPlane();
             long simulateTime = _timer.ElapsedMilliseconds;
-            Console.WriteLine($"Generation: {_generation++}: Simulate: {simulateTime}ms, Render: {_timer.ElapsedMilliseconds - simulateTime}ms");
+            Console.WriteLine($"Generation: {_generation++}: Time: {simulateTime}ms");
         }
 
         public override void Resize(int width, int height) {

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel;
 using System.Drawing;
 using OpenTK;
 using OpenTK.Graphics;
@@ -51,6 +52,13 @@ namespace FruckEngine {
         /// <param name="e"></param>
         protected override void OnResize(EventArgs e) {
             UpdateViewport();
+        }
+
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            base.OnClosing(e);
+            Game.Destroy();
+            Environment.Exit(0);
         }
 
         /// <summary>
