@@ -49,7 +49,8 @@ namespace clrays {
             drawKernel.SetArgument(2, (uint)width);
             drawKernel.SetArgument(3, (uint)height);
             //constants
-            drawKernel.SetArgument(4, (uint)(scene_spheres.Length / Scene.sphereSize));
+            uint nSpheres = (uint)(scene_spheres.Length / Scene.sphereSize);
+            drawKernel.SetArgument(4, nSpheres);
             //work
             drawKernelWork = new long[] {width, height};
             //upload buffers
