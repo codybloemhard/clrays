@@ -3,41 +3,61 @@ using System.Collections.Generic;
 
 namespace clrays
 {
-    public struct Sphere
+    public interface SceneItem
     {
-        public float x, y, z, r;
+        float[] data { get; set; }
+    }
+
+    public struct Sphere : SceneItem
+    {
+        public float[] data { get; set; }
 
         public Sphere(float x, float y, float z, float r)
         {
-            this.x = x;
-            this.y = y;
-            this.z = z;
-            this.r = r;
+            data = new float[] { x, y, z, r};
+        }
+    }
+
+    public struct Light : SceneItem
+    {
+        public float[] data { get; set; }
+
+        public Light(float x, float y, float z, float p)
+        {
+            data = new float[] { x, y, z, p };
         }
     }
 
     public class Scene
     {
         public const int sphereSize = 4;
-        public List<Sphere> spheres;
+        public const int lightSize = 4;
+        private List<SceneItem> spheres;
+        private List<SceneItem> lights;
 
         public Scene()
         {
-            spheres = new List<Sphere>();
+            spheres = new List<SceneItem>();
+            lights = new List<SceneItem>();
         }
 
         public float[][] GetBuffers()
         {
-            var res = new float[1][];
-            res[0] = new float[spheres.Count * sphereSize];
-            int j = 0;
-            for(int i = 0; i < spheres.Count; i++)
+            var res = new float[2][];
+            res[0] = Bufferize(spheres, sphereSize);
+            res[1] = Bufferize(lights, lightSize);
+            return res;
+        }
+
+        private float[] Bufferize(List<SceneItem> list, int itemSize)
+        {
+            float[] res = new float[list.Count * itemSize];
+            for(int i = 0; i < list.Count; i++)
             {
-                res[0][j + 0] = spheres[i].x;
-                res[0][j + 1] = spheres[i].y;
-                res[0][j + 2] = spheres[i].z;
-                res[0][j + 3] = spheres[i].r;
-                j += sphereSize;
+                int off = i * itemSize;
+                var data = list[i].data;
+                for (int j = 0; j < itemSize; j++)
+                    res[off + j] = data[j];
             }
             return res;
         }
@@ -45,6 +65,11 @@ namespace clrays
         public void Add(Sphere s)
         {
             spheres.Add(s);
+        }
+
+        public void Add(Light l)
+        {
+            lights.Add(l);
         }
     }
 }

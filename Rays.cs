@@ -31,6 +31,7 @@ namespace clrays {
             Scene scene = new Scene();
             scene.Add(new Sphere(1, 0, -5, 1));
             scene.Add(new Sphere(-1, 0, -5, 1));
+            scene.Add(new Light(0, 2, -4, 2));
 
             _processor = new TraceProcessorCL(Width, Height, scene, kernel);
         }
