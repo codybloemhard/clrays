@@ -3,11 +3,22 @@
 #define PI4 12.5663f
 #define AMBIENT 0.05f
 
+#define MAT_SIZE 3
+struct Material{
+    float3 col;
+};
+//extract material from array, off is index of first byte of material we want
+struct Material ExtractMaterial(int off, global float *arr){
+    struct Material mat;
+    mat.col = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
+    return mat;
+}
+
 struct RayHit{
     float3 pos;
     float3 nor;
     float t;
-    float3 col;
+    struct Material *mat;
 };
 //hit nothing
 struct RayHit NullRayHit(){
@@ -40,6 +51,10 @@ global int ScGetCount(int type, struct Scene *scene){
 //size of an item of this type
 global int ScGetStride(int type, struct Scene *scene){
     return scene->params[type * 3 + 0];
+}
+//Copy a float3 out the array, off(offset) is the first byte of the float3 we want
+float3 ExtractFloat3(int off, global float *arr){
+    return (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
 }
 
 float dist2(float3 a, float3 b){
@@ -79,12 +94,13 @@ struct RayHit InterPlane(struct Ray* r, float3 ppos, float3 pnor){
 void InterSpheres(struct RayHit *closest, struct Ray *ray, global float *arr, const int count, const int start, const int stride){
     for(int i = 0; i < count; i++){
         int off = start + i * stride;
-        float3 spos = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
+        float3 spos = ExtractFloat3(off + 0, arr);
         float srad = arr[off + 3];
         struct RayHit hit = InterSphere(ray, spos, srad);
         if(closest->t > hit.t){
             *closest = hit;
-            closest->col = (float3)(arr[off + 4], arr[off + 5], arr[off + 6]);
+            struct Material mat = ExtractMaterial(off + 4, arr);
+            closest->mat = &mat;
         }
     }
 }
@@ -92,12 +108,13 @@ void InterSpheres(struct RayHit *closest, struct Ray *ray, global float *arr, co
 void InterPlanes(struct RayHit *closest, struct Ray *ray, global float *arr, const int count, const int start, const int stride){
     for(int i = 0; i < count; i++){
         int off = start + i * stride;
-        float3 ppos = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
-        float3 pnor = (float3)(arr[off + 3], arr[off + 4], arr[off + 5]);
+        float3 ppos = ExtractFloat3(off + 0, arr);
+        float3 pnor = ExtractFloat3(off + 3, arr);
         struct RayHit hit = InterPlane(ray, ppos, pnor);
         if(closest->t > hit.t){
             *closest = hit;
-            closest->col = (float3)(arr[off + 6], arr[off + 7], arr[off + 8]);
+            struct Material mat = ExtractMaterial(off + 6, arr);
+            closest->mat = &mat;
         }
     }
 }
@@ -185,7 +202,7 @@ __kernel void render(
     if(closest.t >= MAX_RENDER_DIST) col = (float3)(-1.0f);
     else{
         col = Diffuse(&closest, &scene);
-        col *= closest.col;
+        col *= closest.mat->col;
     }
 
     //combine rgb for final colour
