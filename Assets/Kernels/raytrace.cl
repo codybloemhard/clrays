@@ -89,6 +89,37 @@ struct RayHit InterScene(struct Ray *ray, struct Scene *scene){
     InterPlanes(&closest, ray, scene->planes, scene->planes_count);
     return closest;
 }
+//get diffuse light for hit for a light
+float DiffuseSingle(float3 lpos, float lpow, struct RayHit *hit, struct Scene *scene){
+    float3 toL = normalize(lpos - hit->pos);
+    float angle = dot(hit->nor, toL);
+    if(angle <= EPSILON)
+        return 0.0f;
+    float d2 = dist2(hit->pos, lpos);
+    float power = lpow / (PI4 * d2);
+    if(power < 0.01f)
+        return 0.0f;
+    struct Ray lray;
+    lray.pos = hit->pos + toL * EPSILON;
+    lray.dir = toL;
+    struct RayHit lhit = InterScene(&lray, scene);
+    float isLit = 1.0f;
+    if(lhit.t * lhit.t <= d2)
+        isLit = 0.0f;
+    return isLit * power * max(0.0f, angle);
+}
+//get diffuse light of hit with all lights
+float Diffuse(struct RayHit *hit, struct Scene *scene){
+    float col = 0.0f;
+    global float* arr = scene->lights;
+    for(int i = 0; i < scene->lights_count; i++){
+        int off = i * 4;
+        float3 lpos = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
+        float lpow = arr[off + 3];
+        col += DiffuseSingle(lpos, lpow, hit, scene);
+    }
+    return max(col, AMBIENT);
+}
 
 #ifdef GLINTEROP
 __kernel void render(
@@ -128,34 +159,11 @@ __kernel void render(
     scene.spheres_count = sc_spheres_count;
     scene.planes_count = sc_planes_count;
     scene.lights_count = sc_lights_count;
-    //intersect all spheres
+
     struct RayHit closest = InterScene(&ray, &scene);
     float col = 0.0f;
     if(closest.t >= MAX_RENDER_DIST) col = -1.0f;
-    else{
-        for(int i = 0; i < sc_lights_count; i++){
-            int off = i * 4;
-            float3 lpos = (float3)(sc_lights[off + 0], sc_lights[off + 1], sc_lights[off + 2]);
-            float lpow = sc_lights[off + 3];
-            float3 toL = normalize(lpos - closest.pos);
-            float angle = dot(closest.nor, toL);
-            if(angle <= EPSILON)
-                continue;
-            float d2 = dist2(closest.pos, lpos);
-            float power = lpow / (PI4 * d2);
-            if(power < 0.01f)
-                continue;
-            struct Ray lray;
-            lray.pos = closest.pos + toL * EPSILON;
-            lray.dir = toL;
-            struct RayHit lhit = InterScene(&lray, &scene);
-            float isLit = 1.0f;
-            if(lhit.t * lhit.t <= d2)
-                isLit = 0.0f;
-            col += isLit * power * max(0.0f, angle);
-        }
-        col = max(col, 0.05f);
-    }
+    else col = Diffuse(&closest, &scene);
     r = clamp(col, 0.0f, 1.0f) * 255;
     //combine rgb for final colour
     int fres = (r << 16) + (g << 8) + b;
