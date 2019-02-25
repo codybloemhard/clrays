@@ -20,6 +20,13 @@ struct Ray{
     float3 dir;
 };
 
+struct Scene{
+    global float* spheres;
+    global float* planes;
+    global float* lights;
+    float spheres_count, planes_count, lights_count;
+};
+
 float dist2(float3 a, float3 b){
     return (a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y) + (a.z - b.z)*(a.z - b.z);
 }
@@ -76,10 +83,10 @@ void InterPlanes(struct RayHit *closest, struct Ray *ray, global float *arr, con
     }
 }
 
-struct RayHit InterScene(struct Ray *ray, global float *spheres, const uint sphereslen, global float *planes, const uint planeslen){
+struct RayHit InterScene(struct Ray *ray, struct Scene *scene){
     struct RayHit closest = NullRayHit();
-    InterSpheres(&closest, ray, spheres, sphereslen);
-    InterPlanes(&closest, ray, planes, planeslen);
+    InterSpheres(&closest, ray, scene->spheres, scene->spheres_count);
+    InterPlanes(&closest, ray, scene->planes, scene->planes_count);
     return closest;
 }
 
@@ -113,8 +120,16 @@ __kernel void render(
     struct Ray ray;
     ray.pos = (float3)(0,0,0);
     ray.dir = normalize((float3)(uv.x,uv.y,-1) - ray.pos);
+    //Scene
+    struct Scene scene;
+    scene.spheres = sc_spheres;
+    scene.planes = sc_planes;
+    scene.lights = sc_lights;
+    scene.spheres_count = sc_spheres_count;
+    scene.planes_count = sc_planes_count;
+    scene.lights_count = sc_lights_count;
     //intersect all spheres
-    struct RayHit closest = InterScene(&ray, sc_spheres, sc_spheres_count, sc_planes, sc_planes_count);
+    struct RayHit closest = InterScene(&ray, &scene);
     float col = 0.0f;
     if(closest.t >= MAX_RENDER_DIST) col = -1.0f;
     else{
@@ -133,7 +148,7 @@ __kernel void render(
             struct Ray lray;
             lray.pos = closest.pos + toL * EPSILON;
             lray.dir = toL;
-            struct RayHit lhit = InterScene(&lray, sc_spheres, sc_spheres_count, sc_planes, sc_planes_count);
+            struct RayHit lhit = InterScene(&lray, &scene);
             float isLit = 1.0f;
             if(lhit.t * lhit.t <= d2)
                 isLit = 0.0f;
