@@ -20,12 +20,26 @@ struct Ray{
     float3 dir;
 };
 
+#define SC_LIGHT 0
+#define SC_SPHERE 1
+#define SC_PLANE 2
+
 struct Scene{
-    global float* spheres;
-    global float* planes;
-    global float* lights;
-    float spheres_count, planes_count, lights_count;
+    global float* items;
+    global int* params;
 };
+
+global int ScGetStart(int type, struct Scene *scene){
+    return scene->params[type * 3 + 2];
+}
+
+global int ScGetCount(int type, struct Scene *scene){
+    return scene->params[type * 3 + 1];
+}
+
+global int ScGetStride(int type, struct Scene *scene){
+    return scene->params[type * 3 + 0];
+}
 
 float dist2(float3 a, float3 b){
     return (a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y) + (a.z - b.z)*(a.z - b.z);
@@ -61,9 +75,9 @@ struct RayHit InterPlane(struct Ray* r, float3 ppos, float3 pnor){
     return hit;
 }
 
-void InterSpheres(struct RayHit *closest, struct Ray *ray, global float *arr, const uint arrlen){
-    for(int i = 0; i < arrlen; i++){
-        int off = i * 4;
+void InterSpheres(struct RayHit *closest, struct Ray *ray, global float *arr, const int count, const int start, const int stride){
+    for(int i = 0; i < count; i++){
+        int off = start + i * stride;
         float3 spos = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
         float srad = arr[off + 3];
         struct RayHit hit = InterSphere(ray, spos, srad);
@@ -72,9 +86,9 @@ void InterSpheres(struct RayHit *closest, struct Ray *ray, global float *arr, co
     }
 }
 
-void InterPlanes(struct RayHit *closest, struct Ray *ray, global float *arr, const uint arrlen){
-    for(int i = 0; i < arrlen; i++){
-        int off = i * 6;
+void InterPlanes(struct RayHit *closest, struct Ray *ray, global float *arr, const int count, const int start, const int stride){
+    for(int i = 0; i < count; i++){
+        int off = start + i * stride;
         float3 ppos = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
         float3 pnor = (float3)(arr[off + 3], arr[off + 4], arr[off + 5]);
         struct RayHit hit = InterPlane(ray, ppos, pnor);
@@ -85,8 +99,8 @@ void InterPlanes(struct RayHit *closest, struct Ray *ray, global float *arr, con
 
 struct RayHit InterScene(struct Ray *ray, struct Scene *scene){
     struct RayHit closest = NullRayHit();
-    InterSpheres(&closest, ray, scene->spheres, scene->spheres_count);
-    InterPlanes(&closest, ray, scene->planes, scene->planes_count);
+    InterSpheres(&closest, ray, scene->items, ScGetCount(SC_SPHERE, scene), ScGetStart(SC_SPHERE, scene), ScGetStride(SC_SPHERE, scene));
+    InterPlanes(&closest, ray, scene->items, ScGetCount(SC_PLANE, scene), ScGetStart(SC_PLANE, scene), ScGetStride(SC_PLANE, scene));
     return closest;
 }
 //get diffuse light for hit for a light
@@ -111,9 +125,12 @@ float DiffuseSingle(float3 lpos, float lpow, struct RayHit *hit, struct Scene *s
 //get diffuse light of hit with all lights
 float Diffuse(struct RayHit *hit, struct Scene *scene){
     float col = 0.0f;
-    global float* arr = scene->lights;
-    for(int i = 0; i < scene->lights_count; i++){
-        int off = i * 4;
+    global float* arr = scene->items;
+    int count = ScGetCount(SC_LIGHT, scene);
+    int stride = ScGetStride(SC_LIGHT, scene);
+    int start = ScGetStart(SC_LIGHT, scene);
+    for(int i = 0; i < count; i++){
+        int off = start + i * stride;
         float3 lpos = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
         float lpow = arr[off + 3];
         col += DiffuseSingle(lpos, lpow, hit, scene);
@@ -130,12 +147,8 @@ __kernel void render(
 #endif
     const uint w,
     const uint h,
-    __global float *sc_spheres,
-    const uint sc_spheres_count,
-    __global float *sc_lights,
-    const uint sc_lights_count,
-    __global float *sc_planes,
-    const uint sc_planes_count
+    __global int *sc_params,
+    __global float *sc_items
 ){
     int x = get_global_id(0);
     int y = get_global_id(1);
@@ -153,12 +166,8 @@ __kernel void render(
     ray.dir = normalize((float3)(uv.x,uv.y,-1) - ray.pos);
     //Scene
     struct Scene scene;
-    scene.spheres = sc_spheres;
-    scene.planes = sc_planes;
-    scene.lights = sc_lights;
-    scene.spheres_count = sc_spheres_count;
-    scene.planes_count = sc_planes_count;
-    scene.lights_count = sc_lights_count;
+    scene.params = sc_params;
+    scene.items = sc_items;
 
     struct RayHit closest = InterScene(&ray, &scene);
     float col = 0.0f;

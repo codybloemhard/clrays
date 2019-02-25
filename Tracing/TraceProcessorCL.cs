@@ -21,10 +21,8 @@ namespace clrays {
         private bool download;
         private OpenCLImage<int> climg;
 
-        private OpenCLBuffer<float>
-            scene_spheres, 
-            scene_lights,
-            scene_planes;
+        private OpenCLBuffer<int> scene_params;
+        private OpenCLBuffer<float> scene_items;
 
         public TraceProcessorCL(int width, int height, Scene scene, string kernel) {
             program = new OpenCLProgram(kernel);
@@ -45,23 +43,19 @@ namespace clrays {
 
             //make scene buffers
             var scene_raw = scene.GetBuffers();
-            scene_spheres = new OpenCLBuffer<float>(program, scene_raw[0]);
-            scene_lights = new OpenCLBuffer<float>(program, scene_raw[1]);
-            scene_planes = new OpenCLBuffer<float>(program, scene_raw[2]);
+            var scene_params_raw = scene.GetParamsBuffer();
+            scene_params = new OpenCLBuffer<int>(program, scene_params_raw);
+            scene_items = new OpenCLBuffer<float>(program, scene_raw);
             //set constants
             drawKernel.SetArgument(1, (uint)width);
             drawKernel.SetArgument(2, (uint)height);
             //constants
-            drawKernel.SetArgument(3, scene_spheres);
-            drawKernel.SetArgument(4, (uint)(scene_spheres.Length / Scene.sphereSize));
-            drawKernel.SetArgument(5, scene_lights);
-            drawKernel.SetArgument(6, (uint)(scene_lights.Length / Scene.lightSize));
-            drawKernel.SetArgument(7, scene_planes);
-            drawKernel.SetArgument(8, (uint)(scene_planes.Length / Scene.planeSize));
+            //(uint)(scene_spheres.Length / Scene.sphereSize
+            drawKernel.SetArgument(3, scene_params);
+            drawKernel.SetArgument(4, scene_items);
             //work
             drawKernelWork = new long[] {width, height};
             //upload buffers
-
             //texture
             renderTexture = new Texture();
             renderTexture.Construct();

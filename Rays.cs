@@ -6,6 +6,7 @@ using FruckEngine.Utils;
 using OpenTK;
 using OpenTK.Input;
 using Template;
+using System.Drawing;
 
 namespace clrays {
     public class Rays : Game {
@@ -29,10 +30,39 @@ namespace clrays {
             string kernel = "Assets/Kernels/raytrace.cl";
 
             Scene scene = new Scene();
-            scene.Add(new Plane(0,-1,0,0,1,0));
-            scene.Add(new Sphere(1, 0, -5, 1));
-            scene.Add(new Sphere(-1, 0, -5, 1));
-            scene.Add(new Light(0, 2, -4, 100));
+            scene.Add(new Plane
+            {
+                Pos = new Vector3(0, -1, 0),
+                Nor = Vector3.UnitY,
+                Mat = new Material
+                {
+                    Col = Color.Gray
+                }
+            });
+            scene.Add(new Sphere
+            {
+                Pos = new Vector3(1, 0, -5),
+                Rad = 1f,
+                Mat = new Material
+                {
+                    Col = Color.Red
+                }
+            });
+            scene.Add(new Sphere
+            {
+                Pos = new Vector3(-1, 0, -5),
+                Rad = 1f,
+                Mat = new Material
+                {
+                    Col = Color.Blue
+                }
+            });
+            scene.Add(new Light
+            {
+                Pos = new Vector3(0, 2, -4),
+                Intensity = 200,
+                Col = Color.White
+            });
 
             _processor = new TraceProcessorCL(Width, Height, scene, kernel);
         }

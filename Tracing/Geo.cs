@@ -1,49 +1,68 @@
 ﻿using System;
 using System.Collections.Generic;
+using OpenTK;
+using System.Drawing;
 
 namespace clrays
 {
+    public struct Material
+    {
+        public Color Col;
+    }
+
     public interface SceneItem
     {
-        float[] data { get; set; }
+        Vector3 Pos { get; set; }
+        float[] GetData();
     }
 
     public struct Plane : SceneItem
     {
-        public float[] data { get; set; }
+        public Vector3 Pos { get; set; }
+        public Vector3 Nor { get; set; }
+        public Material Mat { get; set; }
 
-        public Plane(float x, float y, float z, float nx, float ny, float nz)
+        public float[] GetData()
         {
-            data = new float[] { x, y, z, nx, ny, nz };
+            return new float[] { Pos.X, Pos.Y, Pos.Z, 
+                Nor.X, Nor.Y, Nor.Z,
+                Mat.Col.R, Mat.Col.G, Mat.Col.B };
         }
     }
 
     public struct Sphere : SceneItem
     {
-        public float[] data { get; set; }
+        public Vector3 Pos { get; set; }
+        public float Rad { get; set; }
+        public Material Mat { get; set; }
 
-        public Sphere(float x, float y, float z, float r)
+        public float[] GetData()
         {
-            data = new float[] { x, y, z, r};
+            return new float[] { Pos.X, Pos.Y, Pos.Z, Rad,
+                Mat.Col.R, Mat.Col.G, Mat.Col.B };
         }
     }
 
     public struct Light : SceneItem
     {
-        public float[] data { get; set; }
+        public Vector3 Pos { get; set; }
+        public float Intensity { get; set; }
+        public Color Col { get; set; }
 
-        public Light(float x, float y, float z, float p)
+        public float[] GetData()
         {
-            data = new float[] { x, y, z, p };
+            return new float[] { Pos.X, Pos.Y, Pos.Z, Intensity,
+                Col.R, Col.G, Col.B };
         }
     }
 
     public class Scene
     {
         public const int
-            sphereSize = 4,
-            lightSize = 4,
-            planeSize = 6;
+            materialSize = 3,
+            lightSize = 7,
+            sphereSize = 4 + materialSize,
+            planeSize = 6 + materialSize;
 
         private List<SceneItem> 
             spheres,
@@ -57,26 +76,45 @@ namespace clrays
             planes = new List<SceneItem>();
         }
 
-        public float[][] GetBuffers()
+        public float[] GetBuffers()
         {
-            var res = new float[3][];
-            res[0] = Bufferize(spheres, sphereSize);
-            res[1] = Bufferize(lights, lightSize);
-            res[2] = Bufferize(planes, planeSize);
+            int len = lights.Count * lightSize;
+            len += spheres.Count * sphereSize;
+            len += planes.Count * planeSize;
+            var res = new float[len];
+            int i = 0;
+            Bufferize(res, ref i, lights, lightSize);
+            Bufferize(res, ref i, spheres, sphereSize);
+            Bufferize(res, ref i, planes, planeSize);
             return res;
         }
 
-        private float[] Bufferize(List<SceneItem> list, int itemSize)
+        public int[] GetParamsBuffer()
         {
-            float[] res = new float[list.Count * itemSize];
+            var res = new int[3 * 3];
+            int i = 0;
+            res[0] = lightSize;
+            res[1] = lights.Count;
+            res[2] = i; i += lights.Count * lightSize;
+            res[3] = sphereSize;
+            res[4] = spheres.Count;
+            res[5] = i; i += spheres.Count * sphereSize;
+            res[6] = planeSize;
+            res[7] = planes.Count;
+            res[8] = i; i += planes.Count * planeSize;
+            return res;
+        }
+
+        private void Bufferize(float[] arr, ref int start, List<SceneItem> list, int stride)
+        {
             for(int i = 0; i < list.Count; i++)
             {
-                int off = i * itemSize;
-                var data = list[i].data;
-                for (int j = 0; j < itemSize; j++)
-                    res[off + j] = data[j];
+                int off = i * stride;
+                var data = list[i].GetData();
+                for (int j = 0; j < stride; j++)
+                    arr[start + off + j] = data[j];
             }
-            return res;
+            start += list.Count * stride;
         }
 
         public void Add(Sphere s)
