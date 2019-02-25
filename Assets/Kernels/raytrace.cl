@@ -7,8 +7,9 @@ struct RayHit{
     float3 pos;
     float3 nor;
     float t;
+    float3 col;
 };
-
+//hit nothing
 struct RayHit NullRayHit(){
     struct RayHit hit;
     hit.t = MAX_RENDER_DIST;
@@ -19,7 +20,7 @@ struct Ray{
     float3 pos;
     float3 dir;
 };
-
+//indexes for types
 #define SC_LIGHT 0
 #define SC_SPHERE 1
 #define SC_PLANE 2
@@ -28,15 +29,15 @@ struct Scene{
     global float* items;
     global int* params;
 };
-
+//first byte in array where this type starts
 global int ScGetStart(int type, struct Scene *scene){
     return scene->params[type * 3 + 2];
 }
-
+//number of items of this type(not bytes!)
 global int ScGetCount(int type, struct Scene *scene){
     return scene->params[type * 3 + 1];
 }
-
+//size of an item of this type
 global int ScGetStride(int type, struct Scene *scene){
     return scene->params[type * 3 + 0];
 }
@@ -44,7 +45,7 @@ global int ScGetStride(int type, struct Scene *scene){
 float dist2(float3 a, float3 b){
     return (a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y) + (a.z - b.z)*(a.z - b.z);
 }
-
+//ray-sphere intersection
 struct RayHit InterSphere(struct Ray* r, float3 spos, float srad){
     float3 l = spos - r->pos;
     float tca = dot(r->dir, l);
@@ -61,7 +62,7 @@ struct RayHit InterSphere(struct Ray* r, float3 spos, float srad){
     hit.nor = (hit.pos - spos) / srad;
     return hit;
 }
-
+//ray-plane intersection
 struct RayHit InterPlane(struct Ray* r, float3 ppos, float3 pnor){
     float divisor = dot(r->dir, pnor);
     if(fabs(divisor) < EPSILON) return NullRayHit();
@@ -74,36 +75,40 @@ struct RayHit InterPlane(struct Ray* r, float3 ppos, float3 pnor){
     hit.nor = pnor;
     return hit;
 }
-
+//this has lots of duplicate code
 void InterSpheres(struct RayHit *closest, struct Ray *ray, global float *arr, const int count, const int start, const int stride){
     for(int i = 0; i < count; i++){
         int off = start + i * stride;
         float3 spos = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
         float srad = arr[off + 3];
         struct RayHit hit = InterSphere(ray, spos, srad);
-        if(closest->t > hit.t)
+        if(closest->t > hit.t){
             *closest = hit;
+            closest->col = (float3)(arr[off + 4], arr[off + 5], arr[off + 6]);
+        }
     }
 }
-
+//could not get it refactored, no polymorpism, could not get function pointers to work
 void InterPlanes(struct RayHit *closest, struct Ray *ray, global float *arr, const int count, const int start, const int stride){
     for(int i = 0; i < count; i++){
         int off = start + i * stride;
         float3 ppos = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
         float3 pnor = (float3)(arr[off + 3], arr[off + 4], arr[off + 5]);
         struct RayHit hit = InterPlane(ray, ppos, pnor);
-        if(closest->t > hit.t)
+        if(closest->t > hit.t){
             *closest = hit;
+            closest->col = (float3)(arr[off + 6], arr[off + 7], arr[off + 8]);
+        }
     }
 }
-
+//intersect whole scene
 struct RayHit InterScene(struct Ray *ray, struct Scene *scene){
     struct RayHit closest = NullRayHit();
     InterSpheres(&closest, ray, scene->items, ScGetCount(SC_SPHERE, scene), ScGetStart(SC_SPHERE, scene), ScGetStride(SC_SPHERE, scene));
     InterPlanes(&closest, ray, scene->items, ScGetCount(SC_PLANE, scene), ScGetStart(SC_PLANE, scene), ScGetStride(SC_PLANE, scene));
     return closest;
 }
-//get diffuse light for hit for a light
+//get diffuse light strength for hit for a light
 float DiffuseSingle(float3 lpos, float lpow, struct RayHit *hit, struct Scene *scene){
     float3 toL = normalize(lpos - hit->pos);
     float angle = dot(hit->nor, toL);
@@ -122,9 +127,9 @@ float DiffuseSingle(float3 lpos, float lpow, struct RayHit *hit, struct Scene *s
         isLit = 0.0f;
     return isLit * power * max(0.0f, angle);
 }
-//get diffuse light of hit with all lights
-float Diffuse(struct RayHit *hit, struct Scene *scene){
-    float col = 0.0f;
+//get diffuse light incl colour of hit with all lights
+float3 Diffuse(struct RayHit *hit, struct Scene *scene){
+    float3 col = (float3)(0.0f);
     global float* arr = scene->items;
     int count = ScGetCount(SC_LIGHT, scene);
     int stride = ScGetStride(SC_LIGHT, scene);
@@ -133,9 +138,15 @@ float Diffuse(struct RayHit *hit, struct Scene *scene){
         int off = start + i * stride;
         float3 lpos = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
         float lpow = arr[off + 3];
-        col += DiffuseSingle(lpos, lpow, hit, scene);
+        float3 lcol = (float3)(arr[off + 4], arr[off + 5], arr[off + 6]);
+        col += DiffuseSingle(lpos, lpow, hit, scene) * lcol;
     }
     return max(col, AMBIENT);
+}
+
+int FinalColour(float3 fcol){
+    fcol = min(fcol, normalize(fcol)) * 255;
+    return ((int)fcol.x << 16) + ((int)fcol.y << 8) + (int)fcol.z;
 }
 
 #ifdef GLINTEROP
@@ -170,12 +181,15 @@ __kernel void render(
     scene.items = sc_items;
 
     struct RayHit closest = InterScene(&ray, &scene);
-    float col = 0.0f;
-    if(closest.t >= MAX_RENDER_DIST) col = -1.0f;
-    else col = Diffuse(&closest, &scene);
-    r = clamp(col, 0.0f, 1.0f) * 255;
+    float3 col = (float3)(0.0f);
+    if(closest.t >= MAX_RENDER_DIST) col = (float3)(-1.0f);
+    else{
+        col = Diffuse(&closest, &scene);
+        col *= closest.col;
+    }
+
     //combine rgb for final colour
-    int fres = (r << 16) + (g << 8) + b;
+    int fres = FinalColour(col);
 
 #ifdef GLINTEROP
     int2 pos = (int2)(x, y);

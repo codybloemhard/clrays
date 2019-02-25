@@ -36,7 +36,7 @@ namespace clrays {
                 Nor = Vector3.UnitY,
                 Mat = new Material
                 {
-                    Col = Color.Gray
+                    Col = Vector3.One * 0.5f
                 }
             });
             scene.Add(new Sphere
@@ -45,7 +45,7 @@ namespace clrays {
                 Rad = 1f,
                 Mat = new Material
                 {
-                    Col = Color.Red
+                    Col = new Vector3(0.9f, 0.1f, 0.1f).Normalized()
                 }
             });
             scene.Add(new Sphere
@@ -54,16 +54,15 @@ namespace clrays {
                 Rad = 1f,
                 Mat = new Material
                 {
-                    Col = Color.Blue
+                    Col = new Vector3(0.1f, 0.1f, 0.9f).Normalized()
                 }
             });
             scene.Add(new Light
             {
-                Pos = new Vector3(0, 2, -4),
+                Pos = new Vector3(0, 2, -3),
                 Intensity = 200,
-                Col = Color.White
+                Col = new Vector3(0.2f, 0.6f, 0.3f).Normalized()
             });
-
             _processor = new TraceProcessorCL(Width, Height, scene, kernel);
         }
 

@@ -7,7 +7,7 @@ namespace clrays
 {
     public struct Material
     {
-        public Color Col;
+        public Vector3 Col;
     }
 
     public interface SceneItem
@@ -26,7 +26,7 @@ namespace clrays
         {
             return new float[] { Pos.X, Pos.Y, Pos.Z, 
                 Nor.X, Nor.Y, Nor.Z,
-                Mat.Col.R, Mat.Col.G, Mat.Col.B };
+                Mat.Col.X, Mat.Col.Y, Mat.Col.Z };
         }
     }
 
@@ -39,7 +39,7 @@ namespace clrays
         public float[] GetData()
         {
             return new float[] { Pos.X, Pos.Y, Pos.Z, Rad,
-                Mat.Col.R, Mat.Col.G, Mat.Col.B };
+                Mat.Col.X, Mat.Col.Y, Mat.Col.Z };
         }
     }
 
@@ -47,12 +47,12 @@ namespace clrays
     {
         public Vector3 Pos { get; set; }
         public float Intensity { get; set; }
-        public Color Col { get; set; }
+        public Vector3 Col { get; set; }
 
         public float[] GetData()
         {
             return new float[] { Pos.X, Pos.Y, Pos.Z, Intensity,
-                Col.R, Col.G, Col.B };
+                Col.X, Col.Y, Col.Z };
         }
     }
 
