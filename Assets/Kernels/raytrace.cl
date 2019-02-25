@@ -139,8 +139,9 @@ __kernel void render(
                 isLit = 0.0f;
             col += isLit * power * max(0.0f, angle);
         }
+        col = max(col, 0.05f);
     }
-    r = max(0.0f, col);
+    r = clamp(col, 0.0f, 1.0f) * 255;
     //combine rgb for final colour
     int fres = (r << 16) + (g << 8) + b;
 
