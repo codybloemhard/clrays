@@ -1,4 +1,5 @@
 #define MAX_RENDER_DIST 1000000.0f
+#define MAX_RENDER_DEPTH 4
 #define EPSILON 0.001f
 #define PI4 12.5663f
 #define AMBIENT 0.05f
@@ -61,6 +62,10 @@ float dist2(float3 a, float3 b){
     return (a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y) + (a.z - b.z)*(a.z - b.z);
 }
 
+float3 reflect(float3 vec, float3 nor){
+    return vec - 2 * (dot(vec,nor)) * nor;
+}
+
 //ray-sphere intersection
 struct RayHit InterSphere(struct Ray* r, float3 spos, float srad){
     float3 l = spos - r->pos;
@@ -91,7 +96,7 @@ struct RayHit InterPlane(struct Ray* r, float3 ppos, float3 pnor){
     hit.nor = pnor;
     return hit;
 }
-
+//macros for primitive intersections
 #define START_PRIM() \
     (struct RayHit *closest, struct Ray *ray, global float *arr, const int count, const int start, const int stride){\
     for(int i = 0; i < count; i++){\
@@ -106,7 +111,7 @@ struct RayHit InterPlane(struct Ray* r, float3 ppos, float3 pnor){
         }\
     }\
 }
-
+//actual functions
 void InterSpheres START_PRIM()
     float3 spos = ExtractFloat3(off + 0, arr);
     float srad = arr[off + 3];
@@ -145,7 +150,7 @@ float DiffuseSingle(float3 lpos, float lpow, struct RayHit *hit, struct Scene *s
     return isLit * power * max(0.0f, angle);
 }
 //get diffuse light incl colour of hit with all lights
-float3 Diffuse(struct RayHit *hit, struct Scene *scene){
+float3 DiffuseComp(struct RayHit *hit, struct Scene *scene){
     float3 col = (float3)(0.0f);
     global float* arr = scene->items;
     int count = ScGetCount(SC_LIGHT, scene);
@@ -159,6 +164,23 @@ float3 Diffuse(struct RayHit *hit, struct Scene *scene){
         col += DiffuseSingle(lpos, lpow, hit, scene) * lcol;
     }
     return max(col, AMBIENT);
+}
+
+float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
+    float3 col = (float3)(0.0f);
+    if(depth == 0) return col;
+    struct RayHit hit = InterScene(ray, scene);
+    if(hit.t >= MAX_RENDER_DIST) 
+        return (float3)(-1.0f);
+    col = DiffuseComp(&hit, scene) * hit.mat->col;
+    //reflection
+    float3 newdir = normalize(reflect(ray->dir, hit.nor));
+    struct Ray nray;
+    nray.pos = hit.pos + newdir * EPSILON;
+    nray.dir = newdir;
+    float3 refl = RayTrace(&nray, scene, depth - 1);
+    col = col * 0.8f + refl * 0.2f;
+    return clamp(col,0.0f,1.0f);
 }
 
 int FinalColour(float3 fcol){
@@ -197,13 +219,7 @@ __kernel void render(
     scene.params = sc_params;
     scene.items = sc_items;
 
-    struct RayHit closest = InterScene(&ray, &scene);
-    float3 col = (float3)(0.0f);
-    if(closest.t >= MAX_RENDER_DIST) col = (float3)(-1.0f);
-    else{
-        col = Diffuse(&closest, &scene);
-        col *= closest.mat->col;
-    }
+    float3 col = RayTrace(&ray, &scene, MAX_RENDER_DEPTH);
 
     //combine rgb for final colour
     int fres = FinalColour(col);
