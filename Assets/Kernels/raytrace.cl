@@ -60,6 +60,7 @@ float3 ExtractFloat3(int off, global float *arr){
 float dist2(float3 a, float3 b){
     return (a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y) + (a.z - b.z)*(a.z - b.z);
 }
+
 //ray-sphere intersection
 struct RayHit InterSphere(struct Ray* r, float3 spos, float srad){
     float3 l = spos - r->pos;
@@ -90,34 +91,33 @@ struct RayHit InterPlane(struct Ray* r, float3 ppos, float3 pnor){
     hit.nor = pnor;
     return hit;
 }
-//this has lots of duplicate code
-void InterSpheres(struct RayHit *closest, struct Ray *ray, global float *arr, const int count, const int start, const int stride){
-    for(int i = 0; i < count; i++){
-        int off = start + i * stride;
-        float3 spos = ExtractFloat3(off + 0, arr);
-        float srad = arr[off + 3];
-        struct RayHit hit = InterSphere(ray, spos, srad);
-        if(closest->t > hit.t){
-            *closest = hit;
-            struct Material mat = ExtractMaterial(off + 4, arr);
-            closest->mat = &mat;
-        }
-    }
+
+#define START_PRIM() \
+    (struct RayHit *closest, struct Ray *ray, global float *arr, const int count, const int start, const int stride){\
+    for(int i = 0; i < count; i++){\
+        int off = start + i * stride;\
+
+#define END_PRIM(offset) {\
+            if(closest->t > hit.t){\
+                *closest = hit;\
+                struct Material mat = ExtractMaterial(off + offset, arr);\
+                closest->mat = &mat;\
+            }\
+        }\
+    }\
 }
-//could not get it refactored, no polymorpism, could not get function pointers to work
-void InterPlanes(struct RayHit *closest, struct Ray *ray, global float *arr, const int count, const int start, const int stride){
-    for(int i = 0; i < count; i++){
-        int off = start + i * stride;
-        float3 ppos = ExtractFloat3(off + 0, arr);
-        float3 pnor = ExtractFloat3(off + 3, arr);
-        struct RayHit hit = InterPlane(ray, ppos, pnor);
-        if(closest->t > hit.t){
-            *closest = hit;
-            struct Material mat = ExtractMaterial(off + 6, arr);
-            closest->mat = &mat;
-        }
-    }
-}
+
+void InterSpheres START_PRIM()
+    float3 spos = ExtractFloat3(off + 0, arr);
+    float srad = arr[off + 3];
+    struct RayHit hit = InterSphere(ray, spos, srad);
+    END_PRIM(4)
+
+void InterPlanes START_PRIM()
+    float3 ppos = ExtractFloat3(off + 0, arr);
+    float3 pnor = ExtractFloat3(off + 3, arr);
+    struct RayHit hit = InterPlane(ray, ppos, pnor);
+    END_PRIM(6)
 //intersect whole scene
 struct RayHit InterScene(struct Ray *ray, struct Scene *scene){
     struct RayHit closest = NullRayHit();
