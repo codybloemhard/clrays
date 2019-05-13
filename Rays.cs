@@ -2,11 +2,7 @@
 using System.Diagnostics;
 using FruckEngine;
 using FruckEngine.Graphics;
-using FruckEngine.Utils;
 using OpenTK;
-using OpenTK.Input;
-using Template;
-using System.Drawing;
 
 namespace clrays {
     public class Rays : Game {
@@ -64,7 +60,7 @@ namespace clrays {
             {
                 Pos = new Vector3(0, 2, -3),
                 Intensity = 200,
-                Col = new Vector3(0.2f, 0.6f, 0.3f).Normalized()
+                Col = Vector3.One,
             });
             _processor = new TraceProcessorCL(Width, Height, scene, kernel);
         }

@@ -44,6 +44,22 @@ namespace clrays
         }
     }
 
+    public struct Box : SceneItem
+    {
+        public Vector3 Pos { get; set; }
+        public Vector3 Size { get; set; }
+        public Material Mat { get; set; }
+
+        public float[] GetData()
+        {
+            var hs = Size / 2f;
+            return new float[] {
+                Pos.X - hs.X, Pos.Y - hs.Y, Pos.Z - hs.Z,
+                Pos.X + hs.X, Pos.Y + hs.Y, Pos.Z + hs.Z,
+                Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity };
+        }
+    }
+
     public struct Light : SceneItem
     {
         public Vector3 Pos { get; set; }
@@ -63,18 +79,21 @@ namespace clrays
             materialSize = 4,
             lightSize = 7,
             sphereSize = 4 + materialSize,
-            planeSize = 6 + materialSize;
+            planeSize = 6 + materialSize,
+            boxSize = 6 + materialSize;
 
         private List<SceneItem> 
             spheres,
             lights,
-            planes;
+            planes,
+            boxes;
 
         public Scene()
         {
             spheres = new List<SceneItem>();
             lights = new List<SceneItem>();
             planes = new List<SceneItem>();
+            boxes = new List<SceneItem>();
         }
 
         public float[] GetBuffers()
@@ -82,17 +101,19 @@ namespace clrays
             int len = lights.Count * lightSize;
             len += spheres.Count * sphereSize;
             len += planes.Count * planeSize;
+            len += boxes.Count * boxSize;
             var res = new float[len];
             int i = 0;
             Bufferize(res, ref i, lights, lightSize);
             Bufferize(res, ref i, spheres, sphereSize);
             Bufferize(res, ref i, planes, planeSize);
+            Bufferize(res, ref i, boxes, boxSize);
             return res;
         }
 
         public int[] GetParamsBuffer()
         {
-            var res = new int[3 * 3];
+            var res = new int[4 * 3];
             int i = 0;
             res[0] = lightSize;
             res[1] = lights.Count;
@@ -103,6 +124,9 @@ namespace clrays
             res[6] = planeSize;
             res[7] = planes.Count;
             res[8] = i; i += planes.Count * planeSize;
+            res[9] = boxSize;
+            res[10] = boxes.Count;
+            res[11] = i; i += boxes.Count * boxSize;
             return res;
         }
 
@@ -131,6 +155,11 @@ namespace clrays
         public void Add(Light l)
         {
             lights.Add(l);
+        }
+
+        public void Add(Box b)
+        {
+            boxes.Add(b);
         }
     }
 }

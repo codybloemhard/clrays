@@ -34,10 +34,11 @@ struct Ray{
     float3 pos;
     float3 dir;
 };
-//indexes for types
+//indices for types
 #define SC_LIGHT 0
 #define SC_SPHERE 1
 #define SC_PLANE 2
+#define SC_BOX 3
 
 struct Scene{
     global float* items;
@@ -98,6 +99,65 @@ struct RayHit InterPlane(struct Ray* r, float3 ppos, float3 pnor){
     hit.nor = pnor;
     return hit;
 }
+//ray-box intersection
+//https://stackoverflow.com/questions/16875946/ray-box-intersection-normal#16876601
+//https://tavianator.com/fast-branchless-raybounding-box-intersections/
+//broken
+struct RayHit InterBox(struct Ray* r, float3 bmin, float3 bmax){
+    float3 inv = 1.0f / r->dir;
+    float tx1 = (bmin.x - r->pos.x)*inv.x;
+    float tx2 = (bmax.x - r->pos.x)*inv.x;
+ 
+    float tmin = min(tx1, tx2);
+    float tmax = max(tx1, tx2);
+ 
+    float ty1 = (bmin.y - r->pos.y)*inv.y;
+    float ty2 = (bmax.y - r->pos.y)*inv.y;
+ 
+    tmin = max(tmin, min(ty1, ty2));
+    tmax = min(tmax, max(ty1, ty2));
+
+    float tz1 = (bmin.z - r->pos.z)*inv.z;
+    float tz2 = (bmax.z - r->pos.z)*inv.z;
+ 
+    tmin = max(tmin, min(tz1, tz2));
+    tmax = min(tmax, max(tz1, tz2));
+ 
+    if(tmax < tmin)
+        return NullRayHit();
+
+    float t = max(tmin,0.0f);
+    float3 hitp = r->pos + r->dir * t;
+    //normal
+    float3 normal;
+    float3 size = bmax - bmin;
+    float3 localPoint = hitp - (bmin + size/2.0f);
+    float min = -10000.0f;
+    float distance = fabs(size.x - fabs(localPoint.x));
+    if (distance < min) {
+        min = distance;
+        normal = (float3)(1.0f,0.0f,0.0f);
+        normal *= sign(localPoint.x);
+    }
+    distance = fabs(size.y - fabs(localPoint.y));
+    if (distance < min) {
+        min = distance;
+        normal = (float3)(0.0f,1.0f,0.0f);
+        normal *= sign(localPoint.y);
+    }
+    distance = fabs(size.z - fabs(localPoint.z));
+    if (distance < min) { 
+        min = distance; 
+        normal = (float3)(0.0f,0.0f,1.0f);
+        normal *= sign(localPoint.z);
+    }
+    //return
+    struct RayHit hit;
+    hit.t = t;
+    hit.pos = hitp;
+    hit.nor = normalize(normal);
+    return hit;
+}
 //macros for primitive intersections
 #define START_PRIM() \
     (struct RayHit *closest, struct Ray *ray, global float *arr, const int count, const int start, const int stride){\
@@ -125,11 +185,19 @@ void InterPlanes START_PRIM()
     float3 pnor = ExtractFloat3(off + 3, arr);
     struct RayHit hit = InterPlane(ray, ppos, pnor);
     END_PRIM(6)
+
+void InterBoxes START_PRIM()
+    float3 bmin = ExtractFloat3(off + 0, arr);
+    float3 bmax = ExtractFloat3(off + 3, arr);
+    struct RayHit hit = InterBox(ray, bmin, bmax);
+    END_PRIM(6)
 //intersect whole scene
 struct RayHit InterScene(struct Ray *ray, struct Scene *scene){
     struct RayHit closest = NullRayHit();
     InterSpheres(&closest, ray, scene->items, ScGetCount(SC_SPHERE, scene), ScGetStart(SC_SPHERE, scene), ScGetStride(SC_SPHERE, scene));
     InterPlanes(&closest, ray, scene->items, ScGetCount(SC_PLANE, scene), ScGetStart(SC_PLANE, scene), ScGetStride(SC_PLANE, scene));
+    InterBoxes(&closest, ray, scene->items, ScGetCount(SC_BOX, scene), ScGetStart(SC_BOX, scene), ScGetStride(SC_BOX, scene));
+    
     return closest;
 }
 //get diffuse light strength for hit for a light
@@ -167,7 +235,7 @@ float3 DiffuseComp(struct RayHit *hit, struct Scene *scene){
     }
     return max(col, AMBIENT);
 }
-
+//Recursion only works with one function
 float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     float3 col = (float3)(0.0f);
     if(depth == 0) return col;
@@ -212,10 +280,6 @@ __kernel void render(
     //(0,0) is in middle of screen
     float2 uv = (float2)(((float)x / w) - 0.5f, ((float)y / h) - 0.5f);
     uv *= (float2)((float)w/h, -1.0f);
-    //colours
-    char r = 0;
-    char g = 0;
-    char b = 0;
     //construct ray, simple perspective
     struct Ray ray;
     ray.pos = (float3)(0,0,0);
