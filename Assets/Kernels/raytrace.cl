@@ -258,7 +258,7 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
 }
 
 int FinalColour(float3 fcol){
-    fcol = min(fcol, normalize(fcol)) * 255;
+    fcol *= 255;
     return ((int)fcol.x << 16) + ((int)fcol.y << 8) + (int)fcol.z;
 }
 
