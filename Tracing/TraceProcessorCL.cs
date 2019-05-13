@@ -12,17 +12,17 @@ namespace clrays {
         private OpenCLProgram program;
 
         private OpenCLKernel drawKernel;
-        private long[] drawKernelWork;
-        private int[] screenData;
+        private readonly long[] drawKernelWork;
+        private readonly int[] screenData;
         private OpenCLBuffer<int> render_buffer;
 
         public Texture renderTexture;
 
-        private bool download;
+        private readonly bool download;
         private OpenCLImage<int> climg;
 
-        private OpenCLBuffer<int> scene_params;
-        private OpenCLBuffer<float> scene_items;
+        private readonly OpenCLBuffer<int> scene_params;
+        private readonly OpenCLBuffer<float> scene_items;
 
         public TraceProcessorCL(int width, int height, Scene scene, string kernel) {
             program = new OpenCLProgram(kernel);

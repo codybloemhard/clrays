@@ -7,11 +7,13 @@
 #define MAT_SIZE 3
 struct Material{
     float3 col;
+    float reflectivity;
 };
 //extract material from array, off is index of first byte of material we want
 struct Material ExtractMaterial(int off, global float *arr){
     struct Material mat;
     mat.col = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
+    mat.reflectivity = arr[off + 3];
     return mat;
 }
 
@@ -171,16 +173,20 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     if(depth == 0) return col;
     struct RayHit hit = InterScene(ray, scene);
     if(hit.t >= MAX_RENDER_DIST) 
-        return (float3)(-1.0f);
-    col = DiffuseComp(&hit, scene) * hit.mat->col;
+        return (float3)(0.0f);
+    float3 diff = DiffuseComp(&hit, scene) * hit.mat->col;
     //reflection
     float3 newdir = normalize(reflect(ray->dir, hit.nor));
     struct Ray nray;
     nray.pos = hit.pos + newdir * EPSILON;
     nray.dir = newdir;
+    struct RayHit nhit = InterScene(&nray, scene);
+    /*hit gets overwritten after recursive RayTrace call to what it hits, WTF!
+    So need to save this value before.*/
+    float refl_mul = hit.mat->reflectivity;
     float3 refl = RayTrace(&nray, scene, depth - 1);
-    col = col * 0.8f + refl * 0.2f;
-    return clamp(col,0.0f,1.0f);
+    col = (diff * (1.0f - refl_mul)) + (refl * refl_mul);
+    return col;
 }
 
 int FinalColour(float3 fcol){
@@ -222,7 +228,7 @@ __kernel void render(
     float3 col = RayTrace(&ray, &scene, MAX_RENDER_DEPTH);
 
     //combine rgb for final colour
-    int fres = FinalColour(col);
+    int fres = FinalColour(clamp(col,0.0f,1.0f));
 
 #ifdef GLINTEROP
     int2 pos = (int2)(x, y);

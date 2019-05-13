@@ -36,7 +36,8 @@ namespace clrays {
                 Nor = Vector3.UnitY,
                 Mat = new Material
                 {
-                    Col = Vector3.One * 0.5f
+                    Col = Vector3.One * 0.5f,
+                    Reflectivity = 0.1f,
                 }
             });
             scene.Add(new Sphere
@@ -45,7 +46,8 @@ namespace clrays {
                 Rad = 1f,
                 Mat = new Material
                 {
-                    Col = new Vector3(0.9f, 0.1f, 0.1f).Normalized()
+                    Col = new Vector3(0.9f, 0.1f, 0.1f).Normalized(),
+                    Reflectivity = 0.0f,
                 }
             });
             scene.Add(new Sphere
@@ -54,7 +56,8 @@ namespace clrays {
                 Rad = 1f,
                 Mat = new Material
                 {
-                    Col = new Vector3(0.1f, 0.1f, 0.9f).Normalized()
+                    Col = new Vector3(0.1f, 0.1f, 0.9f).Normalized(),
+                    Reflectivity = 1.0f,
                 }
             });
             scene.Add(new Light
