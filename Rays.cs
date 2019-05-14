@@ -34,6 +34,7 @@ namespace clrays {
                 {
                     Col = Vector3.One * 0.5f,
                     Reflectivity = 0.1f,
+                    Shininess = 16f,
                 }
             });
             scene.Add(new Sphere
@@ -44,6 +45,7 @@ namespace clrays {
                 {
                     Col = new Vector3(0.9f, 0.1f, 0.1f).Normalized(),
                     Reflectivity = 0.0f,
+                    Shininess = 512f,
                 }
             });
             scene.Add(new Sphere
@@ -54,6 +56,7 @@ namespace clrays {
                 {
                     Col = new Vector3(0.1f, 0.1f, 0.9f).Normalized(),
                     Reflectivity = 1.0f,
+                    Shininess = 2048f,
                 }
             });
             scene.Add(new Light

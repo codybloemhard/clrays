@@ -4,16 +4,18 @@
 #define PI4 12.5663f
 #define AMBIENT 0.001f
 
-#define MAT_SIZE 3
+#define MAT_SIZE 4
 struct Material{
     float3 col;
     float reflectivity;
+    float shininess;
 };
 //extract material from array, off is index of first byte of material we want
 struct Material ExtractMaterial(int off, global float *arr){
     struct Material mat;
     mat.col = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
     mat.reflectivity = arr[off + 3];
+    mat.shininess = arr[off + 4];
     return mat;
 }
 
@@ -223,7 +225,7 @@ float2 BlinnSingle(float3 lpos, float lpow, float3 viewdir, struct RayHit *hit, 
     //specular
     float3 halfdir = normalize(toL + -viewdir);
     float specangle = max(dot(halfdir,nor),0.0f);
-    float spec = pow(specangle,/*hit->mat.shininess*/256.0f);
+    float spec = pow(specangle,hit->mat.shininess);
     return power * (float2)(max(0.0f, angle),spec);
 }
 //get diffuse light incl colour of hit with all lights
