@@ -2,7 +2,7 @@
 #define MAX_RENDER_DEPTH 4
 #define EPSILON 0.001f
 #define PI4 12.5663f
-#define AMBIENT 0.05f
+#define AMBIENT 0.001f
 
 #define MAT_SIZE 3
 struct Material{
@@ -201,27 +201,35 @@ struct RayHit InterScene(struct Ray *ray, struct Scene *scene){
     return closest;
 }
 //get diffuse light strength for hit for a light
-float DiffuseSingle(float3 lpos, float lpow, struct RayHit *hit, struct Scene *scene){
-    float3 toL = normalize(lpos - hit->pos);
-    float angle = dot(hit->nor, toL);
+float2 BlinnSingle(float3 lpos, float lpow, float3 viewdir, struct RayHit *hit, struct Scene *scene){
+    float3 toL = lpos - hit->pos;
+    float dist = length(toL);
+    toL /= dist + EPSILON;
+    //diffuse
+    float3 nor = hit->nor;
+    float angle = dot(nor, toL);
     if(angle <= EPSILON)
-        return 0.0f;
-    float d2 = dist2(hit->pos, lpos);
-    float power = lpow / (PI4 * d2);
+        return (float2)(0.0f);
+    float power = lpow / (PI4 * dist * dist);
     if(power < 0.01f)
-        return 0.0f;
+        return (float2)(0.0f);
+    //exposed to light or not
     struct Ray lray;
     lray.pos = hit->pos + toL * EPSILON;
     lray.dir = toL;
     struct RayHit lhit = InterScene(&lray, scene);
-    float isLit = 1.0f;
-    if(lhit.t * lhit.t <= d2)
-        isLit = 0.0f;
-    return isLit * power * max(0.0f, angle);
+    if(lhit.t <= dist)
+        return (float2)(0.0f);
+    //specular
+    float3 halfdir = normalize(toL + -viewdir);
+    float specangle = max(dot(halfdir,nor),0.0f);
+    float spec = pow(specangle,/*hit->mat.shininess*/256.0f);
+    return power * (float2)(max(0.0f, angle),spec);
 }
 //get diffuse light incl colour of hit with all lights
-float3 DiffuseComp(struct RayHit *hit, struct Scene *scene){
+void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 *out_diff, float3 *out_spec){
     float3 col = (float3)(0.0f);
+    float3 spec = (float3)(0.0f);
     global float* arr = scene->items;
     int count = ScGetCount(SC_LIGHT, scene);
     int stride = ScGetStride(SC_LIGHT, scene);
@@ -231,18 +239,24 @@ float3 DiffuseComp(struct RayHit *hit, struct Scene *scene){
         float3 lpos = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
         float lpow = arr[off + 3];
         float3 lcol = (float3)(arr[off + 4], arr[off + 5], arr[off + 6]);
-        col += DiffuseSingle(lpos, lpow, hit, scene) * lcol;
+        float2 res = BlinnSingle(lpos, lpow, viewdir, hit, scene);
+        col += res.x * lcol;
+        spec += res.y * lcol;
     }
-    return max(col, AMBIENT);
+    *out_diff =  max(col * hit->mat.col, AMBIENT);
+    *out_spec = spec;
 }
 //Recursion only works with one function
 float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     float3 col = (float3)(0.0f);
     if(depth == 0) return col;
+    //hit
     struct RayHit hit = InterScene(ray, scene);
     if(hit.t >= MAX_RENDER_DIST) 
         return (float3)(0.0f);
-    float3 diff = DiffuseComp(&hit, scene) * hit.mat.col;
+    //diffuse
+    float3 diff, spec;
+    Blinn(&hit, scene, ray->dir, &diff, &spec);
     //reflection
     float3 newdir = normalize(reflect(ray->dir, hit.nor));
     struct Ray nray;
@@ -252,7 +266,7 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     float3 refl = RayTrace(&nray, scene, depth - 1);
     //Does not get corrupted to version inside recursive call if not pointer
     float refl_mul = hit.mat.reflectivity;
-    col = (diff * (1.0f - refl_mul)) + (refl * refl_mul);
+    col = (diff * (1.0f - refl_mul)) + (refl * refl_mul) + spec;
     return col;
 }
 
@@ -289,7 +303,7 @@ __kernel void render(
     scene.items = sc_items;
 
     float3 col = RayTrace(&ray, &scene, MAX_RENDER_DEPTH);
-
+    col = pow(col, (float3)(1.0f/2.2f));
     //combine rgb for final colour
     int fres = FinalColour(clamp(col,0.0f,1.0f));
 

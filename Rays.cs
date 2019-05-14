@@ -58,8 +58,8 @@ namespace clrays {
             });
             scene.Add(new Light
             {
-                Pos = new Vector3(0, 2, -3),
-                Intensity = 200,
+                Pos = new Vector3(0f,2f,-3),
+                Intensity = 100,
                 Col = Vector3.One,
             });
             _processor = new TraceProcessorCL(Width, Height, scene, kernel);
