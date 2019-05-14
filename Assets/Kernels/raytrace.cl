@@ -21,7 +21,7 @@ struct RayHit{
     float3 pos;
     float3 nor;
     float t;
-    struct Material *mat;
+    struct Material mat;
 };
 //hit nothing
 struct RayHit NullRayHit(){
@@ -168,7 +168,7 @@ struct RayHit InterBox(struct Ray* r, float3 bmin, float3 bmax){
             if(closest->t > hit.t){\
                 *closest = hit;\
                 struct Material mat = ExtractMaterial(off + offset, arr);\
-                closest->mat = &mat;\
+                closest->mat = mat;\
             }\
         }\
     }\
@@ -242,17 +242,16 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     struct RayHit hit = InterScene(ray, scene);
     if(hit.t >= MAX_RENDER_DIST) 
         return (float3)(0.0f);
-    float3 diff = DiffuseComp(&hit, scene) * hit.mat->col;
+    float3 diff = DiffuseComp(&hit, scene) * hit.mat.col;
     //reflection
     float3 newdir = normalize(reflect(ray->dir, hit.nor));
     struct Ray nray;
     nray.pos = hit.pos + newdir * EPSILON;
     nray.dir = newdir;
     struct RayHit nhit = InterScene(&nray, scene);
-    /*hit gets overwritten after recursive RayTrace call to what it hits, WTF!
-    So need to save this value before.*/
-    float refl_mul = hit.mat->reflectivity;
     float3 refl = RayTrace(&nray, scene, depth - 1);
+    //Does not get corrupted to version inside recursive call if not pointer
+    float refl_mul = hit.mat.reflectivity;
     col = (diff * (1.0f - refl_mul)) + (refl * refl_mul);
     return col;
 }
