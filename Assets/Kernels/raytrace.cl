@@ -294,7 +294,7 @@ __kernel void render(
     struct Ray ray;
     ray.pos = (float3)(0,0,0);
     ray.dir = normalize((float3)(uv.x,uv.y,-1) - ray.pos);
-    
+
     float3 col = RayTrace(&ray, &scene, MAX_RENDER_DEPTH);
     col = pow(col, (float3)(1.0f/2.2f));
     col = clamp(col,0.0f,1.0f);

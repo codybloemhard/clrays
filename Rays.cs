@@ -9,7 +9,7 @@ namespace clrays {
         private Raster _raster;
         private Shader _shader;
         private TraceProcessorCL _processor = null;
-        private int _generation = 0;
+        private int _generation;
         private Stopwatch _timer = new Stopwatch();
 
         public override void Init() {
@@ -63,7 +63,7 @@ namespace clrays {
                 Intensity = 100,
                 Col = Vector3.One,
             });
-            _processor = new TraceProcessorCL(Width, Height, 4, scene);
+            _processor = new TraceProcessorCL((uint)Width, (uint)Height, 1, scene);
         }
 
         public override void Render(double dt)
