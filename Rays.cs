@@ -23,8 +23,6 @@ namespace clrays {
             _shader.AddUniformVar("mTransform");
             _shader.SetInt("uTexture", 0);
 
-            string kernel = "Assets/Kernels/raytrace.cl";
-
             Scene scene = new Scene();
             scene.Add(new Plane
             {
@@ -65,7 +63,7 @@ namespace clrays {
                 Intensity = 100,
                 Col = Vector3.One,
             });
-            _processor = new TraceProcessorCL(Width, Height, 2, scene, kernel);
+            _processor = new TraceProcessorCL(Width, Height, 2, scene);
         }
 
         public override void Render(double dt)
