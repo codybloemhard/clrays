@@ -10,7 +10,7 @@ namespace clrays
         OpenCLBuffer<T> GetBuffer();
     }
 
-    public interface ResultKernel<T> where T: struct
+    public interface ResultKernel<T> where T : struct
     {
         void Execute(ComputeEventList events);
         T[] GetResult();
@@ -27,12 +27,12 @@ namespace clrays
         private readonly OpenCLBuffer<float> scene_items;
         private bool dirty;
 
-        public TraceAaKernel(OpenCLProgram program, Scene scene, uint width, uint height, uint AA)
+        public TraceAaKernel(string name, OpenCLProgram program, Scene scene, uint width, uint height, uint AA)
         {
             data = new float[width * height * 3];
             buffer = new OpenCLBuffer<float>(program, data);
             //make kernel and set args
-            kernel = new OpenCLKernel(program, "render");
+            kernel = new OpenCLKernel(program, name);
             kernel.SetArgument(0, buffer);
             //make scene buffers
             var scene_raw = scene.GetBuffers();
@@ -59,7 +59,7 @@ namespace clrays
 
         public float[] GetResult()
         {
-            if(dirty)
+            if (dirty)
                 buffer.CopyFromDevice();
             dirty = false;
             return data;
@@ -71,15 +71,68 @@ namespace clrays
         }
     }
 
+    public class TraceKernel : ResultKernel<int>
+    {
+        private OpenCLKernel kernel;
+        private readonly long[] work;
+        private readonly int[] data;
+        private readonly OpenCLBuffer<int> buffer;
+        private readonly OpenCLBuffer<int> scene_params;
+        private readonly OpenCLBuffer<float> scene_items;
+        private bool dirty;
+
+        public TraceKernel(string name, OpenCLProgram program, Scene scene, uint width, uint height)
+        {
+            data = new int[width * height];
+            buffer = new OpenCLBuffer<int>(program, data);
+            //make kernel and set args
+            kernel = new OpenCLKernel(program, name);
+            kernel.SetArgument(0, buffer);
+            //make scene buffers
+            var scene_raw = scene.GetBuffers();
+            var scene_params_raw = scene.GetParamsBuffer();
+            scene_params = new OpenCLBuffer<int>(program, scene_params_raw);
+            scene_items = new OpenCLBuffer<float>(program, scene_raw);
+            //set constants
+            kernel.SetArgument(1, width);
+            kernel.SetArgument(2, height);
+            //set arrays
+            kernel.SetArgument(3, scene_params);
+            kernel.SetArgument(4, scene_items);
+            //work
+            work = new long[] { width, height };
+            dirty = false;
+        }
+
+        public void Execute(ComputeEventList events)
+        {
+            kernel.Execute(work, events);
+            dirty = true;
+        }
+
+        public int[] GetResult()
+        {
+            if (dirty)
+                buffer.CopyFromDevice();
+            dirty = false;
+            return data;
+        }
+
+        public OpenCLBuffer<int> GetBuffer()
+        {
+            return buffer;
+        }
+    }
+
     public class ClearKernel : VoidKernel<float>
     {
         private OpenCLKernel kernel;
         private readonly OpenCLBuffer<float> buffer;
         private readonly long[] work;
 
-        public ClearKernel(OpenCLProgram program, OpenCLBuffer<float> buffer, uint width, uint height)
+        public ClearKernel(string name, OpenCLProgram program, OpenCLBuffer<float> buffer, uint width, uint height)
         {
-            kernel = new OpenCLKernel(program, "clear");
+            kernel = new OpenCLKernel(program, name);
             kernel.SetArgument(0, buffer);
             kernel.SetArgument(1, width);
             kernel.SetArgument(2, height);
@@ -106,11 +159,11 @@ namespace clrays
         private OpenCLBuffer<int> buffer;
         private bool dirty;
 
-        public ImageKernel(OpenCLProgram program, OpenCLBuffer<float> input, uint width, uint height)
+        public ImageKernel(string name, OpenCLProgram program, OpenCLBuffer<float> input, uint width, uint height)
         {
             data = new int[width * height];
             buffer = new OpenCLBuffer<int>(program, data);
-            kernel = new OpenCLKernel(program, "image_from_floatmap");
+            kernel = new OpenCLKernel(program, name);
             kernel.SetArgument(0, input);
             kernel.SetArgument(1, buffer);
             kernel.SetArgument(2, width);

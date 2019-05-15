@@ -5,18 +5,34 @@ using OpenTK.Graphics.OpenGL;
 using Template;
 
 namespace clrays {
+    public enum TraceType
+    {
+        Real, AA
+    }
+
     public class TraceProcessorCL {
         private readonly OpenCLProgram program;
         private ResultKernel<float> traceAAKernel;
+        private ResultKernel<int> traceKernel;
         private VoidKernel<float> clearKernel;
         private ResultKernel<int> imageKernel;
-        public Texture renderTexture;
+        private Texture renderTexture;
+        private readonly TraceType type;
 
-        public TraceProcessorCL(uint width, uint height, uint AA, Scene scene) {
+        public TraceProcessorCL(uint width, uint height, uint AA, Scene scene, TraceType type) {
+            this.type = type;
             program = new OpenCLProgram("Assets/Kernels/raytrace.cl");
-            traceAAKernel = new TraceAaKernel(program, scene, width, height, AA);
-            clearKernel = new ClearKernel(program, traceAAKernel.GetBuffer(), width, height);
-            imageKernel = new ImageKernel(program, traceAAKernel.GetBuffer(), width, height);
+            switch (type)
+            {
+                case TraceType.Real:
+                    traceKernel = new TraceKernel("raytracing", program, scene, width, height);
+                    break;
+                case TraceType.AA:
+                    traceAAKernel = new TraceAaKernel("raytracingAA", program, scene, width, height, AA);
+                    clearKernel = new ClearKernel("clear", program, traceAAKernel.GetBuffer(), width, height);
+                    imageKernel = new ImageKernel("image_from_floatmap", program, traceAAKernel.GetBuffer(), width, height);
+                    break;
+            }
             //texture
             renderTexture = new Texture();
             renderTexture.Construct();
@@ -32,10 +48,23 @@ namespace clrays {
 
         public void Render() {
             var events = new ComputeEventList();
-            clearKernel.Execute(events);
-            traceAAKernel.Execute(events);
-            imageKernel.Execute(events);
-            var image = imageKernel.GetResult();
+            int[] image;
+            switch (type)
+            {
+                case TraceType.Real:
+                    traceKernel.Execute(events);
+                    image = traceKernel.GetResult();
+                    break;
+                case TraceType.AA:
+                    clearKernel.Execute(events);
+                    traceAAKernel.Execute(events);
+                    imageKernel.Execute(events);
+                    image = imageKernel.GetResult();
+                    break;
+                default:
+                    image = new int[] { };
+                    break;
+            }
             renderTexture.Bind();
             TextureHelper.LoadDataIntoTexture(renderTexture, renderTexture.Width, renderTexture.Height, image);
             renderTexture.Activate(0);

@@ -271,22 +271,13 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     return col;
 }
 
-__kernel void render(
-    __global float *floatmap,
-    const uint w,
-    const uint h,
-    const uint AA,
-    __global int *sc_params,
-    __global float *sc_items
-){
+float3 RayTracing(const uint w, const uint h, 
+const int x, const int y, const uint AA,
+__global int *sc_params, __global float *sc_items){
     //Scene
     struct Scene scene;
     scene.params = sc_params;
     scene.items = sc_items;
-    //pixels
-    int x = get_global_id(0);
-    int y = get_global_id(1);
-    uint pixid = (x/AA + y/AA * w) * 3;
     //(0,0) is in middle of screen
     float2 uv = (float2)(((float)x / (w * AA)) - 0.5f, ((float)y / (h * AA)) - 0.5f);
     uv *= (float2)((float)w/h, -1.0f);
@@ -299,10 +290,40 @@ __kernel void render(
     col = pow(col, (float3)(1.0f/2.2f));
     col = clamp(col,0.0f,1.0f);
     col /= AA;
+    return col;
+}
 
+__kernel void raytracingAA(
+    __global float *floatmap,
+    const uint w,
+    const uint h,
+    const uint AA,
+    __global int *sc_params,
+    __global float *sc_items
+){
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    uint pixid = (x/AA + y/AA * w) * 3;
+    float3 col = RayTracing(w, h, x, y, AA, sc_params, sc_items);
     floatmap[pixid + 0] += col.x;
     floatmap[pixid + 1] += col.y;
     floatmap[pixid + 2] += col.z;
+}
+
+__kernel void raytracing(
+    __global int *intmap,
+    const uint w,
+    const uint h,
+    __global int *sc_params,
+    __global float *sc_items
+){
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    uint pixid = x + y * w;
+    float3 col = RayTracing(w, h, x, y, 1, sc_params, sc_items);
+    col *= 255;
+    int res = ((int)col.x << 16) + ((int)col.y << 8) + (int)col.z;
+    intmap[pixid] = res;
 }
 
 __kernel void clear(
