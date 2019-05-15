@@ -199,7 +199,6 @@ struct RayHit InterScene(struct Ray *ray, struct Scene *scene){
     InterSpheres(&closest, ray, scene->items, ScGetCount(SC_SPHERE, scene), ScGetStart(SC_SPHERE, scene), ScGetStride(SC_SPHERE, scene));
     InterPlanes(&closest, ray, scene->items, ScGetCount(SC_PLANE, scene), ScGetStart(SC_PLANE, scene), ScGetStride(SC_PLANE, scene));
     InterBoxes(&closest, ray, scene->items, ScGetCount(SC_BOX, scene), ScGetStart(SC_BOX, scene), ScGetStride(SC_BOX, scene));
-    
     return closest;
 }
 //get diffuse light strength for hit for a light
@@ -272,47 +271,54 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     return col;
 }
 
-int FinalColour(float3 fcol){
+/*int FinalColour(float3 fcol){
     fcol *= 255;
     return ((int)fcol.x << 16) + ((int)fcol.y << 8) + (int)fcol.z;
-}
+}*/
 
-#ifdef GLINTEROP
 __kernel void render(
-    write_only image2d_t image_buffer,
-#else
-__kernel void render(
-    __global int *image_buffer,
-#endif
+    __global float *floatmap,
     const uint w,
     const uint h,
+    const uint AA,
     __global int *sc_params,
     __global float *sc_items
 ){
+    //Scene
+    struct Scene scene;
+    scene.params = sc_params;
+    scene.items = sc_items;
+    //pixels
     int x = get_global_id(0);
     int y = get_global_id(1);
-    uint pixid = x + y * w;
+    uint pixid = (x/AA + y/AA * w) * 3;
     //(0,0) is in middle of screen
-    float2 uv = (float2)(((float)x / w) - 0.5f, ((float)y / h) - 0.5f);
+    float2 uv = (float2)(((float)x / (w * AA)) - 0.5f, ((float)y / (h * AA)) - 0.5f);
     uv *= (float2)((float)w/h, -1.0f);
     //construct ray, simple perspective
     struct Ray ray;
     ray.pos = (float3)(0,0,0);
     ray.dir = normalize((float3)(uv.x,uv.y,-1) - ray.pos);
-    //Scene
-    struct Scene scene;
-    scene.params = sc_params;
-    scene.items = sc_items;
-
+    
     float3 col = RayTrace(&ray, &scene, MAX_RENDER_DEPTH);
     col = pow(col, (float3)(1.0f/2.2f));
-    //combine rgb for final colour
-    int fres = FinalColour(clamp(col,0.0f,1.0f));
+    col = clamp(col,0.0f,1.0f);
+    col /= AA;
 
-#ifdef GLINTEROP
-    int2 pos = (int2)(x, y);
-	write_imagef(image_buffer, pos, fres);
-#else
-    image_buffer[pixid] = fres;
-#endif
+    floatmap[pixid + 0] += col.x;
+    floatmap[pixid + 1] += col.y;
+    floatmap[pixid + 2] += col.z;
+}
+
+__kernel void clear(
+    __global float *floatmap,
+    const uint w,
+    const uint h
+){
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    uint pixid = (x + y * w) * 3;
+    floatmap[pixid + 0] = 0.0f;
+    floatmap[pixid + 1] = 0.0f;
+    floatmap[pixid + 2] = 0.0f;
 }

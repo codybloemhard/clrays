@@ -65,7 +65,7 @@ namespace clrays {
                 Intensity = 100,
                 Col = Vector3.One,
             });
-            _processor = new TraceProcessorCL(Width, Height, scene, kernel);
+            _processor = new TraceProcessorCL(Width, Height, 2, scene, kernel);
         }
 
         public override void Render(double dt)
