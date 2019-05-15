@@ -271,11 +271,6 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     return col;
 }
 
-/*int FinalColour(float3 fcol){
-    fcol *= 255;
-    return ((int)fcol.x << 16) + ((int)fcol.y << 8) + (int)fcol.z;
-}*/
-
 __kernel void render(
     __global float *floatmap,
     const uint w,
@@ -321,4 +316,20 @@ __kernel void clear(
     floatmap[pixid + 0] = 0.0f;
     floatmap[pixid + 1] = 0.0f;
     floatmap[pixid + 2] = 0.0f;
+}
+
+__kernel void image_from_floatmap(
+    __global float *floatmap,
+    __global int *imagemap,
+    const uint w,
+    const uint h
+){
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    uint pix_int = (x + y * w);
+    uint pix_float = pix_int * 3;
+    float r = floatmap[pix_float + 0] * 255;
+    float g = floatmap[pix_float + 1] * 255;
+    float b = floatmap[pix_float + 2] * 255;
+    imagemap[pix_int] = ((int)r << 16) + ((int)g << 8) + (int)b;
 }
