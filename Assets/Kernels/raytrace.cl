@@ -3,6 +3,7 @@
 #define EPSILON 0.001f
 #define PI4 12.5663f
 #define AMBIENT 0.001f
+#define GAMMA 2.2f
 
 #define MAT_SIZE 4
 struct Material{
@@ -43,8 +44,9 @@ struct Ray{
 #define SC_BOX 3
 
 struct Scene{
-    global float* items;
-    global int* params;
+    global int *params, *tex_params;
+    global float *items;
+    global uchar *textures;
 };
 //first byte in array where this type starts
 global int ScGetStart(int type, struct Scene *scene){
@@ -57,6 +59,38 @@ global int ScGetCount(int type, struct Scene *scene){
 //size of an item of this type
 global int ScGetStride(int type, struct Scene *scene){
     return scene->params[type * 3 + 0];
+}
+//first byte of texture
+global int TxGetStart(int tex, struct Scene *scene){
+    return scene->tex_params[tex * 3 + 0];
+}
+global int TxGetWidth(int tex, struct Scene *scene){
+    return scene->tex_params[tex * 3 + 1];
+}
+global int TxGetHeight(int tex, struct Scene *scene){
+    return scene->tex_params[tex * 3 + 2];
+}
+//get sample
+global float3 TxGetSample(int tex, struct Scene *scene, int x, int y, int w){
+    int offset = TxGetStart(tex, scene) + (y * w + x) * 3;
+    float3 col = (float3)(scene->textures[offset + 0],
+                            scene->textures[offset + 1],
+                            scene->textures[offset + 2]);
+    return pow(col.zyx / 256.0f, GAMMA);
+}
+//get colour from texture and uv
+global float3 GetTexCol(int tex, float2 uv, struct Scene *scene){
+    float dummy;
+    uv.x = fract(uv.x, &dummy);
+    uv.y = fract(uv.y, &dummy);
+    if(uv.x < 0.0f) uv.x += 1.0f;
+    if(uv.y < 0.0f) uv.y += 1.0f;
+    if(uv.x > 1.0f) uv.x -= 1.0f;
+    if(uv.y > 1.0f) uv.y -= 1.0f;
+    int w = TxGetWidth(tex,scene);
+    int x = (int)(w * uv.x);
+    int y = (int)(TxGetHeight(tex,scene) * uv.y);
+    return TxGetSample(tex, scene, x, y, w);
 }
 //Copy a float3 out the array, off(offset) is the first byte of the float3 we want
 float3 ExtractFloat3(int off, global float *arr){
@@ -100,6 +134,12 @@ struct RayHit InterPlane(struct Ray* r, float3 ppos, float3 pnor){
     hit.pos = r->pos + r->dir * t;
     hit.nor = pnor;
     return hit;
+}
+//plane uv
+float2 PlaneUV(float3 pos, float3 nor){
+    float3 u = normalize((float3)(nor.y, nor.z, -nor.x));
+    float3 v = normalize(cross(u, nor));
+    return (float2)(dot(pos,u),dot(pos,v));
 }
 //ray-box intersection
 //https://stackoverflow.com/questions/16875946/ray-box-intersection-normal#16876601
@@ -258,6 +298,8 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     //diffuse
     float3 diff, spec;
     Blinn(&hit, scene, ray->dir, &diff, &spec);
+    float2 uv = PlaneUV(hit.pos, hit.nor);
+    diff *= GetTexCol(0, uv, scene);
     //reflection
     float3 newdir = normalize(reflect(ray->dir, hit.nor));
     struct Ray nray;
@@ -273,11 +315,14 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
 
 float3 RayTracing(const uint w, const uint h, 
 const int x, const int y, const uint AA,
-__global int *sc_params, __global float *sc_items){
+__global int *sc_params, __global float *sc_items,
+__global int *tx_params, __global uchar *tx_items){
     //Scene
     struct Scene scene;
     scene.params = sc_params;
     scene.items = sc_items;
+    scene.tex_params = tx_params;
+    scene.textures = tx_items;
     //(0,0) is in middle of screen
     float2 uv = (float2)(((float)x / (w * AA)) - 0.5f, ((float)y / (h * AA)) - 0.5f);
     uv *= (float2)((float)w/h, -1.0f);
@@ -287,7 +332,7 @@ __global int *sc_params, __global float *sc_items){
     ray.dir = normalize((float3)(uv.x,uv.y,-1) - ray.pos);
 
     float3 col = RayTrace(&ray, &scene, MAX_RENDER_DEPTH);
-    col = pow(col, (float3)(1.0f/2.2f));
+    col = pow(col, (float3)(1.0f/GAMMA));
     col = clamp(col,0.0f,1.0f);
     col /= AA;
     return col;
@@ -299,12 +344,15 @@ __kernel void raytracingAA(
     const uint h,
     const uint AA,
     __global int *sc_params,
-    __global float *sc_items
+    __global float *sc_items,
+    __global int *tx_params,
+    __global uchar *tx_items
 ){
     int x = get_global_id(0);
     int y = get_global_id(1);
     uint pixid = (x/AA + y/AA * w) * 3;
-    float3 col = RayTracing(w, h, x, y, AA, sc_params, sc_items);
+    float3 col = RayTracing(w, h, x, y, AA,
+        sc_params, sc_items, tx_params, tx_items);
     floatmap[pixid + 0] += col.x;
     floatmap[pixid + 1] += col.y;
     floatmap[pixid + 2] += col.z;
@@ -322,7 +370,8 @@ __kernel void raytracing(
     int x = get_global_id(0);
     int y = get_global_id(1);
     uint pixid = x + y * w;
-    float3 col = RayTracing(w, h, x, y, 1, sc_params, sc_items);
+    float3 col = RayTracing(w, h, x, y, 1, 
+        sc_params, sc_items, tx_params, tx_items);
     col *= 255;
     int res = ((int)col.x << 16) + ((int)col.y << 8) + (int)col.z;
     intmap[pixid] = res;

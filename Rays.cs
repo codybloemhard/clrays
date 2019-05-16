@@ -31,7 +31,7 @@ namespace clrays {
                 Nor = Vector3.UnitY,
                 Mat = new Material
                 {
-                    Col = Vector3.One * 0.5f,
+                    Col = Vector3.One,
                     Reflectivity = 0.1f,
                     Shininess = 16f,
                 }
