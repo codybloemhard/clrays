@@ -24,6 +24,7 @@ namespace clrays {
             _shader.SetInt("uTexture", 0);
 
             Scene scene = new Scene();
+            scene.AddTexture("wood", "Assets/Textures/wood.png");
             scene.Add(new Plane
             {
                 Pos = new Vector3(0, -1, 0),

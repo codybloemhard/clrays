@@ -1,7 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using OpenTK;
-using System.Drawing;
+using FruckEngine.Graphics;
 
 namespace clrays
 {
@@ -89,6 +88,9 @@ namespace clrays
             lights,
             planes,
             boxes;
+        private int nextTexture;
+        private Dictionary<string, int> texturesIds;
+        private List<Raster> textures; 
 
         public Scene()
         {
@@ -96,6 +98,9 @@ namespace clrays
             lights = new List<SceneItem>();
             planes = new List<SceneItem>();
             boxes = new List<SceneItem>();
+            nextTexture = 0;
+            texturesIds = new Dictionary<string, int>();
+            textures = new List<Raster>();
         }
 
         public float[] GetBuffers()
@@ -132,6 +137,37 @@ namespace clrays
             return res;
         }
 
+        public byte[] GetTexturesBuffer()
+        {
+            uint size = 0;
+            for (int i = 0; i < textures.Count; i++)
+                size += (uint)textures[i].Pixels.Length;
+            var res = new byte[size];
+            int start = 0;
+            for (int i = 0; i < textures.Count; i++)
+            {
+                int len = textures[i].Pixels.Length;
+                for (int j = 0; j < len; j++)
+                    res[start + j] = textures[i].Pixels[j];
+                start += len;
+            }
+            return res;
+        }
+
+        public int[] GetTextureParamsBuffer()
+        {
+            var res = new int[textures.Count * 3];
+            int start = 0;
+            for(int i = 0; i < textures.Count; i++)
+            {
+                res[i * 3 + 0] = start;
+                res[i * 3 + 1] = textures[i].Width;
+                res[i * 3 + 2] = textures[i].Height;
+                start += textures[i].Pixels.Length;
+            }
+            return res;
+        }
+
         private void Bufferize(float[] arr, ref int start, List<SceneItem> list, int stride)
         {
             for(int i = 0; i < list.Count; i++)
@@ -142,6 +178,13 @@ namespace clrays
                     arr[start + off + j] = data[j];
             }
             start += list.Count * stride;
+        }
+
+        public void AddTexture(string name, string path)
+        {
+            var raster = new Raster(path);
+            texturesIds.Add(name, nextTexture++);
+            textures.Add(raster);
         }
 
         public void Add(Sphere s)

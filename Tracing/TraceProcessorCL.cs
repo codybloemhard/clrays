@@ -26,6 +26,7 @@ namespace clrays {
             {
                 case TraceType.Real:
                     traceKernel = new TraceKernel("raytracing", program, scene, width, height);
+
                     break;
                 case TraceType.AA:
                     traceAAKernel = new TraceAaKernel("raytracingAA", program, scene, width, height, AA);

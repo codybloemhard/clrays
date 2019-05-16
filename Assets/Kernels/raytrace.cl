@@ -315,7 +315,9 @@ __kernel void raytracing(
     const uint w,
     const uint h,
     __global int *sc_params,
-    __global float *sc_items
+    __global float *sc_items,
+    __global int *tx_params,
+    __global uchar *tx_items
 ){
     int x = get_global_id(0);
     int y = get_global_id(1);
