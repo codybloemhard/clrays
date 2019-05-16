@@ -10,6 +10,7 @@ namespace clrays
         public float
             Reflectivity,
             Shininess;
+        public int Texture;
     }
 
     public interface SceneItem
@@ -28,7 +29,8 @@ namespace clrays
         {
             return new float[] { Pos.X, Pos.Y, Pos.Z, 
                 Nor.X, Nor.Y, Nor.Z,
-                Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity, Mat.Shininess };
+                Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity, 
+                Mat.Shininess, Mat.Texture };
         }
     }
 
@@ -41,7 +43,8 @@ namespace clrays
         public float[] GetData()
         {
             return new float[] { Pos.X, Pos.Y, Pos.Z, Rad,
-                Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity, Mat.Shininess };
+                Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity,
+                Mat.Shininess, Mat.Texture };
         }
     }
 
@@ -57,7 +60,8 @@ namespace clrays
             return new float[] {
                 Pos.X - hs.X, Pos.Y - hs.Y, Pos.Z - hs.Z,
                 Pos.X + hs.X, Pos.Y + hs.Y, Pos.Z + hs.Z,
-                Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity, Mat.Shininess };
+                Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity,
+                Mat.Shininess, Mat.Texture };
         }
     }
 
@@ -77,7 +81,7 @@ namespace clrays
     public class Scene
     {
         public const int
-            materialSize = 5,
+            materialSize = 6,
             lightSize = 7,
             sphereSize = 4 + materialSize,
             planeSize = 6 + materialSize,
@@ -205,6 +209,13 @@ namespace clrays
         public void Add(Box b)
         {
             boxes.Add(b);
+        }
+
+        public int GetTexture(string name)
+        {
+            if (texturesIds.ContainsKey(name))
+                return texturesIds[name] + 1;
+            return 0;
         }
     }
 }

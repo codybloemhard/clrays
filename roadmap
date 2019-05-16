@@ -1,6 +1,8 @@
+texture scale
+skybox
+skybox ambient light
+hdr skybox
 optimize pow: gamma correct images before upload and gamma correct after AA
-textures: put in material
-
 refraction
 normalmaps
 specularmaps

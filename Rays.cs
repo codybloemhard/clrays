@@ -34,6 +34,7 @@ namespace clrays {
                     Col = Vector3.One,
                     Reflectivity = 0.1f,
                     Shininess = 16f,
+                    Texture = scene.GetTexture("wood"),
                 }
             });
             scene.Add(new Sphere
@@ -64,7 +65,7 @@ namespace clrays {
                 Intensity = 100,
                 Col = Vector3.One,
             });
-            _processor = new TraceProcessorCL((uint)Width, (uint)Height, 1, scene, TraceType.Real);
+            _processor = new TraceProcessorCL((uint)Width, (uint)Height, 4, scene, TraceType.Real);
         }
 
         public override void Render(double dt)

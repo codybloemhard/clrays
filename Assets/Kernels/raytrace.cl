@@ -5,11 +5,12 @@
 #define AMBIENT 0.001f
 #define GAMMA 2.2f
 
-#define MAT_SIZE 4
+#define MAT_SIZE 6
 struct Material{
     float3 col;
     float reflectivity;
     float shininess;
+    int texture;
 };
 //extract material from array, off is index of first byte of material we want
 struct Material ExtractMaterial(int off, global float *arr){
@@ -17,6 +18,7 @@ struct Material ExtractMaterial(int off, global float *arr){
     mat.col = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
     mat.reflectivity = arr[off + 3];
     mat.shininess = arr[off + 4];
+    mat.texture = (int)arr[off + 5];
     return mat;
 }
 
@@ -85,8 +87,6 @@ global float3 GetTexCol(int tex, float2 uv, struct Scene *scene){
     uv.y = fract(uv.y, &dummy);
     if(uv.x < 0.0f) uv.x += 1.0f;
     if(uv.y < 0.0f) uv.y += 1.0f;
-    if(uv.x > 1.0f) uv.x -= 1.0f;
-    if(uv.y > 1.0f) uv.y -= 1.0f;
     int w = TxGetWidth(tex,scene);
     int x = (int)(w * uv.x);
     int y = (int)(TxGetHeight(tex,scene) * uv.y);
@@ -299,7 +299,9 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     float3 diff, spec;
     Blinn(&hit, scene, ray->dir, &diff, &spec);
     float2 uv = PlaneUV(hit.pos, hit.nor);
-    diff *= GetTexCol(0, uv, scene);
+    int tex = hit.mat.texture;
+    if(tex > 0)
+        diff *= GetTexCol(tex - 1, uv, scene);
     //reflection
     float3 newdir = normalize(reflect(ray->dir, hit.nor));
     struct Ray nray;

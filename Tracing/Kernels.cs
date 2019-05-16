@@ -23,8 +23,9 @@ namespace clrays
         private readonly long[] work;
         private readonly float[] data;
         private readonly OpenCLBuffer<float> buffer;
-        private readonly OpenCLBuffer<int> scene_params;
+        private readonly OpenCLBuffer<int> scene_params, tex_params;
         private readonly OpenCLBuffer<float> scene_items;
+        private readonly OpenCLBuffer<byte> tex_items;
         private bool dirty;
 
         public TraceAaKernel(string name, OpenCLProgram program, Scene scene, uint width, uint height, uint AA)
@@ -34,18 +35,24 @@ namespace clrays
             //make kernel and set args
             kernel = new OpenCLKernel(program, name);
             kernel.SetArgument(0, buffer);
+            //set constants
+            kernel.SetArgument(1, width);
+            kernel.SetArgument(2, height);
+            kernel.SetArgument(3, AA);
             //make scene buffers
             var scene_raw = scene.GetBuffers();
             var scene_params_raw = scene.GetParamsBuffer();
             scene_params = new OpenCLBuffer<int>(program, scene_params_raw);
             scene_items = new OpenCLBuffer<float>(program, scene_raw);
-            //set constants
-            kernel.SetArgument(1, width);
-            kernel.SetArgument(2, height);
-            kernel.SetArgument(3, AA);
+            var tex_raw = scene.GetTexturesBuffer();
+            var tex_params_raw = scene.GetTextureParamsBuffer();
+            tex_params = new OpenCLBuffer<int>(program, tex_params_raw);
+            tex_items = new OpenCLBuffer<byte>(program, tex_raw);
             //set arrays
             kernel.SetArgument(4, scene_params);
             kernel.SetArgument(5, scene_items);
+            kernel.SetArgument(6, tex_params);
+            kernel.SetArgument(7, tex_items);
             //work
             work = new long[] { width * AA, height * AA };
             dirty = false;
@@ -95,10 +102,10 @@ namespace clrays
             //make scene buffers
             var scene_raw = scene.GetBuffers();
             var scene_params_raw = scene.GetParamsBuffer();
-            var tex_raw = scene.GetTexturesBuffer();
-            var tex_params_raw = scene.GetTextureParamsBuffer();
             scene_params = new OpenCLBuffer<int>(program, scene_params_raw);
             scene_items = new OpenCLBuffer<float>(program, scene_raw);
+            var tex_raw = scene.GetTexturesBuffer();
+            var tex_params_raw = scene.GetTextureParamsBuffer();
             tex_params = new OpenCLBuffer<int>(program, tex_params_raw);
             tex_items = new OpenCLBuffer<byte>(program, tex_raw);
             //set arrays
