@@ -35,6 +35,7 @@ namespace clrays {
                     Reflectivity = 0.1f,
                     Shininess = 16f,
                     Texture = scene.GetTexture("wood"),
+                    TexScale = 4f,
                 }
             });
             scene.Add(new Sphere

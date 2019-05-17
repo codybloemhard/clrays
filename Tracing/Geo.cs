@@ -4,13 +4,23 @@ using FruckEngine.Graphics;
 
 namespace clrays
 {
-    public struct Material
+    public class Material
     {
         public Vector3 Col;
         public float
             Reflectivity,
             Shininess;
         public int Texture;
+        private float texScale;
+        public float TexScale {
+            get { return texScale; }
+            set { texScale = 1f / value; }
+        }
+
+        public Material()
+        {
+            texScale = 1f;
+        }
     }
 
     public interface SceneItem
@@ -30,7 +40,7 @@ namespace clrays
             return new float[] { Pos.X, Pos.Y, Pos.Z, 
                 Nor.X, Nor.Y, Nor.Z,
                 Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity, 
-                Mat.Shininess, Mat.Texture };
+                Mat.Shininess, Mat.Texture, Mat.TexScale };
         }
     }
 
@@ -44,7 +54,7 @@ namespace clrays
         {
             return new float[] { Pos.X, Pos.Y, Pos.Z, Rad,
                 Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity,
-                Mat.Shininess, Mat.Texture };
+                Mat.Shininess, Mat.Texture, Mat.TexScale };
         }
     }
 
@@ -61,7 +71,7 @@ namespace clrays
                 Pos.X - hs.X, Pos.Y - hs.Y, Pos.Z - hs.Z,
                 Pos.X + hs.X, Pos.Y + hs.Y, Pos.Z + hs.Z,
                 Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity,
-                Mat.Shininess, Mat.Texture };
+                Mat.Shininess, Mat.Texture, Mat.TexScale };
         }
     }
 
@@ -81,7 +91,7 @@ namespace clrays
     public class Scene
     {
         public const int
-            materialSize = 6,
+            materialSize = 7,
             lightSize = 7,
             sphereSize = 4 + materialSize,
             planeSize = 6 + materialSize,

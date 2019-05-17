@@ -1,4 +1,6 @@
 texture scale
+sphere uv map
+procedural textures
 skybox
 skybox ambient light
 hdr skybox
@@ -8,3 +10,13 @@ normalmaps
 specularmaps
 camera controls
 bi/trilinear texture filtering
+sRGB now, use aces
+
+features:(on implementation order)
+raytracing:
+spheres, planes
+albedo(shadows)
+reflection
+specular
+AA
+textures(planes)

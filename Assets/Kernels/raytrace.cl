@@ -5,12 +5,13 @@
 #define AMBIENT 0.001f
 #define GAMMA 2.2f
 
-#define MAT_SIZE 6
+#define MAT_SIZE 7
 struct Material{
     float3 col;
     float reflectivity;
     float shininess;
     int texture;
+    float texscale;
 };
 //extract material from array, off is index of first byte of material we want
 struct Material ExtractMaterial(int off, global float *arr){
@@ -19,6 +20,7 @@ struct Material ExtractMaterial(int off, global float *arr){
     mat.reflectivity = arr[off + 3];
     mat.shininess = arr[off + 4];
     mat.texture = (int)arr[off + 5];
+    mat.texscale = arr[off + 6];
     return mat;
 }
 
@@ -299,6 +301,7 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     float3 diff, spec;
     Blinn(&hit, scene, ray->dir, &diff, &spec);
     float2 uv = PlaneUV(hit.pos, hit.nor);
+    uv *= hit.mat.texscale;
     int tex = hit.mat.texture;
     if(tex > 0)
         diff *= GetTexCol(tex - 1, uv, scene);
