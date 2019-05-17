@@ -5,13 +5,14 @@
 #define AMBIENT 0.001f
 #define GAMMA 2.2f
 
-#define MAT_SIZE 7
+#define MAT_SIZE 8
 struct Material{
     float3 col;
     float reflectivity;
     float shininess;
     int texture;
     float texscale;
+    uchar uvtype;
 };
 //extract material from array, off is index of first byte of material we want
 struct Material ExtractMaterial(int off, global float *arr){
@@ -21,14 +22,19 @@ struct Material ExtractMaterial(int off, global float *arr){
     mat.shininess = arr[off + 4];
     mat.texture = (int)arr[off + 5];
     mat.texscale = arr[off + 6];
+    mat.uvtype = 0;
     return mat;
 }
+
+#define uvPLANE 0
+#define uvSPHERE 1
+#define uvBOX 2
 
 struct RayHit{
     float3 pos;
     float3 nor;
     float t;
-    struct Material mat;
+    struct Material *mat;
 };
 //hit nothing
 struct RayHit NullRayHit(){
@@ -143,6 +149,12 @@ float2 PlaneUV(float3 pos, float3 nor){
     float3 v = normalize(cross(u, nor));
     return (float2)(dot(pos,u),dot(pos,v));
 }
+//sphere uv
+float2 SphereUV(float3 nor){
+    float u = (atan2(-nor.z, -nor.x) / (2*M_PI)) + 0.5f;
+    float v = 0.5f - asinpi(-nor.y);
+    return (float2)(u,v);
+}
 //ray-box intersection
 //https://stackoverflow.com/questions/16875946/ray-box-intersection-normal#16876601
 //https://tavianator.com/fast-branchless-raybounding-box-intersections/
@@ -208,11 +220,12 @@ struct RayHit InterBox(struct Ray* r, float3 bmin, float3 bmax){
     for(int i = 0; i < count; i++){\
         int off = start + i * stride;\
 
-#define END_PRIM(offset) {\
+#define END_PRIM(offset,uvtyp) {\
             if(closest->t > hit.t){\
                 *closest = hit;\
                 struct Material mat = ExtractMaterial(off + offset, arr);\
-                closest->mat = mat;\
+                mat.uvtype = uvtyp;\
+                closest->mat = &mat;\
             }\
         }\
     }\
@@ -222,19 +235,19 @@ void InterSpheres START_PRIM()
     float3 spos = ExtractFloat3(off + 0, arr);
     float srad = arr[off + 3];
     struct RayHit hit = InterSphere(ray, spos, srad);
-    END_PRIM(4)
+    END_PRIM(4, uvSPHERE)
 
 void InterPlanes START_PRIM()
     float3 ppos = ExtractFloat3(off + 0, arr);
     float3 pnor = ExtractFloat3(off + 3, arr);
     struct RayHit hit = InterPlane(ray, ppos, pnor);
-    END_PRIM(6)
+    END_PRIM(6, uvPLANE)
 
 void InterBoxes START_PRIM()
     float3 bmin = ExtractFloat3(off + 0, arr);
     float3 bmax = ExtractFloat3(off + 3, arr);
     struct RayHit hit = InterBox(ray, bmin, bmax);
-    END_PRIM(6)
+    END_PRIM(6, uvBOX)
 //intersect whole scene
 struct RayHit InterScene(struct Ray *ray, struct Scene *scene){
     struct RayHit closest = NullRayHit();
@@ -266,7 +279,7 @@ float2 BlinnSingle(float3 lpos, float lpow, float3 viewdir, struct RayHit *hit, 
     //specular
     float3 halfdir = normalize(toL + -viewdir);
     float specangle = max(dot(halfdir,nor),0.0f);
-    float spec = pow(specangle,hit->mat.shininess);
+    float spec = pow(specangle,hit->mat->shininess);
     return power * (float2)(max(0.0f, angle),spec);
 }
 //get diffuse light incl colour of hit with all lights
@@ -286,7 +299,7 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 *out_
         col += res.x * lcol;
         spec += res.y * lcol;
     }
-    *out_diff =  max(col * hit->mat.col, AMBIENT);
+    *out_diff =  max(col * hit->mat->col, AMBIENT);
     *out_spec = spec;
 }
 //Recursion only works with one function
@@ -300,20 +313,27 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     //diffuse
     float3 diff, spec;
     Blinn(&hit, scene, ray->dir, &diff, &spec);
-    float2 uv = PlaneUV(hit.pos, hit.nor);
-    uv *= hit.mat.texscale;
-    int tex = hit.mat.texture;
-    if(tex > 0)
+    //texture
+    int tex = hit.mat->texture;
+    if(tex > 0){
+        float2 uv;
+        uchar uvtype = hit.mat->uvtype;
+        if(uvtype == uvPLANE)
+            uv = PlaneUV(hit.pos, hit.nor);
+        else if(uvtype == uvSPHERE)
+            uv = SphereUV(hit.nor);
+        uv *= hit.mat->texscale;
         diff *= GetTexCol(tex - 1, uv, scene);
+    }
     //reflection
     float3 newdir = normalize(reflect(ray->dir, hit.nor));
     struct Ray nray;
     nray.pos = hit.pos + newdir * EPSILON;
     nray.dir = newdir;
     struct RayHit nhit = InterScene(&nray, scene);
-    float3 refl = RayTrace(&nray, scene, depth - 1);
     //Does not get corrupted to version inside recursive call if not pointer
-    float refl_mul = hit.mat.reflectivity;
+    float refl_mul = hit.mat->reflectivity;
+    float3 refl = RayTrace(&nray, scene, depth - 1);
     col = (diff * (1.0f - refl_mul)) + (refl * refl_mul) + spec;
     return col;
 }

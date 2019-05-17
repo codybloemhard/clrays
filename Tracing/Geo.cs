@@ -19,6 +19,7 @@ namespace clrays
 
         public Material()
         {
+            Col = Vector3.One;
             texScale = 1f;
         }
     }

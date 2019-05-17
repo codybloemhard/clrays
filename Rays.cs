@@ -25,6 +25,7 @@ namespace clrays {
 
             Scene scene = new Scene();
             scene.AddTexture("wood", "Assets/Textures/wood.png");
+            scene.AddTexture("sphere", "Assets/Textures/spheremap.jpg");
             scene.Add(new Plane
             {
                 Pos = new Vector3(0, -1, 0),
@@ -44,9 +45,8 @@ namespace clrays {
                 Rad = 1f,
                 Mat = new Material
                 {
-                    Col = new Vector3(0.9f, 0.1f, 0.1f).Normalized(),
-                    Reflectivity = 0.0f,
                     Shininess = 512f,
+                    Texture = scene.GetTexture("sphere"),
                 }
             });
             scene.Add(new Sphere
