@@ -267,6 +267,8 @@ struct RayHit InterScene(struct Ray *ray, struct Scene *scene){
 }
 //get sky colour
 float3 SkyCol(float3 nor, struct Scene *scene){
+    if(scene->skybox == 0)
+        return scene->skycol;
     float2 uv = SkySphereUV(nor);
     return GetTexCol(scene->skybox - 1, uv, scene);
 }
@@ -361,9 +363,9 @@ __global int *tx_params, __global uchar *tx_items){
     scene.tex_params = tx_params;
     scene.textures = tx_items;
     scene.skybox = sc_params[3*SC_SCENE + 0];
-    scene.skycol.x = sc_params[3*SC_SCENE + 1];
-    scene.skycol.y = sc_params[3*SC_SCENE + 2];
-    scene.skycol.z = sc_params[3*SC_SCENE + 3];
+    scene.skycol.x = as_float(sc_params[3*SC_SCENE + 1]);
+    scene.skycol.y = as_float(sc_params[3*SC_SCENE + 2]);
+    scene.skycol.z = as_float(sc_params[3*SC_SCENE + 3]);
     //(0,0) is in middle of screen
     float2 uv = (float2)(((float)x / (w * AA)) - 0.5f, ((float)y / (h * AA)) - 0.5f);
     uv *= (float2)((float)w/h, -1.0f);

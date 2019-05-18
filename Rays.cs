@@ -28,6 +28,7 @@ namespace clrays {
             scene.AddTexture("sphere", "Assets/Textures/spheremap.jpg");
             scene.AddTexture("sky", "Assets/Textures/sky1.jpg");
             scene.SetSkybox("sky");
+            scene.SkyCol = new Vector3(0.2f, 0.2f, 0.5f).Normalized();
             scene.Add(new Plane
             {
                 Pos = new Vector3(0, -1, 0),

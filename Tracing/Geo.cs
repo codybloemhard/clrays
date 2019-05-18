@@ -157,7 +157,6 @@ namespace clrays
             res[13] = SkyCol.X.GetHashCode();
             res[14] = SkyCol.Y.GetHashCode();
             res[15] = SkyCol.Z.GetHashCode();
-            System.Console.WriteLine($"skybox: {skybox}");
             return res;
         }
 
@@ -240,6 +239,8 @@ namespace clrays
 
         public void SetSkybox(string name)
         {
+            if (name == "")
+                skybox = 0;
             if (texturesIds.ContainsKey(name))
                 skybox = texturesIds[name] + 1;
         }
