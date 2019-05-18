@@ -173,7 +173,7 @@ namespace clrays
         private OpenCLBuffer<int> buffer;
         private bool dirty;
 
-        public ImageKernel(string name, OpenCLProgram program, OpenCLBuffer<float> input, uint width, uint height)
+        public ImageKernel(string name, OpenCLProgram program, OpenCLBuffer<float> input, uint width, uint height, uint AA)
         {
             data = new int[width * height];
             buffer = new OpenCLBuffer<int>(program, data);
@@ -182,6 +182,7 @@ namespace clrays
             kernel.SetArgument(1, buffer);
             kernel.SetArgument(2, width);
             kernel.SetArgument(3, height);
+            kernel.SetArgument(4, AA);
             work = new long[] { width, height };
             dirty = false;
         }

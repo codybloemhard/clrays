@@ -26,9 +26,10 @@ namespace clrays {
             Scene scene = new Scene();
             scene.AddTexture("wood", "Assets/Textures/wood.png");
             scene.AddTexture("sphere", "Assets/Textures/spheremap.jpg");
-            scene.AddTexture("sky", "Assets/Textures/sky1.jpg");
+            scene.AddTexture("sky", "Assets/Textures/sky0.jpg");
             scene.SetSkybox("sky");
-            scene.SkyCol = new Vector3(0.2f, 0.2f, 0.5f).Normalized();
+            scene.SkyCol = new Vector3(0.2f, 0.2f, 0.9f).Normalized();
+            scene.SkyIntensity = 0.5f;
             scene.Add(new Plane
             {
                 Pos = new Vector3(0, -1, 0),
@@ -68,7 +69,7 @@ namespace clrays {
                 Intensity = 100,
                 Col = Vector3.One,
             });
-            _processor = new TraceProcessorCL((uint)Width, (uint)Height, 2, scene, TraceType.Real);
+            _processor = new TraceProcessorCL((uint)Width, (uint)Height, 4, scene, TraceType.Real);
         }
 
         public override void Render(double dt)

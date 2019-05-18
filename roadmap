@@ -1,6 +1,7 @@
 procedural textures
-skybox
+sphere skybox only tophalf option
 skybox ambient light
+skybox cubemap
 hdr skybox
 optimize pow: gamma correct images before upload and gamma correct after AA
 refraction
@@ -18,3 +19,4 @@ albedo(shadows), specular
 reflection
 AA
 textures(planes,spheres)
+skycolour,skybox(sphere)

@@ -60,6 +60,7 @@ struct Scene{
     global uchar *textures;
     int skybox;
     float3 skycol;
+    float skyintens;
 };
 //first byte in array where this type starts
 global int ScGetStart(int type, struct Scene *scene){
@@ -315,7 +316,14 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 *out_
         col += res.x * lcol;
         spec += res.y * lcol;
     }
-    *out_diff =  max(col * hit->mat->col, AMBIENT);
+    //ambient
+    struct Ray nray;
+    nray.pos = hit->pos + hit->nor * EPSILON;
+    nray.dir = hit->nor;
+    struct RayHit nhit = InterScene(&nray, scene);
+    if(nhit.t >= MAX_RENDER_DIST)
+        col += SkyCol(hit->nor, scene) * scene->skyintens;
+    *out_diff = col * hit->mat->col;
     *out_spec = spec;
 }
 //Recursion only works with one function
@@ -366,6 +374,7 @@ __global int *tx_params, __global uchar *tx_items){
     scene.skycol.x = as_float(sc_params[3*SC_SCENE + 1]);
     scene.skycol.y = as_float(sc_params[3*SC_SCENE + 2]);
     scene.skycol.z = as_float(sc_params[3*SC_SCENE + 3]);
+    scene.skyintens = as_float(sc_params[3*SC_SCENE + 4]);
     //(0,0) is in middle of screen
     float2 uv = (float2)(((float)x / (w * AA)) - 0.5f, ((float)y / (h * AA)) - 0.5f);
     uv *= (float2)((float)w/h, -1.0f);
@@ -376,7 +385,7 @@ __global int *tx_params, __global uchar *tx_items){
 
     float3 col = RayTrace(&ray, &scene, MAX_RENDER_DEPTH);
     col = pow(col, (float3)(1.0f/GAMMA));
-    col = clamp(col,0.0f,1.0f);
+    if(AA == 1) col = clamp(col,0.0f,1.0f);
     col /= AA;
     return col;
 }
@@ -437,14 +446,16 @@ __kernel void image_from_floatmap(
     __global float *floatmap,
     __global int *imagemap,
     const uint w,
-    const uint h
+    const uint h,
+    const uint AA
 ){
     int x = get_global_id(0);
     int y = get_global_id(1);
     uint pix_int = (x + y * w);
     uint pix_float = pix_int * 3;
-    float r = floatmap[pix_float + 0] * 255;
-    float g = floatmap[pix_float + 1] * 255;
-    float b = floatmap[pix_float + 2] * 255;
+    float aa = (float)aa;
+    float r = clamp(floatmap[pix_float + 0], 0.0f, aa) * 255.0f;
+    float g = clamp(floatmap[pix_float + 1], 0.0f, aa) * 255.0f;
+    float b = clamp(floatmap[pix_float + 2], 0.0f, aa) * 255.0f;
     imagemap[pix_int] = ((int)r << 16) + ((int)g << 8) + (int)b;
 }

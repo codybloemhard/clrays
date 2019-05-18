@@ -92,7 +92,7 @@ namespace clrays
     public class Scene
     {
         public const int
-            sceneSize = 4,
+            sceneSize = 5,
             materialSize = 7,
             lightSize = 7,
             sphereSize = 4 + materialSize,
@@ -109,6 +109,7 @@ namespace clrays
         private List<Raster> textures;
         private int skybox;
         public Vector3 SkyCol { get; set; }
+        public float SkyIntensity { get; set; }
 
         public Scene()
         {
@@ -119,6 +120,7 @@ namespace clrays
             nextTexture = 0;
             texturesIds = new Dictionary<string, int>();
             textures = new List<Raster>();
+            SkyIntensity = 1f;
         }
 
         public float[] GetBuffers()
@@ -157,6 +159,7 @@ namespace clrays
             res[13] = SkyCol.X.GetHashCode();
             res[14] = SkyCol.Y.GetHashCode();
             res[15] = SkyCol.Z.GetHashCode();
+            res[16] = SkyIntensity.GetHashCode();
             return res;
         }
 
