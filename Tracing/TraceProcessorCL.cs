@@ -12,8 +12,8 @@ namespace clrays {
 
     public class TraceProcessorCL {
         private readonly OpenCLProgram program;
-        private ResultKernel<float> traceAAKernel;
-        private ResultKernel<int> traceKernel;
+        private TraceAaKernel traceAAKernel;
+        private TraceKernel traceKernel;
         private VoidKernel<float> clearKernel;
         private ResultKernel<int> imageKernel;
         private Texture renderTexture;
@@ -53,11 +53,13 @@ namespace clrays {
             switch (type)
             {
                 case TraceType.Real:
+                    traceKernel.Update();
                     traceKernel.Execute(events);
                     image = traceKernel.GetResult();
                     break;
                 case TraceType.AA:
                     clearKernel.Execute(events);
+                    traceAAKernel.Update();
                     traceAAKernel.Execute(events);
                     imageKernel.Execute(events);
                     image = imageKernel.GetResult();

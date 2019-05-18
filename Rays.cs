@@ -3,6 +3,7 @@ using System.Diagnostics;
 using FruckEngine;
 using FruckEngine.Graphics;
 using OpenTK;
+using OpenTK.Input;
 
 namespace clrays {
     public class Rays : Game {
@@ -11,6 +12,11 @@ namespace clrays {
         private TraceProcessorCL _processor = null;
         private int _generation;
         private Stopwatch _timer = new Stopwatch();
+
+        private Scene scene;
+        private KeyboardState kstate;
+        private readonly float speed = 0.5f;
+        private bool hold;
 
         public override void Init() {
             base.Init();
@@ -23,13 +29,15 @@ namespace clrays {
             _shader.AddUniformVar("mTransform");
             _shader.SetInt("uTexture", 0);
 
-            Scene scene = new Scene();
+            scene = new Scene();
             scene.AddTexture("wood", "Assets/Textures/wood.png");
             scene.AddTexture("sphere", "Assets/Textures/spheremap.jpg");
             scene.AddTexture("sky", "Assets/Textures/sky0.jpg");
             scene.SetSkybox("sky");
             scene.SkyCol = new Vector3(0.2f, 0.2f, 0.9f).Normalized();
-            scene.SkyIntensity = 0.5f;
+            scene.SkyIntensity = 0.0f;
+            scene.CamPos = Vector3.Zero;
+            scene.CamDir = new Vector3(0f,0f,-1f).Normalized();
             scene.Add(new Plane
             {
                 Pos = new Vector3(0, -1, 0),
@@ -82,6 +90,32 @@ namespace clrays {
             Console.WriteLine($"Generation: {_generation++}: Time: {simulateTime}ms");
         }
 
+        public override void Update(double dt)
+        {
+            float fdt = (float)dt;
+            base.OnKeyboardUpdate(kstate);
+            if (kstate.IsKeyDown(Key.A))
+                scene.CamPos -= Vector3.UnitX * speed * fdt;
+            if (kstate.IsKeyDown(Key.D))
+                scene.CamPos += Vector3.UnitX * speed * fdt;
+            if (kstate.IsKeyDown(Key.W))
+                scene.CamPos -= Vector3.UnitZ * speed * fdt;
+            if (kstate.IsKeyDown(Key.S))
+                scene.CamPos += Vector3.UnitZ * speed * fdt;
+            if (kstate.IsKeyDown(Key.E))
+                scene.CamPos -= Vector3.UnitY * speed * fdt;
+            if (kstate.IsKeyDown(Key.Q))
+                scene.CamPos += Vector3.UnitY * speed * fdt;
+            scene.Update();
+        }
+
+        public override void OnKeyboardUpdate(KeyboardState state)
+        {
+            kstate = state;
+            hold |= state.IsKeyDown(Key.Space);
+            hold &= !state.IsKeyUp(Key.Space);
+        }
+
         public override void Resize(int width, int height) {
             base.Resize(width, height);
             _raster = new Raster(Width, Height);
@@ -97,6 +131,12 @@ namespace clrays {
 
         public override void OnMouseMove(double dx, double dy) {
             base.OnMouseMove(dx, dy);
+            if (!hold) return;
+            MousePosition = Vector2.Zero;                                                                      
+            var dir = scene.CamDir;
+            dir.X += (float)dx / Width * 2;
+            dir.Y -= (float)dy / Width * 2;
+            scene.CamDir = dir.Normalized();
         }
     }
 }

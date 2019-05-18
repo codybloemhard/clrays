@@ -58,6 +58,11 @@ namespace clrays
             dirty = false;
         }
 
+        public void Update()
+        {
+            scene_params.CopyToDevice();
+        }
+
         public void Execute(ComputeEventList events)
         {
             kernel.Execute(work, events);
@@ -116,6 +121,11 @@ namespace clrays
             //work
             work = new long[] { width, height };
             dirty = false;
+        }
+
+        public void Update()
+        {
+            scene_params.CopyToDevice();
         }
 
         public void Execute(ComputeEventList events)

@@ -109,6 +109,14 @@ float3 ExtractFloat3(int off, global float *arr){
     return (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
 }
 
+float3 ExtractFloat3FromInts(global int *arr, int index){
+    float3 res;
+    res.x = as_float(arr[index + 0]);
+    res.y = as_float(arr[index + 1]);
+    res.z = as_float(arr[index + 2]);
+    return res;
+}
+
 float dist2(float3 a, float3 b){
     return (a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y) + (a.z - b.z)*(a.z - b.z);
 }
@@ -317,12 +325,14 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 *out_
         spec += res.y * lcol;
     }
     //ambient
-    struct Ray nray;
-    nray.pos = hit->pos + hit->nor * EPSILON;
-    nray.dir = hit->nor;
-    struct RayHit nhit = InterScene(&nray, scene);
-    if(nhit.t >= MAX_RENDER_DIST)
-        col += SkyCol(hit->nor, scene) * scene->skyintens;
+    if(scene->skyintens > EPSILON){
+        struct Ray nray;
+        nray.pos = hit->pos + hit->nor * EPSILON;
+        nray.dir = hit->nor;
+        struct RayHit nhit = InterScene(&nray, scene);
+        if(nhit.t >= MAX_RENDER_DIST)
+            col += SkyCol(hit->nor, scene) * scene->skyintens;
+    }
     *out_diff = col * hit->mat->col;
     *out_spec = spec;
 }
@@ -371,17 +381,20 @@ __global int *tx_params, __global uchar *tx_items){
     scene.tex_params = tx_params;
     scene.textures = tx_items;
     scene.skybox = sc_params[3*SC_SCENE + 0];
-    scene.skycol.x = as_float(sc_params[3*SC_SCENE + 1]);
-    scene.skycol.y = as_float(sc_params[3*SC_SCENE + 2]);
-    scene.skycol.z = as_float(sc_params[3*SC_SCENE + 3]);
+    scene.skycol = ExtractFloat3FromInts(sc_params, 3*SC_SCENE + 1);
     scene.skyintens = as_float(sc_params[3*SC_SCENE + 4]);
-    //(0,0) is in middle of screen
-    float2 uv = (float2)(((float)x / (w * AA)) - 0.5f, ((float)y / (h * AA)) - 0.5f);
-    uv *= (float2)((float)w/h, -1.0f);
-    //construct ray, simple perspective
     struct Ray ray;
-    ray.pos = (float3)(0,0,0);
-    ray.dir = normalize((float3)(uv.x,uv.y,-1) - ray.pos);
+    ray.pos = ExtractFloat3FromInts(sc_params, 3*SC_SCENE + 5);
+    float3 cd = ExtractFloat3FromInts(sc_params, 3*SC_SCENE + 8);
+    float3 hor = cross(cd,(float3)(0.0f,1.0f,0.0f));
+    float3 ver = cross(hor,cd);
+    float2 uv = (float2)((float)x / (w * AA), (float)y / (h * AA));
+    uv -= 0.5f;
+    uv *= (float2)((float)w/h, -1.0f);
+    float3 to = ray.pos + cd;
+    to += uv.x * hor;
+    to += uv.y * ver;
+    ray.dir = normalize(to - ray.pos);
 
     float3 col = RayTrace(&ray, &scene, MAX_RENDER_DEPTH);
     col = pow(col, (float3)(1.0f/GAMMA));

@@ -1,6 +1,5 @@
 procedural textures
 sphere skybox only tophalf option
-skybox ambient light
 skybox cubemap
 hdr skybox
 optimize pow: gamma correct images before upload and gamma correct after AA

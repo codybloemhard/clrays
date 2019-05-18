@@ -92,7 +92,7 @@ namespace clrays
     public class Scene
     {
         public const int
-            sceneSize = 5,
+            sceneSize = 11,
             materialSize = 7,
             lightSize = 7,
             sphereSize = 4 + materialSize,
@@ -104,15 +104,19 @@ namespace clrays
             lights,
             planes,
             boxes;
+        private int[] scene_params;
         private int nextTexture;
         private Dictionary<string, int> texturesIds;
         private List<Raster> textures;
         private int skybox;
         public Vector3 SkyCol { get; set; }
         public float SkyIntensity { get; set; }
+        public Vector3 CamPos { get; set; }
+        public Vector3 CamDir { get; set; }
 
         public Scene()
         {
+            scene_params = new int[4 * 3 + sceneSize];
             spheres = new List<SceneItem>();
             lights = new List<SceneItem>();
             planes = new List<SceneItem>();
@@ -121,6 +125,11 @@ namespace clrays
             texturesIds = new Dictionary<string, int>();
             textures = new List<Raster>();
             SkyIntensity = 1f;
+        }
+
+        public void Update()
+        {
+            GetParamsBuffer();
         }
 
         public float[] GetBuffers()
@@ -140,27 +149,33 @@ namespace clrays
 
         public int[] GetParamsBuffer()
         {
-            var res = new int[4 * 3 + sceneSize];
             int i = 0;
-            res[0] = lightSize;
-            res[1] = lights.Count;
-            res[2] = i; i += lights.Count * lightSize;
-            res[3] = sphereSize;
-            res[4] = spheres.Count;
-            res[5] = i; i += spheres.Count * sphereSize;
-            res[6] = planeSize;
-            res[7] = planes.Count;
-            res[8] = i; i += planes.Count * planeSize;
-            res[9] = boxSize;
-            res[10] = boxes.Count;
-            res[11] = i; i += boxes.Count * boxSize;
+            scene_params[0] = lightSize;
+            scene_params[1] = lights.Count;
+            scene_params[2] = i; i += lights.Count * lightSize;
+            scene_params[3] = sphereSize;
+            scene_params[4] = spheres.Count;
+            scene_params[5] = i; i += spheres.Count * sphereSize;
+            scene_params[6] = planeSize;
+            scene_params[7] = planes.Count;
+            scene_params[8] = i; i += planes.Count * planeSize;
+            scene_params[9] = boxSize;
+            scene_params[10] = boxes.Count;
+            scene_params[11] = i; i += boxes.Count * boxSize;
             //scene
-            res[12] = skybox;
-            res[13] = SkyCol.X.GetHashCode();
-            res[14] = SkyCol.Y.GetHashCode();
-            res[15] = SkyCol.Z.GetHashCode();
-            res[16] = SkyIntensity.GetHashCode();
-            return res;
+            scene_params[12] = skybox;
+            PutInVec(scene_params, 13, SkyCol);
+            scene_params[16] = SkyIntensity.GetHashCode();
+            PutInVec(scene_params, 17, CamPos);
+            PutInVec(scene_params, 20, CamDir);
+            return scene_params;
+        }
+
+        private void PutInVec(int[] arr, int index, Vector3 vec)
+        {
+            arr[index + 0] = vec.X.GetHashCode();
+            arr[index + 1] = vec.Y.GetHashCode();
+            arr[index + 2] = vec.Z.GetHashCode();
         }
 
         public byte[] GetTexturesBuffer()
