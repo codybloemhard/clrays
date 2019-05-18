@@ -52,11 +52,14 @@ struct Ray{
 #define SC_SPHERE 1
 #define SC_PLANE 2
 #define SC_BOX 3
+#define SC_SCENE 4
 
 struct Scene{
     global int *params, *tex_params;
     global float *items;
     global uchar *textures;
+    int skybox;
+    float3 skycol;
 };
 //first byte in array where this type starts
 global int ScGetStart(int type, struct Scene *scene){
@@ -151,8 +154,14 @@ float2 PlaneUV(float3 pos, float3 nor){
 }
 //sphere uv
 float2 SphereUV(float3 nor){
-    float u = (atan2(-nor.z, -nor.x) / (2*M_PI)) + 0.5f;
+    float u = 0.5f + (atan2(-nor.z, -nor.x) / (2*M_PI));
     float v = 0.5f - asinpi(-nor.y);
+    return (float2)(u,v);
+}
+//sphere skybox uv(just sphere uv with inverted normal)
+float2 SkySphereUV(float3 nor){
+    float u = 0.5f + (atan2(nor.z, nor.x) / (2*M_PI));
+    float v = 0.5f - asinpi(nor.y);
     return (float2)(u,v);
 }
 //ray-box intersection
@@ -256,6 +265,11 @@ struct RayHit InterScene(struct Ray *ray, struct Scene *scene){
     InterBoxes(&closest, ray, scene->items, ScGetCount(SC_BOX, scene), ScGetStart(SC_BOX, scene), ScGetStride(SC_BOX, scene));
     return closest;
 }
+//get sky colour
+float3 SkyCol(float3 nor, struct Scene *scene){
+    float2 uv = SkySphereUV(nor);
+    return GetTexCol(scene->skybox - 1, uv, scene);
+}
 //get diffuse light strength for hit for a light
 float2 BlinnSingle(float3 lpos, float lpow, float3 viewdir, struct RayHit *hit, struct Scene *scene){
     float3 toL = lpos - hit->pos;
@@ -304,12 +318,11 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 *out_
 }
 //Recursion only works with one function
 float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
-    float3 col = (float3)(0.0f);
-    if(depth == 0) return col;
+    if(depth == 0) return SkyCol(ray->dir, scene);
     //hit
     struct RayHit hit = InterScene(ray, scene);
-    if(hit.t >= MAX_RENDER_DIST) 
-        return (float3)(0.0f);
+    if(hit.t >= MAX_RENDER_DIST)
+        return SkyCol(ray->dir, scene);
     //diffuse
     float3 diff, spec;
     Blinn(&hit, scene, ray->dir, &diff, &spec);
@@ -334,8 +347,7 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     //Does not get corrupted to version inside recursive call if not pointer
     float refl_mul = hit.mat->reflectivity;
     float3 refl = RayTrace(&nray, scene, depth - 1);
-    col = (diff * (1.0f - refl_mul)) + (refl * refl_mul) + spec;
-    return col;
+    return (diff * (1.0f - refl_mul)) + (refl * refl_mul) + spec;
 }
 
 float3 RayTracing(const uint w, const uint h, 
@@ -348,6 +360,10 @@ __global int *tx_params, __global uchar *tx_items){
     scene.items = sc_items;
     scene.tex_params = tx_params;
     scene.textures = tx_items;
+    scene.skybox = sc_params[3*SC_SCENE + 0];
+    scene.skycol.x = sc_params[3*SC_SCENE + 1];
+    scene.skycol.y = sc_params[3*SC_SCENE + 2];
+    scene.skycol.z = sc_params[3*SC_SCENE + 3];
     //(0,0) is in middle of screen
     float2 uv = (float2)(((float)x / (w * AA)) - 0.5f, ((float)y / (h * AA)) - 0.5f);
     uv *= (float2)((float)w/h, -1.0f);

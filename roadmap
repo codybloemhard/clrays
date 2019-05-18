@@ -1,4 +1,3 @@
-sphere uv map
 procedural textures
 skybox
 skybox ambient light
@@ -10,12 +9,12 @@ specularmaps
 camera controls
 bi/trilinear texture filtering
 sRGB now, use aces
+preprocess kernel: optimize branches away, insert constants
 
-features:(on implementation order)
+features:
 raytracing:
 spheres, planes
-albedo(shadows)
+albedo(shadows), specular
 reflection
-specular
 AA
-textures(planes)
+textures(planes,spheres)

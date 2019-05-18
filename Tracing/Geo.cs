@@ -92,6 +92,7 @@ namespace clrays
     public class Scene
     {
         public const int
+            sceneSize = 4,
             materialSize = 7,
             lightSize = 7,
             sphereSize = 4 + materialSize,
@@ -105,7 +106,9 @@ namespace clrays
             boxes;
         private int nextTexture;
         private Dictionary<string, int> texturesIds;
-        private List<Raster> textures; 
+        private List<Raster> textures;
+        private int skybox;
+        public Vector3 SkyCol { get; set; }
 
         public Scene()
         {
@@ -135,7 +138,7 @@ namespace clrays
 
         public int[] GetParamsBuffer()
         {
-            var res = new int[4 * 3];
+            var res = new int[4 * 3 + sceneSize];
             int i = 0;
             res[0] = lightSize;
             res[1] = lights.Count;
@@ -149,6 +152,12 @@ namespace clrays
             res[9] = boxSize;
             res[10] = boxes.Count;
             res[11] = i; i += boxes.Count * boxSize;
+            //scene
+            res[12] = skybox;
+            res[13] = SkyCol.X.GetHashCode();
+            res[14] = SkyCol.Y.GetHashCode();
+            res[15] = SkyCol.Z.GetHashCode();
+            System.Console.WriteLine($"skybox: {skybox}");
             return res;
         }
 
@@ -227,6 +236,12 @@ namespace clrays
             if (texturesIds.ContainsKey(name))
                 return texturesIds[name] + 1;
             return 0;
+        }
+
+        public void SetSkybox(string name)
+        {
+            if (texturesIds.ContainsKey(name))
+                skybox = texturesIds[name] + 1;
         }
     }
 }
