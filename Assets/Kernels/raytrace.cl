@@ -11,6 +11,7 @@ struct Material{
     float reflectivity;
     float shininess;
     int texture;
+    int normalmap;
     float texscale;
     uchar uvtype;
 };
@@ -21,7 +22,8 @@ struct Material ExtractMaterial(int off, global float *arr){
     mat.reflectivity = arr[off + 3];
     mat.shininess = arr[off + 4];
     mat.texture = (int)arr[off + 5];
-    mat.texscale = arr[off + 6];
+    mat.normalmap = (int)arr[off + 6];
+    mat.texscale = arr[off + 7];
     mat.uvtype = 0;
     return mat;
 }
@@ -91,6 +93,7 @@ global float3 TxGetSample(int tex, struct Scene *scene, int x, int y, int w){
                             scene->textures[offset + 1],
                             scene->textures[offset + 2]);
     return pow(col.zyx / 256.0f, GAMMA);
+    //return col.zyx / 256.0f;
 }
 //get colour from texture and uv
 global float3 GetTexCol(int tex, float2 uv, struct Scene *scene){
@@ -343,21 +346,41 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     struct RayHit hit = InterScene(ray, scene);
     if(hit.t >= MAX_RENDER_DIST)
         return SkyCol(ray->dir, scene);
-    //diffuse
-    float3 diff, spec;
-    Blinn(&hit, scene, ray->dir, &diff, &spec);
     //texture
-    int tex = hit.mat->texture;
-    if(tex > 0){
-        float2 uv;
+    float2 uv;
+    float3 texcol;
+    if(hit.mat->texture > 0){
         uchar uvtype = hit.mat->uvtype;
         if(uvtype == uvPLANE)
             uv = PlaneUV(hit.pos, hit.nor);
         else if(uvtype == uvSPHERE)
             uv = SphereUV(hit.nor);
         uv *= hit.mat->texscale;
-        diff *= GetTexCol(tex - 1, uv, scene);
+        texcol = GetTexCol(hit.mat->texture - 1, uv, scene);
     }
+    //normalmap
+    if(hit.mat->normalmap > 0){
+        float3 rawnor = GetTexCol(hit.mat->normalmap - 1, uv, scene);
+        float3 t = cross(hit.nor, (float3)(0.0f,1.0f,0.0f));
+        if(length(t) < EPSILON)
+            t = cross(hit.nor, (float3)(0.0f,0.0f,1.0f));
+        t = normalize(t);
+        float3 b = normalize(cross(hit.nor, t));
+        rawnor = normalize(rawnor);
+        rawnor = rawnor * 2 - 1;
+        float3 newnor;
+        float3 row = (float3)(t.x, b.x, hit.nor.x);
+        newnor.x = dot(row, rawnor);
+        row = (float3)(t.y, b.y, hit.nor.y);
+        newnor.y = dot(row, rawnor);
+        row = (float3)(t.z, b.z, hit.nor.z);
+        newnor.z = dot(row, rawnor);
+        hit.nor = normalize(newnor);
+    }
+    //diffuse
+    float3 diff, spec;
+    Blinn(&hit, scene, ray->dir, &diff, &spec);
+    diff *= texcol;
     //reflection
     float3 newdir = normalize(reflect(ray->dir, hit.nor));
     struct Ray nray;

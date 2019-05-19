@@ -32,8 +32,10 @@ namespace clrays {
 
             scene = new Scene();
             scene.AddTexture("wood", "Assets/Textures/wood.png");
+            scene.AddTexture("stone", "Assets/Textures/stone-albedo.tif");
+            scene.AddTexture("stone-nor", "Assets/Textures/stone-normal.tif");
             scene.AddTexture("sphere", "Assets/Textures/spheremap.jpg");
-            scene.AddTexture("sky", "Assets/Textures/sky0.jpg");
+            scene.AddTexture("sky", "Assets/Textures/sky1.jpg");
             scene.SetSkybox("sky");
             scene.SkyCol = new Vector3(0.2f, 0.2f, 0.9f).Normalized();
             scene.SkyIntensity = 0.0f;
@@ -46,8 +48,9 @@ namespace clrays {
                 Mat = new Material
                 {
                     Col = Vector3.One,
-                    Shininess = 16f,
-                    Texture = scene.GetTexture("wood"),
+                    Shininess = 1024f,
+                    Texture = scene.GetTexture("stone"),
+                    NormalMap = scene.GetTexture("stone-nor"),
                     TexScale = 4f,
                 }
             });
@@ -78,7 +81,7 @@ namespace clrays {
                 Intensity = 100,
                 Col = Vector3.One,
             });
-            _processor = new TraceProcessorCL((uint)Width, (uint)Height, 4, scene, TraceType.Real);
+            _processor = new TraceProcessorCL((uint)Width, (uint)Height, 2, scene, TraceType.Real);
         }
 
         public override void Render(double dt)
@@ -101,9 +104,9 @@ namespace clrays {
             if (kstate.IsKeyDown(Key.D))
                 scene.CamPos += hor * speed * fdt;
             if (kstate.IsKeyDown(Key.W))
-                scene.CamPos -= scene.CamDir * speed * fdt;
-            if (kstate.IsKeyDown(Key.S))
                 scene.CamPos += scene.CamDir * speed * fdt;
+            if (kstate.IsKeyDown(Key.S))
+                scene.CamPos -= scene.CamDir * speed * fdt;
             if (kstate.IsKeyDown(Key.E))
                 scene.CamPos -= Vector3.UnitY * speed * fdt;
             if (kstate.IsKeyDown(Key.Q))
