@@ -15,8 +15,9 @@ namespace clrays {
 
         private Scene scene;
         private KeyboardState kstate;
-        private readonly float speed = 0.5f;
-        private bool hold;
+        private readonly float speed = 1f;
+        private bool canMove, wasDown;
+        private Vector3 hor, ver;
 
         public override void Init() {
             base.Init();
@@ -92,16 +93,17 @@ namespace clrays {
 
         public override void Update(double dt)
         {
+            if (!canMove) return;
             float fdt = (float)dt;
             base.OnKeyboardUpdate(kstate);
             if (kstate.IsKeyDown(Key.A))
-                scene.CamPos -= Vector3.UnitX * speed * fdt;
+                scene.CamPos -= hor * speed * fdt;
             if (kstate.IsKeyDown(Key.D))
-                scene.CamPos += Vector3.UnitX * speed * fdt;
+                scene.CamPos += hor * speed * fdt;
             if (kstate.IsKeyDown(Key.W))
-                scene.CamPos -= Vector3.UnitZ * speed * fdt;
+                scene.CamPos -= scene.CamDir * speed * fdt;
             if (kstate.IsKeyDown(Key.S))
-                scene.CamPos += Vector3.UnitZ * speed * fdt;
+                scene.CamPos += scene.CamDir * speed * fdt;
             if (kstate.IsKeyDown(Key.E))
                 scene.CamPos -= Vector3.UnitY * speed * fdt;
             if (kstate.IsKeyDown(Key.Q))
@@ -112,8 +114,12 @@ namespace clrays {
         public override void OnKeyboardUpdate(KeyboardState state)
         {
             kstate = state;
-            hold |= state.IsKeyDown(Key.Space);
-            hold &= !state.IsKeyUp(Key.Space);
+            wasDown |= state.IsKeyDown(Key.Space);
+            if (state.IsKeyUp(Key.Space) && wasDown)
+            {
+                canMove = !canMove;
+                wasDown = false;
+            }
         }
 
         public override void Resize(int width, int height) {
@@ -129,14 +135,18 @@ namespace clrays {
             base.OnMouseButton(down);
         }
 
-        public override void OnMouseMove(double dx, double dy) {
-            base.OnMouseMove(dx, dy);
-            if (!hold) return;
-            MousePosition = Vector2.Zero;                                                                      
+        public override void OnMouseMove(double _, double __) {
+            var mid = new Vector2(Width / 2f, Height / 2f);
+            float dx = mid.X - Mouse.GetCursorState().X;
+            float dy = mid.Y - Mouse.GetCursorState().Y;
+            Mouse.SetPosition(mid.X, mid.Y);
+            if (!canMove) return;                                  
             var dir = scene.CamDir;
-            dir.X += (float)dx / Width * 2;
-            dir.Y -= (float)dy / Width * 2;
-            scene.CamDir = dir.Normalized();
+            hor = Vector3.Cross(dir, Vector3.UnitY).Normalized();
+            ver = Vector3.Cross(hor, dir).Normalized();
+            dir -= hor * (float)dx / Width * 2;
+            dir += ver * (float)dy / Width * 2;
+            scene.CamDir = dir.Normalized(); 
         }
     }
 }

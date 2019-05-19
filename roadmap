@@ -6,7 +6,6 @@ optimize pow: gamma correct images before upload and gamma correct after AA
 refraction
 normalmaps
 specularmaps
-camera controls
 bi/trilinear texture filtering
 sRGB now, use aces
 preprocess kernel: optimize branches away, insert constants
@@ -19,3 +18,4 @@ reflection
 AA
 textures(planes,spheres)
 skycolour,skybox(sphere)
+camera controls
