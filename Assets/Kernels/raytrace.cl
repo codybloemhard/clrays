@@ -92,19 +92,27 @@ global float3 TxGetSample(int tex, struct Scene *scene, int x, int y, int w){
     float3 col = (float3)(scene->textures[offset + 0],
                             scene->textures[offset + 1],
                             scene->textures[offset + 2]);
-    return pow(col.zyx / 256.0f, GAMMA);
-    //return col.zyx / 256.0f;
+    return col.zyx / 256.0f;
 }
+//shared logic
+#define UV_TO_XY \
+    float dummy;\
+    uv.x = fract(uv.x, &dummy);\
+    uv.y = fract(uv.y, &dummy);\
+    if(uv.x < 0.0f) uv.x += 1.0f;\
+    if(uv.y < 0.0f) uv.y += 1.0f;\
+    int w = TxGetWidth(tex,scene);\
+    int x = (int)(w * uv.x);\
+    int y = (int)(TxGetHeight(tex,scene) * uv.y);\
+
 //get colour from texture and uv
 global float3 GetTexCol(int tex, float2 uv, struct Scene *scene){
-    float dummy;
-    uv.x = fract(uv.x, &dummy);
-    uv.y = fract(uv.y, &dummy);
-    if(uv.x < 0.0f) uv.x += 1.0f;
-    if(uv.y < 0.0f) uv.y += 1.0f;
-    int w = TxGetWidth(tex,scene);
-    int x = (int)(w * uv.x);
-    int y = (int)(TxGetHeight(tex,scene) * uv.y);
+    UV_TO_XY;
+    return pow(TxGetSample(tex, scene, x, y, w), GAMMA);
+}
+//get value to range 0..1 (no gamma)
+global float3 GetTexVal(int tex, float2 uv, struct Scene *scene){
+    UV_TO_XY;
     return TxGetSample(tex, scene, x, y, w);
 }
 //Copy a float3 out the array, off(offset) is the first byte of the float3 we want
@@ -360,7 +368,7 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     }
     //normalmap
     if(hit.mat->normalmap > 0){
-        float3 rawnor = GetTexCol(hit.mat->normalmap - 1, uv, scene);
+        float3 rawnor = GetTexVal(hit.mat->normalmap - 1, uv, scene);
         float3 t = cross(hit.nor, (float3)(0.0f,1.0f,0.0f));
         if(length(t) < EPSILON)
             t = cross(hit.nor, (float3)(0.0f,0.0f,1.0f));

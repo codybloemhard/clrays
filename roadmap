@@ -4,8 +4,7 @@ skybox cubemap
 hdr skybox
 optimize pow: gamma correct images before upload and gamma correct after AA
 refraction
-normalmaps
-specularmaps
+roughnessmaps
 bi/trilinear texture filtering
 sRGB now, use aces
 preprocess kernel: optimize branches away, insert constants
@@ -16,6 +15,7 @@ spheres, planes
 albedo(shadows), specular
 reflection
 AA
-textures(planes,spheres)
+textures uv(planes,spheres)
+albedo,normalmaps
 skycolour,skybox(sphere)
 camera controls
