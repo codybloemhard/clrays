@@ -9,7 +9,7 @@ namespace clrays
         public Vector3 Col;
         public float
             Reflectivity,
-            Shininess;
+            Roughness;
         public int Texture, NormalMap;
         private float texScale;
         public float TexScale {
@@ -41,7 +41,7 @@ namespace clrays
             return new float[] { Pos.X, Pos.Y, Pos.Z, 
                 Nor.X, Nor.Y, Nor.Z,
                 Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity, 
-                Mat.Shininess, Mat.Texture, Mat.NormalMap, Mat.TexScale };
+                Mat.Roughness, Mat.Texture, Mat.NormalMap, Mat.TexScale };
         }
     }
 
@@ -55,7 +55,7 @@ namespace clrays
         {
             return new float[] { Pos.X, Pos.Y, Pos.Z, Rad,
                 Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity,
-                Mat.Shininess, Mat.Texture, Mat.NormalMap, Mat.TexScale };
+                Mat.Roughness, Mat.Texture, Mat.NormalMap, Mat.TexScale };
         }
     }
 
@@ -72,7 +72,7 @@ namespace clrays
                 Pos.X - hs.X, Pos.Y - hs.Y, Pos.Z - hs.Z,
                 Pos.X + hs.X, Pos.Y + hs.Y, Pos.Z + hs.Z,
                 Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity,
-                Mat.Shininess, Mat.Texture, Mat.NormalMap, Mat.TexScale };
+                Mat.Roughness, Mat.Texture, Mat.NormalMap, Mat.TexScale };
         }
     }
 

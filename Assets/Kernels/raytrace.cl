@@ -9,7 +9,7 @@
 struct Material{
     float3 col;
     float reflectivity;
-    float shininess;
+    float roughness;
     int texture;
     int normalmap;
     float texscale;
@@ -20,7 +20,7 @@ struct Material ExtractMaterial(int off, global float *arr){
     struct Material mat;
     mat.col = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
     mat.reflectivity = arr[off + 3];
-    mat.shininess = arr[off + 4];
+    mat.roughness = arr[off + 4];
     mat.texture = (int)arr[off + 5];
     mat.normalmap = (int)arr[off + 6];
     mat.texscale = arr[off + 7];
@@ -315,7 +315,7 @@ float2 BlinnSingle(float3 lpos, float lpow, float3 viewdir, struct RayHit *hit, 
     //specular
     float3 halfdir = normalize(toL + -viewdir);
     float specangle = max(dot(halfdir,nor),0.0f);
-    float spec = pow(specangle,hit->mat->shininess);
+    float spec = pow(specangle,16.0f / hit->mat->roughness);
     return power * (float2)(max(0.0f, angle),spec);
 }
 //get diffuse light incl colour of hit with all lights
@@ -326,6 +326,7 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 *out_
     int count = ScGetCount(SC_LIGHT, scene);
     int stride = ScGetStride(SC_LIGHT, scene);
     int start = ScGetStart(SC_LIGHT, scene);
+    //float shininess = ;
     for(int i = 0; i < count; i++){
         int off = start + i * stride;
         float3 lpos = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
@@ -345,7 +346,7 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 *out_
             col += SkyCol(hit->nor, scene) * scene->skyintens;
     }
     *out_diff = col * hit->mat->col;
-    *out_spec = spec;
+    *out_spec = spec * (1.0f - hit->mat->roughness);
 }
 //Recursion only works with one function
 float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
@@ -385,7 +386,7 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
         newnor.z = dot(row, rawnor);
         hit.nor = normalize(newnor);
     }
-    //diffuse
+    //diffuse, specular
     float3 diff, spec;
     Blinn(&hit, scene, ray->dir, &diff, &spec);
     diff *= texcol;

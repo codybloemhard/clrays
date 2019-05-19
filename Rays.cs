@@ -48,7 +48,7 @@ namespace clrays {
                 Mat = new Material
                 {
                     Col = Vector3.One,
-                    Shininess = 1024f,
+                    Roughness = 0.1f,
                     Texture = scene.GetTexture("stone"),
                     NormalMap = scene.GetTexture("stone-nor"),
                     TexScale = 4f,
@@ -60,7 +60,7 @@ namespace clrays {
                 Rad = 1f,
                 Mat = new Material
                 {
-                    Shininess = 512f,
+                    Roughness = 0.8f,
                     Texture = scene.GetTexture("sphere"),
                 }
             });
@@ -72,7 +72,7 @@ namespace clrays {
                 {
                     Col = new Vector3(0.1f, 0.1f, 0.9f).Normalized(),
                     Reflectivity = 1.0f,
-                    Shininess = 2048f,
+                    Roughness = 0.001f,
                 }
             });
             scene.Add(new Light
