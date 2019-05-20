@@ -42,6 +42,10 @@ namespace clrays {
             scene.AddTexture("scifi-nor", "Assets/Textures/scifi-normal.tif");
             scene.AddTexture("scifi-rou", "Assets/Textures/scifi-rough.tif", TexType.Scalar8b);
             scene.AddTexture("scifi-met", "Assets/Textures/scifi-metal.tif", TexType.Scalar8b);
+            scene.AddTexture("solar-alb", "Assets/Textures/solar-albedo.tif");
+            scene.AddTexture("solar-nor", "Assets/Textures/solar-normal.tif");
+            scene.AddTexture("solar-rou", "Assets/Textures/solar-rough.tif", TexType.Scalar8b);
+            scene.AddTexture("solar-met", "Assets/Textures/solar-metal.tif", TexType.Scalar8b);
             scene.AddTexture("sky", "Assets/Textures/sky1.jpg");
             scene.SetSkybox("sky");
             scene.SkyCol = new Vector3(0.2f, 0.2f, 0.9f).Normalized();
@@ -54,6 +58,7 @@ namespace clrays {
                 Nor = Vector3.UnitY,
                 Mat = new Material
                 {
+                    Reflectivity = 0f,
                     Texture = scene.GetTexture("stone-alb"),
                     NormalMap = scene.GetTexture("stone-nor"),
                     RoughnessMap = scene.GetTexture("stone-rou"),
@@ -66,6 +71,7 @@ namespace clrays {
                 Rad = 1f,
                 Mat = new Material
                 {
+                    Reflectivity = 0f,
                     //Texture = scene.GetTexture("sphere"),
                     Texture = scene.GetTexture("tiles-alb"),
                     NormalMap = scene.GetTexture("tiles-nor"),
@@ -78,9 +84,11 @@ namespace clrays {
                 Rad = 1f,
                 Mat = new Material
                 {
-                    Col = new Vector3(0.1f, 0.1f, 0.9f).Normalized(),
-                    Reflectivity = 1.0f,
-                    Roughness = 0f,
+                    Reflectivity = 0.3f,
+                    Texture = scene.GetTexture("solar-alb"),
+                    NormalMap = scene.GetTexture("solar-nor"),
+                    RoughnessMap = scene.GetTexture("solar-rou"),
+                    MetalicMap = scene.GetTexture("solar-met"),
                 }
             });
             scene.Add(new Sphere
@@ -89,6 +97,7 @@ namespace clrays {
                 Rad = 1f,
                 Mat = new Material
                 {
+                    //Reflectivity = 0f,
                     Texture = scene.GetTexture("scifi-alb"),
                     NormalMap = scene.GetTexture("scifi-nor"),
                     RoughnessMap = scene.GetTexture("scifi-rou"),

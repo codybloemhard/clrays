@@ -1,5 +1,6 @@
 fix box intersection
 fix camera: look up and down weird zoom effect
+fix normalmap no angle falloff?
 sphere skybox only tophalf option
 skybox cubemap
 hdr skybox

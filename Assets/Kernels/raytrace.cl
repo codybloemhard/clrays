@@ -313,6 +313,7 @@ float2 BlinnSingle(float3 lpos, float lpow, float3 viewdir, struct RayHit *hit, 
     float angle = dot(nor, toL);
     if(angle <= EPSILON)
         return (float2)(0.0f);
+    angle = max(0.0f,angle);
     float power = lpow / (PI4 * dist * dist);
     if(power < 0.01f)
         return (float2)(0.0f);
@@ -327,7 +328,7 @@ float2 BlinnSingle(float3 lpos, float lpow, float3 viewdir, struct RayHit *hit, 
     float3 halfdir = normalize(toL + -viewdir);
     float specangle = max(dot(halfdir,nor),0.0f);
     float spec = pow(specangle,16.0f / hit->mat->roughness);
-    return power * (float2)(max(0.0f, angle),spec);
+    return power * (float2)(angle,spec);
 }
 //get diffuse light incl colour of hit with all lights
 void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 *out_diff, float3 *out_spec){
@@ -405,7 +406,7 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     //metalicmap
     if(hit.mat->metalicmap > 0){
         float value = GetTexScalar(hit.mat->metalicmap - 1, uv, scene);
-        hit.mat->reflectivity = value;
+        hit.mat->reflectivity *= value;
     }
     //diffuse, specular
     float3 diff, spec;
