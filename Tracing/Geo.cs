@@ -10,7 +10,7 @@ namespace clrays
         public float
             Reflectivity,
             Roughness;
-        public int Texture, NormalMap;
+        public int Texture, NormalMap, RoughnessMap;
         private float texScale;
         public float TexScale {
             get { return texScale; }
@@ -41,7 +41,8 @@ namespace clrays
             return new float[] { Pos.X, Pos.Y, Pos.Z, 
                 Nor.X, Nor.Y, Nor.Z,
                 Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity, 
-                Mat.Roughness, Mat.Texture, Mat.NormalMap, Mat.TexScale };
+                Mat.Roughness, Mat.Texture, Mat.NormalMap, 
+                Mat.RoughnessMap, Mat.TexScale };
         }
     }
 
@@ -55,7 +56,8 @@ namespace clrays
         {
             return new float[] { Pos.X, Pos.Y, Pos.Z, Rad,
                 Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity,
-                Mat.Roughness, Mat.Texture, Mat.NormalMap, Mat.TexScale };
+                Mat.Roughness, Mat.Texture, Mat.NormalMap,
+                Mat.RoughnessMap, Mat.TexScale };
         }
     }
 
@@ -72,7 +74,8 @@ namespace clrays
                 Pos.X - hs.X, Pos.Y - hs.Y, Pos.Z - hs.Z,
                 Pos.X + hs.X, Pos.Y + hs.Y, Pos.Z + hs.Z,
                 Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity,
-                Mat.Roughness, Mat.Texture, Mat.NormalMap, Mat.TexScale };
+                Mat.Roughness, Mat.Texture, Mat.NormalMap,
+                Mat.RoughnessMap, Mat.TexScale };
         }
     }
 
@@ -93,7 +96,7 @@ namespace clrays
     {
         public const int
             sceneSize = 11,
-            materialSize = 8,
+            materialSize = 9,
             lightSize = 7,
             sphereSize = 4 + materialSize,
             planeSize = 6 + materialSize,
@@ -104,10 +107,10 @@ namespace clrays
             lights,
             planes,
             boxes;
-        private int[] scene_params;
+        private readonly int[] scene_params;
         private int nextTexture;
         private Dictionary<string, int> texturesIds;
-        private List<Raster> textures;
+        private List<TraceTex> textures;
         private int skybox;
         public Vector3 SkyCol { get; set; }
         public float SkyIntensity { get; set; }
@@ -123,7 +126,7 @@ namespace clrays
             boxes = new List<SceneItem>();
             nextTexture = 0;
             texturesIds = new Dictionary<string, int>();
-            textures = new List<Raster>();
+            textures = new List<TraceTex>();
             SkyIntensity = 1f;
         }
 
@@ -221,11 +224,13 @@ namespace clrays
             start += list.Count * stride;
         }
 
-        public void AddTexture(string name, string path)
+        public void AddTexture(string name, string path, TexType type = TexType.Vector3c8bpc)
         {
-            var raster = new Raster(path);
+            TraceTex tex;
+            if (type == TexType.Vector3c8bpc) tex = TraceTex.VectorTex(path);
+            else tex = TraceTex.ScalarTex(path);
             texturesIds.Add(name, nextTexture++);
-            textures.Add(raster);
+            textures.Add(tex);
         }
 
         public void Add(Sphere s)

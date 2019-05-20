@@ -1,4 +1,6 @@
-procedural textures
+fix camera: look up and down weird zoom effect
+only upload textures that are used in materials
+memory requirement log thingy
 sphere skybox only tophalf option
 skybox cubemap
 hdr skybox

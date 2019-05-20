@@ -12,6 +12,7 @@ struct Material{
     float roughness;
     int texture;
     int normalmap;
+    int roughnessmap;
     float texscale;
     uchar uvtype;
 };
@@ -20,10 +21,11 @@ struct Material ExtractMaterial(int off, global float *arr){
     struct Material mat;
     mat.col = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
     mat.reflectivity = arr[off + 3];
-    mat.roughness = arr[off + 4];
+    mat.roughness = arr[off + 4] + EPSILON;
     mat.texture = (int)arr[off + 5];
     mat.normalmap = (int)arr[off + 6];
-    mat.texscale = arr[off + 7];
+    mat.roughnessmap = (int)arr[off + 7];
+    mat.texscale = arr[off + 8];
     mat.uvtype = 0;
     return mat;
 }
@@ -92,7 +94,7 @@ global float3 TxGetSample(int tex, struct Scene *scene, int x, int y, int w){
     float3 col = (float3)(scene->textures[offset + 0],
                             scene->textures[offset + 1],
                             scene->textures[offset + 2]);
-    return col.zyx / 256.0f;
+    return col.zyx / 255.0f;
 }
 //shared logic
 #define UV_TO_XY \
@@ -114,6 +116,13 @@ global float3 GetTexCol(int tex, float2 uv, struct Scene *scene){
 global float3 GetTexVal(int tex, float2 uv, struct Scene *scene){
     UV_TO_XY;
     return TxGetSample(tex, scene, x, y, w);
+}
+//get value 0..1 from scalar map
+global float GetTexScalar(int tex, float2 uv, struct Scene *scene){
+    UV_TO_XY;
+    int offset = TxGetStart(tex, scene) + (y * w + x);
+    float scalar = (float)scene->textures[offset];
+    return scalar / 255.0f;
 }
 //Copy a float3 out the array, off(offset) is the first byte of the float3 we want
 float3 ExtractFloat3(int off, global float *arr){
@@ -385,6 +394,11 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
         row = (float3)(t.z, b.z, hit.nor.z);
         newnor.z = dot(row, rawnor);
         hit.nor = normalize(newnor);
+    }
+    //roughnessmap
+    if(hit.mat->roughnessmap > 0){
+        float value = GetTexScalar(hit.mat->roughnessmap - 1, uv, scene);
+        hit.mat->roughness = value * hit.mat->roughness;
     }
     //diffuse, specular
     float3 diff, spec;

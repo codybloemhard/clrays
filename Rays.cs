@@ -29,12 +29,15 @@ namespace clrays {
             _shader.AddUniformVar("uTexture");
             _shader.AddUniformVar("mTransform");
             _shader.SetInt("uTexture", 0);
-
             scene = new Scene();
             scene.AddTexture("wood", "Assets/Textures/wood.png");
             scene.AddTexture("stone", "Assets/Textures/stone-albedo.tif");
             scene.AddTexture("stone-nor", "Assets/Textures/stone-normal.tif");
+            scene.AddTexture("stone-rou", "Assets/Textures/stone-rough.tif", TexType.Scalar8b);
             scene.AddTexture("sphere", "Assets/Textures/spheremap.jpg");
+            scene.AddTexture("tiles", "Assets/Textures/tiles-albedo.tif");
+            scene.AddTexture("tiles-nor", "Assets/Textures/tiles-normal.tif");
+            scene.AddTexture("tiles-rou", "Assets/Textures/tiles-rough.tif", TexType.Scalar8b);
             scene.AddTexture("sky", "Assets/Textures/sky1.jpg");
             scene.SetSkybox("sky");
             scene.SkyCol = new Vector3(0.2f, 0.2f, 0.9f).Normalized();
@@ -48,9 +51,10 @@ namespace clrays {
                 Mat = new Material
                 {
                     Col = Vector3.One,
-                    Roughness = 0.1f,
+                    Roughness = 1f,
                     Texture = scene.GetTexture("stone"),
                     NormalMap = scene.GetTexture("stone-nor"),
+                    RoughnessMap = scene.GetTexture("stone-rou"),
                     TexScale = 4f,
                 }
             });
@@ -60,8 +64,11 @@ namespace clrays {
                 Rad = 1f,
                 Mat = new Material
                 {
-                    Roughness = 0.8f,
-                    Texture = scene.GetTexture("sphere"),
+                    Roughness = 1f,
+                    //Texture = scene.GetTexture("sphere"),
+                    Texture = scene.GetTexture("tiles"),
+                    NormalMap = scene.GetTexture("tiles-nor"),
+                    RoughnessMap = scene.GetTexture("tiles-rou"),
                 }
             });
             scene.Add(new Sphere
@@ -72,7 +79,7 @@ namespace clrays {
                 {
                     Col = new Vector3(0.1f, 0.1f, 0.9f).Normalized(),
                     Reflectivity = 1.0f,
-                    Roughness = 0.001f,
+                    Roughness = 0f,
                 }
             });
             scene.Add(new Light
