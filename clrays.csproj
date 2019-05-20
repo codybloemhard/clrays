@@ -58,6 +58,7 @@
     <Compile Include="Tracing\Geo.cs" />
     <Compile Include="Tracing\Kernels.cs" />
     <Compile Include="Tracing\TraceTex.cs" />
+    <Compile Include="Tracing\Info.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include=".gitignore" />

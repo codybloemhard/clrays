@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using OpenTK;
-using FruckEngine.Graphics;
+using System;
 
 namespace clrays
 {
@@ -188,7 +188,10 @@ namespace clrays
         {
             uint size = 0;
             for (int i = 0; i < textures.Count; i++)
-                size += (uint)textures[i].Pixels.Length;
+            {
+                uint s = (uint)textures[i].Pixels.Length;
+                size += s;
+            }
             var res = new byte[size];
             int start = 0;
             for (int i = 0; i < textures.Count; i++)
@@ -231,7 +234,7 @@ namespace clrays
         {
             if (ghostTextures.ContainsKey(name))
             {
-                System.Console.WriteLine($"Error: Texture name already used: {name}.");
+                Console.WriteLine($"Error: Texture name already used: {name}.");
                 return;
             }
             ghostTextures.Add(name,(path,type));
@@ -242,7 +245,7 @@ namespace clrays
             if (texturesIds.ContainsKey(name)) return true;
             if (!ghostTextures.ContainsKey(name))
             {
-                System.Console.WriteLine($"Error: Texture not found: {name}.");
+                Console.WriteLine($"Error: Texture not found: {name}.");
                 return false;
             }
             var res = ghostTextures[name];
@@ -251,6 +254,7 @@ namespace clrays
             else tex = TraceTex.ScalarTex(res.Item1);
             texturesIds.Add(name, nextTexture++);
             textures.Add(tex);
+            Info.Textures.Add((name, (uint)tex.Pixels.Length));
             return true;
         }
 

@@ -45,6 +45,7 @@ namespace clrays {
             renderTexture.PixelType = PixelType.UnsignedByte;
             renderTexture.SetFilters(TextureMinFilter.Linear, TextureMagFilter.Linear);
             renderTexture.SetWrapping(TextureWrapMode.ClampToEdge, TextureWrapMode.ClampToEdge);
+            Info.PrintInfo();
         }
 
         public void Render() {

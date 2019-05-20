@@ -1,9 +1,9 @@
 fix box intersection
 fix camera: look up and down weird zoom effect
-memory requirement log thingy
 sphere skybox only tophalf option
 skybox cubemap
 hdr skybox
+sky light specular only
 optimize pow: gamma correct images before upload and gamma correct after AA
 refraction
 bi/trilinear texture filtering
@@ -11,6 +11,8 @@ sRGB now, use aces, linear colours
 preprocess kernel: optimize branches away, insert constants
 models
 accelerating structure
+displacement maps
+metal maps
 
 features:
 raytracing:
@@ -20,5 +22,5 @@ reflection
 AA
 textures uv(planes,spheres)
 albedo,normalmaps,roughnessmaps
-skycolour,skybox(sphere)
+skycolour,skybox(sphere),sky lighting
 camera controls

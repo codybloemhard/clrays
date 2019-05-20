@@ -56,6 +56,11 @@ namespace clrays
             //work
             work = new long[] { width * AA, height * AA };
             dirty = false;
+            Info.MetaSize = (uint)scene_params_raw.Length +
+                            (uint)tex_params_raw.Length;
+            Info.MetaSize *= sizeof(int);
+            Info.SceneSize = (uint)scene_items.Length * sizeof(float);
+            Info.FloatMapSize = (uint)buffer.Length * sizeof(float);
         }
 
         public void Update()
@@ -121,6 +126,11 @@ namespace clrays
             //work
             work = new long[] { width, height };
             dirty = false;
+            Info.MetaSize = (uint)scene_params_raw.Length +
+                            (uint)tex_params_raw.Length;
+            Info.MetaSize *= sizeof(int);
+            Info.SceneSize = (uint)scene_items.Length * sizeof(float);
+            Info.IntMapSize = (uint)buffer.Length * sizeof(int);
         }
 
         public void Update()
@@ -195,6 +205,7 @@ namespace clrays
             kernel.SetArgument(4, AA);
             work = new long[] { width, height };
             dirty = false;
+            Info.IntMapSize = (uint)data.Length * sizeof(int);
         }
 
         public void Execute(ComputeEventList events)
