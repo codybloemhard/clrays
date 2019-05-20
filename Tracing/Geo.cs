@@ -21,6 +21,7 @@ namespace clrays
         {
             Col = Vector3.One;
             texScale = 1f;
+            Roughness = 1f;
         }
     }
 
@@ -109,6 +110,7 @@ namespace clrays
             boxes;
         private readonly int[] scene_params;
         private int nextTexture;
+        private Dictionary<string, (string, TexType)> ghostTextures;
         private Dictionary<string, int> texturesIds;
         private List<TraceTex> textures;
         private int skybox;
@@ -125,6 +127,7 @@ namespace clrays
             planes = new List<SceneItem>();
             boxes = new List<SceneItem>();
             nextTexture = 0;
+            ghostTextures = new Dictionary<string, (string, TexType)>();
             texturesIds = new Dictionary<string, int>();
             textures = new List<TraceTex>();
             SkyIntensity = 1f;
@@ -226,11 +229,37 @@ namespace clrays
 
         public void AddTexture(string name, string path, TexType type = TexType.Vector3c8bpc)
         {
+            if (ghostTextures.ContainsKey(name))
+            {
+                System.Console.WriteLine($"Error: Texture name already used: {name}.");
+                return;
+            }
+            ghostTextures.Add(name,(path,type));
+        }
+
+        private bool ActuallyLoadTexture(string name)
+        {
+            if (texturesIds.ContainsKey(name)) return true;
+            if (!ghostTextures.ContainsKey(name))
+            {
+                System.Console.WriteLine($"Error: Texture not found: {name}.");
+                return false;
+            }
+            var res = ghostTextures[name];
             TraceTex tex;
-            if (type == TexType.Vector3c8bpc) tex = TraceTex.VectorTex(path);
-            else tex = TraceTex.ScalarTex(path);
+            if (res.Item2 == TexType.Vector3c8bpc) tex = TraceTex.VectorTex(res.Item1);
+            else tex = TraceTex.ScalarTex(res.Item1);
             texturesIds.Add(name, nextTexture++);
             textures.Add(tex);
+            return true;
+        }
+
+        public int GetTexture(string name)
+        {
+            if (!ActuallyLoadTexture(name)) return 0;
+            if (texturesIds.ContainsKey(name))
+                return texturesIds[name] + 1;
+            return 0;
         }
 
         public void Add(Sphere s)
@@ -253,17 +282,15 @@ namespace clrays
             boxes.Add(b);
         }
 
-        public int GetTexture(string name)
-        {
-            if (texturesIds.ContainsKey(name))
-                return texturesIds[name] + 1;
-            return 0;
-        }
-
         public void SetSkybox(string name)
         {
             if (name == "")
                 skybox = 0;
+            if (!ActuallyLoadTexture(name))
+            {
+                skybox = 0;
+                return;
+            }
             if (texturesIds.ContainsKey(name))
                 skybox = texturesIds[name] + 1;
         }
