@@ -10,7 +10,7 @@ namespace clrays
         public float
             Reflectivity,
             Roughness;
-        public int Texture, NormalMap, RoughnessMap;
+        public int Texture, NormalMap, RoughnessMap, MetalicMap;
         private float texScale;
         public float TexScale {
             get { return texScale; }
@@ -43,7 +43,7 @@ namespace clrays
                 Nor.X, Nor.Y, Nor.Z,
                 Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity, 
                 Mat.Roughness, Mat.Texture, Mat.NormalMap, 
-                Mat.RoughnessMap, Mat.TexScale };
+                Mat.RoughnessMap, Mat.MetalicMap, Mat.TexScale };
         }
     }
 
@@ -58,7 +58,7 @@ namespace clrays
             return new float[] { Pos.X, Pos.Y, Pos.Z, Rad,
                 Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity,
                 Mat.Roughness, Mat.Texture, Mat.NormalMap,
-                Mat.RoughnessMap, Mat.TexScale };
+                Mat.RoughnessMap, Mat.MetalicMap, Mat.TexScale };
         }
     }
 
@@ -76,7 +76,7 @@ namespace clrays
                 Pos.X + hs.X, Pos.Y + hs.Y, Pos.Z + hs.Z,
                 Mat.Col.X, Mat.Col.Y, Mat.Col.Z, Mat.Reflectivity,
                 Mat.Roughness, Mat.Texture, Mat.NormalMap,
-                Mat.RoughnessMap, Mat.TexScale };
+                Mat.RoughnessMap, Mat.MetalicMap, Mat.TexScale };
         }
     }
 
@@ -97,7 +97,7 @@ namespace clrays
     {
         public const int
             sceneSize = 11,
-            materialSize = 9,
+            materialSize = 10,
             lightSize = 7,
             sphereSize = 4 + materialSize,
             planeSize = 6 + materialSize,

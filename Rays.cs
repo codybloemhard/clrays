@@ -31,13 +31,17 @@ namespace clrays {
             _shader.SetInt("uTexture", 0);
             scene = new Scene();
             scene.AddTexture("wood", "Assets/Textures/wood.png");
-            scene.AddTexture("stone", "Assets/Textures/stone-albedo.tif");
+            scene.AddTexture("sphere", "Assets/Textures/spheremap.jpg");
+            scene.AddTexture("stone-alb", "Assets/Textures/stone-albedo.tif");
             scene.AddTexture("stone-nor", "Assets/Textures/stone-normal.tif");
             scene.AddTexture("stone-rou", "Assets/Textures/stone-rough.tif", TexType.Scalar8b);
-            scene.AddTexture("sphere", "Assets/Textures/spheremap.jpg");
-            scene.AddTexture("tiles", "Assets/Textures/tiles-albedo.tif");
+            scene.AddTexture("tiles-alb", "Assets/Textures/tiles-albedo.tif");
             scene.AddTexture("tiles-nor", "Assets/Textures/tiles-normal.tif");
             scene.AddTexture("tiles-rou", "Assets/Textures/tiles-rough.tif", TexType.Scalar8b);
+            scene.AddTexture("scifi-alb", "Assets/Textures/scifi-albedo.tif");
+            scene.AddTexture("scifi-nor", "Assets/Textures/scifi-normal.tif");
+            scene.AddTexture("scifi-rou", "Assets/Textures/scifi-rough.tif", TexType.Scalar8b);
+            scene.AddTexture("scifi-met", "Assets/Textures/scifi-metal.tif", TexType.Scalar8b);
             scene.AddTexture("sky", "Assets/Textures/sky1.jpg");
             scene.SetSkybox("sky");
             scene.SkyCol = new Vector3(0.2f, 0.2f, 0.9f).Normalized();
@@ -50,9 +54,7 @@ namespace clrays {
                 Nor = Vector3.UnitY,
                 Mat = new Material
                 {
-                    Col = Vector3.One,
-                    Roughness = 1f,
-                    Texture = scene.GetTexture("stone"),
+                    Texture = scene.GetTexture("stone-alb"),
                     NormalMap = scene.GetTexture("stone-nor"),
                     RoughnessMap = scene.GetTexture("stone-rou"),
                     TexScale = 4f,
@@ -60,26 +62,37 @@ namespace clrays {
             });
             scene.Add(new Sphere
             {
-                Pos = new Vector3(1, 0, -5),
+                Pos = new Vector3(2, 0, -5),
                 Rad = 1f,
                 Mat = new Material
                 {
-                    Roughness = 1f,
                     //Texture = scene.GetTexture("sphere"),
-                    Texture = scene.GetTexture("tiles"),
+                    Texture = scene.GetTexture("tiles-alb"),
                     NormalMap = scene.GetTexture("tiles-nor"),
                     RoughnessMap = scene.GetTexture("tiles-rou"),
                 }
             });
             scene.Add(new Sphere
             {
-                Pos = new Vector3(-1, 0, -5),
+                Pos = new Vector3(0, 0, -5),
                 Rad = 1f,
                 Mat = new Material
                 {
                     Col = new Vector3(0.1f, 0.1f, 0.9f).Normalized(),
                     Reflectivity = 1.0f,
                     Roughness = 0f,
+                }
+            });
+            scene.Add(new Sphere
+            {
+                Pos = new Vector3(-2, 0, -5),
+                Rad = 1f,
+                Mat = new Material
+                {
+                    Texture = scene.GetTexture("scifi-alb"),
+                    NormalMap = scene.GetTexture("scifi-nor"),
+                    RoughnessMap = scene.GetTexture("scifi-rou"),
+                    MetalicMap = scene.GetTexture("scifi-met"),
                 }
             });
             scene.Add(new Light

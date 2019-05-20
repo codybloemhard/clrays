@@ -13,6 +13,7 @@ struct Material{
     int texture;
     int normalmap;
     int roughnessmap;
+    int metalicmap;
     float texscale;
     uchar uvtype;
 };
@@ -25,7 +26,8 @@ struct Material ExtractMaterial(int off, global float *arr){
     mat.texture = (int)arr[off + 5];
     mat.normalmap = (int)arr[off + 6];
     mat.roughnessmap = (int)arr[off + 7];
-    mat.texscale = arr[off + 8];
+    mat.metalicmap  = (int)arr[off + 8];
+    mat.texscale = arr[off + 9];
     mat.uvtype = 0;
     return mat;
 }
@@ -399,6 +401,11 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     if(hit.mat->roughnessmap > 0){
         float value = GetTexScalar(hit.mat->roughnessmap - 1, uv, scene);
         hit.mat->roughness = value * hit.mat->roughness;
+    }
+    //metalicmap
+    if(hit.mat->metalicmap > 0){
+        float value = GetTexScalar(hit.mat->metalicmap - 1, uv, scene);
+        hit.mat->reflectivity = value;
     }
     //diffuse, specular
     float3 diff, spec;
