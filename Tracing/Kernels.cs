@@ -71,6 +71,7 @@ namespace clrays
         public void Execute(ComputeEventList events)
         {
             kernel.Execute(work, events);
+            events.Wait();
             dirty = true;
         }
 
@@ -141,6 +142,7 @@ namespace clrays
         public void Execute(ComputeEventList events)
         {
             kernel.Execute(work, events);
+            events.Wait();
             dirty = true;
         }
 
@@ -177,6 +179,7 @@ namespace clrays
         public void Execute(ComputeEventList events)
         {
             kernel.Execute(work, events);
+            events.Wait();
         }
 
         public OpenCLBuffer<float> GetBuffer()
@@ -193,7 +196,7 @@ namespace clrays
         private OpenCLBuffer<int> buffer;
         private bool dirty;
 
-        public ImageKernel(string name, OpenCLProgram program, OpenCLBuffer<float> input, uint width, uint height, uint AA)
+        public ImageKernel(string name, OpenCLProgram program, OpenCLBuffer<float> input, uint width, uint height)
         {
             data = new int[width * height];
             buffer = new OpenCLBuffer<int>(program, data);
@@ -202,7 +205,6 @@ namespace clrays
             kernel.SetArgument(1, buffer);
             kernel.SetArgument(2, width);
             kernel.SetArgument(3, height);
-            kernel.SetArgument(4, AA);
             work = new long[] { width, height };
             dirty = false;
             Info.IntMapSize = (uint)data.Length * sizeof(int);
@@ -211,6 +213,7 @@ namespace clrays
         public void Execute(ComputeEventList events)
         {
             kernel.Execute(work, events);
+            events.Wait();
             dirty = true;
         }
 

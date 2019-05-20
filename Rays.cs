@@ -88,7 +88,7 @@ namespace clrays {
                 Intensity = 100,
                 Col = Vector3.One,
             });
-            _processor = new TraceProcessorCL((uint)Width, (uint)Height, 2, scene, TraceType.AA);
+            _processor = new TraceProcessorCL((uint)Width, (uint)Height, 2, scene, TraceType.Real);
         }
 
         public override void Render(double dt)

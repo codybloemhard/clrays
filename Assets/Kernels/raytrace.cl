@@ -444,9 +444,21 @@ __global int *tx_params, __global uchar *tx_items){
 
     float3 col = RayTrace(&ray, &scene, MAX_RENDER_DEPTH);
     col = pow(col, (float3)(1.0f/GAMMA));
-    if(AA == 1) col = clamp(col,0.0f,1.0f);
-    col /= AA;
+    if(AA == 1) 
+        col = clamp(col,0.0f,1.0f);
+    col /= (float)(AA*AA);
     return col;
+}
+
+//https://simpleopencl.blogspot.com/2013/05/atomic-operations-and-floats-in-opencl.html
+void AtomicFloatAdd(volatile global float *source, const float operand) {
+    union {unsigned int intVal;float floatVal;}newVal;
+    union{unsigned int intVal;float floatVal;}prevVal;
+    do{
+        prevVal.floatVal = *source;
+        newVal.floatVal = prevVal.floatVal + operand;
+    }
+    while (atomic_cmpxchg((volatile global unsigned int *)source, prevVal.intVal, newVal.intVal) != prevVal.intVal);
 }
 
 __kernel void raytracingAA(
@@ -461,12 +473,12 @@ __kernel void raytracingAA(
 ){
     int x = get_global_id(0);
     int y = get_global_id(1);
-    uint pixid = (x/AA + y/AA * w) * 3;
+    uint pixid = ((x/AA) + ((y/AA) * w)) * 3;
     float3 col = RayTracing(w, h, x, y, AA,
         sc_params, sc_items, tx_params, tx_items);
-    floatmap[pixid + 0] += col.x;
-    floatmap[pixid + 1] += col.y;
-    floatmap[pixid + 2] += col.z;
+    AtomicFloatAdd(&floatmap[pixid + 0],col.x);
+    AtomicFloatAdd(&floatmap[pixid + 1],col.y);
+    AtomicFloatAdd(&floatmap[pixid + 2],col.z);
 }
 
 __kernel void raytracing(
@@ -505,16 +517,14 @@ __kernel void image_from_floatmap(
     __global float *floatmap,
     __global int *imagemap,
     const uint w,
-    const uint h,
-    const uint AA
+    const uint h
 ){
     int x = get_global_id(0);
     int y = get_global_id(1);
     uint pix_int = (x + y * w);
     uint pix_float = pix_int * 3;
-    float aa = (float)aa;
-    float r = clamp(floatmap[pix_float + 0], 0.0f, aa) * 255.0f;
-    float g = clamp(floatmap[pix_float + 1], 0.0f, aa) * 255.0f;
-    float b = clamp(floatmap[pix_float + 2], 0.0f, aa) * 255.0f;
-    imagemap[pix_int] = ((int)r << 16) + ((int)g << 8) + (int)b;
+    float r = clamp(floatmap[pix_float + 0], 0.0f, 1.0f) * 255.0f;
+    float g = clamp(floatmap[pix_float + 1], 0.0f, 1.0f) * 255.0f;
+    float b = clamp(floatmap[pix_float + 2], 0.0f, 1.0f) * 255.0f;
+    imagemap[pix_int] = ((int)((uchar)r) << 16) + ((int)((uchar)g) << 8) + (int)((uchar)b);
 }

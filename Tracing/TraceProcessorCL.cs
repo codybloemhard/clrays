@@ -31,7 +31,7 @@ namespace clrays {
                 case TraceType.AA:
                     traceAAKernel = new TraceAaKernel("raytracingAA", program, scene, width, height, AA);
                     clearKernel = new ClearKernel("clear", program, traceAAKernel.GetBuffer(), width, height);
-                    imageKernel = new ImageKernel("image_from_floatmap", program, traceAAKernel.GetBuffer(), width, height, AA);
+                    imageKernel = new ImageKernel("image_from_floatmap", program, traceAAKernel.GetBuffer(), width, height);
                     break;
             }
             //texture
@@ -63,6 +63,7 @@ namespace clrays {
                     traceAAKernel.Update();
                     traceAAKernel.Execute(events);
                     imageKernel.Execute(events);
+                    events.Wait();
                     image = imageKernel.GetResult();
                     break;
                 default:
