@@ -1,10 +1,7 @@
 fix box intersection
-fix camera: look up and down weird zoom effect
-fix normalmap no angle falloff?
 sphere skybox only tophalf option
 skybox cubemap
 hdr skybox
-sky light specular only
 optimize pow: gamma correct images before upload and gamma correct after AA
 refraction
 bi/trilinear texture filtering

@@ -338,7 +338,6 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 *out_
     int count = ScGetCount(SC_LIGHT, scene);
     int stride = ScGetStride(SC_LIGHT, scene);
     int start = ScGetStart(SC_LIGHT, scene);
-    //float shininess = ;
     for(int i = 0; i < count; i++){
         int off = start + i * stride;
         float3 lpos = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
@@ -398,7 +397,6 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
         newnor.z = dot(row, rawnor);
         hit.nor = normalize(newnor);
     }
-    //return hit.nor;
     //roughnessmap
     if(hit.mat->roughnessmap > 0){
         float value = GetTexScalar(hit.mat->roughnessmap - 1, uv, scene);
@@ -440,9 +438,9 @@ __global int *tx_params, __global uchar *tx_items){
     scene.skyintens = as_float(sc_params[3*SC_SCENE + 4]);
     struct Ray ray;
     ray.pos = ExtractFloat3FromInts(sc_params, 3*SC_SCENE + 5);
-    float3 cd = ExtractFloat3FromInts(sc_params, 3*SC_SCENE + 8);
-    float3 hor = cross(cd,(float3)(0.0f,1.0f,0.0f));
-    float3 ver = cross(hor,cd);
+    float3 cd = normalize(ExtractFloat3FromInts(sc_params, 3*SC_SCENE + 8));
+    float3 hor = normalize(cross(cd,(float3)(0.0f,1.0f,0.0f)));
+    float3 ver = normalize(cross(hor,cd));
     float2 uv = (float2)((float)x / (w * AA), (float)y / (h * AA));
     uv -= 0.5f;
     uv *= (float2)((float)w/h, -1.0f);
