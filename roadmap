@@ -13,7 +13,6 @@ preprocess kernel: optimize branches away, insert constants
 models
 accelerating structure
 displacement maps
-metal maps
 
 features:
 raytracing:
@@ -22,6 +21,6 @@ albedo(shadows), specular
 reflection
 AA
 textures uv(planes,spheres)
-albedo,normalmaps,roughnessmaps
+albedo,normalmaps,roughnessmaps,metalicmaps
 skycolour,skybox(sphere),sky lighting
 camera controls

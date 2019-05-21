@@ -387,8 +387,8 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
             t = cross(hit.nor, (float3)(0.0f,0.0f,1.0f));
         t = normalize(t);
         float3 b = normalize(cross(hit.nor, t));
-        rawnor = normalize(rawnor);
         rawnor = rawnor * 2 - 1;
+        rawnor = normalize(rawnor);
         float3 newnor;
         float3 row = (float3)(t.x, b.x, hit.nor.x);
         newnor.x = dot(row, rawnor);
@@ -398,6 +398,7 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
         newnor.z = dot(row, rawnor);
         hit.nor = normalize(newnor);
     }
+    //return hit.nor;
     //roughnessmap
     if(hit.mat->roughnessmap > 0){
         float value = GetTexScalar(hit.mat->roughnessmap - 1, uv, scene);
