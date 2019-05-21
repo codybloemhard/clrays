@@ -1,4 +1,4 @@
-fix box intersection
+box uv mapping
 sphere skybox only tophalf option
 skybox cubemap
 hdr skybox
@@ -13,7 +13,7 @@ displacement maps
 
 features:
 raytracing:
-spheres, planes
+spheres, planes, box
 albedo(shadows), specular
 reflection
 AA

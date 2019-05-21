@@ -196,36 +196,24 @@ float2 SkySphereUV(float3 nor){
     return (float2)(u,v);
 }
 //ray-box intersection
+//https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms
 //https://stackoverflow.com/questions/16875946/ray-box-intersection-normal#16876601
-//https://tavianator.com/fast-branchless-raybounding-box-intersections/
-//broken
 struct RayHit InterBox(struct Ray* r, float3 bmin, float3 bmax){
     float3 inv = 1.0f / r->dir;
-    float tx1 = (bmin.x - r->pos.x)*inv.x;
-    float tx2 = (bmax.x - r->pos.x)*inv.x;
- 
-    float tmin = min(tx1, tx2);
-    float tmax = max(tx1, tx2);
- 
-    float ty1 = (bmin.y - r->pos.y)*inv.y;
-    float ty2 = (bmax.y - r->pos.y)*inv.y;
- 
-    tmin = max(tmin, min(ty1, ty2));
-    tmax = min(tmax, max(ty1, ty2));
-
-    float tz1 = (bmin.z - r->pos.z)*inv.z;
-    float tz2 = (bmax.z - r->pos.z)*inv.z;
- 
-    tmin = max(tmin, min(tz1, tz2));
-    tmax = min(tmax, max(tz1, tz2));
- 
-    if(tmax < tmin)
+    float t1 = (bmin.x - r->pos.x)*inv.x;
+    float t2 = (bmax.x - r->pos.x)*inv.x;
+    float t3 = (bmin.y - r->pos.y)*inv.y;
+    float t4 = (bmax.y - r->pos.y)*inv.y;
+    float t5 = (bmin.z - r->pos.z)*inv.z;
+    float t6 = (bmax.z - r->pos.z)*inv.z;
+    float tmin = fmax(fmax(fmin(t1,t2),fmin(t3,t4)),fmin(t5,t6));
+    float tmax = fmin(fmin(fmax(t1,t2),fmax(t3,t4)),fmax(t5,t6));
+    if(tmax < 0.0f || tmin > tmax){
         return NullRayHit();
-
-    float t = max(tmin,0.0f);
-    float3 hitp = r->pos + r->dir * t;
+    }
+    float3 hitp = r->pos + r->dir * tmin;
     //normal
-    float3 normal;
+    float3 normal = (float3)(0.0f,0.0f,1.0f);
     float3 size = bmax - bmin;
     float3 localPoint = hitp - (bmin + size/2.0f);
     float min = -10000.0f;
@@ -249,7 +237,7 @@ struct RayHit InterBox(struct Ray* r, float3 bmin, float3 bmax){
     }
     //return
     struct RayHit hit;
-    hit.t = t;
+    hit.t = tmin;
     hit.pos = hitp;
     hit.nor = normalize(normal);
     return hit;
@@ -368,7 +356,7 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
         return SkyCol(ray->dir, scene);
     //texture
     float2 uv;
-    float3 texcol;
+    float3 texcol = (float3)(1.0f);
     if(hit.mat->texture > 0){
         uchar uvtype = hit.mat->uvtype;
         if(uvtype == uvPLANE)
@@ -381,9 +369,9 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     //normalmap
     if(hit.mat->normalmap > 0){
         float3 rawnor = GetTexVal(hit.mat->normalmap - 1, uv, scene);
-        float3 t = cross(hit.nor, (float3)(0.0f,1.0f,0.0f));
+        float3 t = normalize(cross(hit.nor, (float3)(0.0f,1.0f,0.0f)));
         if(length(t) < EPSILON)
-            t = cross(hit.nor, (float3)(0.0f,0.0f,1.0f));
+            t = normalize(cross(hit.nor, (float3)(0.0f,0.0f,1.0f)));
         t = normalize(t);
         float3 b = normalize(cross(hit.nor, t));
         rawnor = rawnor * 2 - 1;

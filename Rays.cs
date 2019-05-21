@@ -15,7 +15,7 @@ namespace clrays {
 
         private Scene scene;
         private KeyboardState kstate;
-        private readonly float speed = 1f;
+        private readonly float speed = 2f;
         private bool canMove, wasDown;
         private Vector3 hor, ver;
 
@@ -63,6 +63,18 @@ namespace clrays {
                     NormalMap = scene.GetTexture("stone-nor"),
                     RoughnessMap = scene.GetTexture("stone-rou"),
                     TexScale = 4f,
+                }
+            });
+            scene.Add(new Box
+            {
+                Pos = new Vector3(0f,2f,-5f),
+                Size = Vector3.One,
+                //Rad = 1f,
+                Mat = new Material
+                {
+                    Reflectivity = 0f,
+                    //Texture = scene.GetTexture("wood"),
+                    //TexScale = 0.5f,
                 }
             });
             scene.Add(new Sphere
