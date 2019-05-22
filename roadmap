@@ -1,11 +1,10 @@
-box uv mapping
+sRGB now, use aces, linear colours
+hdr skybox
+refraction
 sphere skybox only tophalf option
 skybox cubemap
-hdr skybox
 optimize pow: gamma correct images before upload and gamma correct after AA
-refraction
 bi/trilinear texture filtering
-sRGB now, use aces, linear colours
 preprocess kernel: optimize branches away, insert constants
 models
 accelerating structure
@@ -17,7 +16,7 @@ spheres, planes, box
 albedo(shadows), specular
 reflection
 AA
-textures uv(planes,spheres)
+textures uv(planes,spheres,box as plane)
 albedo,normalmaps,roughnessmaps,metalicmaps
 skycolour,skybox(sphere),sky lighting
 camera controls

@@ -124,7 +124,7 @@ namespace Template {
         static extern IntPtr wglGetCurrentDC();
 
         public void FatalError(string message) {
-            MessageBox.Show(message, "OpenCL Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            Console.WriteLine(message);
             System.Environment.Exit(1);
         }
 

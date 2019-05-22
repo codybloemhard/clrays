@@ -21,7 +21,9 @@ namespace clrays {
 
         public TraceProcessorCL(uint width, uint height, uint AA, Scene scene, TraceType type) {
             this.type = type;
+            Info.StartTime();
             program = new OpenCLProgram("Assets/Kernels/raytrace.cl");
+            Info.SetTimePoint("Init OpenCL program");
             switch (type)
             {
                 case TraceType.Real:
@@ -45,6 +47,7 @@ namespace clrays {
             renderTexture.PixelType = PixelType.UnsignedByte;
             renderTexture.SetFilters(TextureMinFilter.Linear, TextureMagFilter.Linear);
             renderTexture.SetWrapping(TextureWrapMode.ClampToEdge, TextureWrapMode.ClampToEdge);
+            Info.SetTimePoint("Last time stamp");
             Info.PrintInfo();
         }
 

@@ -65,18 +65,6 @@ namespace clrays {
                     TexScale = 4f,
                 }
             });
-            scene.Add(new Box
-            {
-                Pos = new Vector3(0f,2f,-5f),
-                Size = Vector3.One,
-                //Rad = 1f,
-                Mat = new Material
-                {
-                    Reflectivity = 0f,
-                    //Texture = scene.GetTexture("wood"),
-                    //TexScale = 0.5f,
-                }
-            });
             scene.Add(new Sphere
             {
                 Pos = new Vector3(2, 0, -5),

@@ -177,24 +177,6 @@ struct RayHit InterPlane(struct Ray* r, float3 ppos, float3 pnor){
     hit.nor = pnor;
     return hit;
 }
-//plane uv
-float2 PlaneUV(float3 pos, float3 nor){
-    float3 u = normalize((float3)(nor.y, nor.z, -nor.x));
-    float3 v = normalize(cross(u, nor));
-    return (float2)(dot(pos,u),dot(pos,v));
-}
-//sphere uv
-float2 SphereUV(float3 nor){
-    float u = 0.5f + (atan2(-nor.z, -nor.x) / (2*M_PI));
-    float v = 0.5f - asinpi(-nor.y);
-    return (float2)(u,v);
-}
-//sphere skybox uv(just sphere uv with inverted normal)
-float2 SkySphereUV(float3 nor){
-    float u = 0.5f + (atan2(nor.z, nor.x) / (2*M_PI));
-    float v = 0.5f - asinpi(nor.y);
-    return (float2)(u,v);
-}
 //ray-box intersection
 //https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms
 //https://stackoverflow.com/questions/16875946/ray-box-intersection-normal#16876601
@@ -241,6 +223,24 @@ struct RayHit InterBox(struct Ray* r, float3 bmin, float3 bmax){
     hit.pos = hitp;
     hit.nor = normalize(normal);
     return hit;
+}
+//plane uv
+float2 PlaneUV(float3 pos, float3 nor){
+    float3 u = (float3)(nor.y, nor.z, -nor.x);
+    float3 v = normalize(cross(u, nor));
+    return (float2)(dot(pos,u),dot(pos,v));
+}
+//sphere uv
+float2 SphereUV(float3 nor){
+    float u = 0.5f + (atan2(-nor.z, -nor.x) / (2*M_PI));
+    float v = 0.5f - asinpi(-nor.y);
+    return (float2)(u,v);
+}
+//sphere skybox uv(just sphere uv with inverted normal)
+float2 SkySphereUV(float3 nor){
+    float u = 0.5f + (atan2(nor.z, nor.x) / (2*M_PI));
+    float v = 0.5f - asinpi(nor.y);
+    return (float2)(u,v);
 }
 //macros for primitive intersections
 #define START_PRIM() \
@@ -363,6 +363,8 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
             uv = PlaneUV(hit.pos, hit.nor);
         else if(uvtype == uvSPHERE)
             uv = SphereUV(hit.nor);
+        else if(uvtype == uvBOX)
+            uv = PlaneUV(hit.pos, hit.nor);
         uv *= hit.mat->texscale;
         texcol = GetTexCol(hit.mat->texture - 1, uv, scene);
     }

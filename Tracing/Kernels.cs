@@ -31,7 +31,9 @@ namespace clrays
         public TraceAaKernel(string name, OpenCLProgram program, Scene scene, uint width, uint height, uint AA)
         {
             data = new float[width * height * 3];
+            Info.SetTimePoint("Init float buffer");
             buffer = new OpenCLBuffer<float>(program, data);
+            Info.SetTimePoint("Copy float buffer to device");
             //make kernel and set args
             kernel = new OpenCLKernel(program, name);
             kernel.SetArgument(0, buffer);
@@ -39,15 +41,20 @@ namespace clrays
             kernel.SetArgument(1, width);
             kernel.SetArgument(2, height);
             kernel.SetArgument(3, AA);
+            Info.SetTimePoint("Init trace kernel");
             //make scene buffers
             var scene_raw = scene.GetBuffers();
             var scene_params_raw = scene.GetParamsBuffer();
+            Info.SetTimePoint("Init scene buffers");
             scene_params = new OpenCLBuffer<int>(program, scene_params_raw);
             scene_items = new OpenCLBuffer<float>(program, scene_raw);
+            Info.SetTimePoint("Copy scene to device");
             var tex_raw = scene.GetTexturesBuffer();
             var tex_params_raw = scene.GetTextureParamsBuffer();
+            Info.SetTimePoint("Init texture buffers");
             tex_params = new OpenCLBuffer<int>(program, tex_params_raw);
             tex_items = new OpenCLBuffer<byte>(program, tex_raw);
+            Info.SetTimePoint("Copy textures to device");
             //set arrays
             kernel.SetArgument(4, scene_params);
             kernel.SetArgument(5, scene_items);
@@ -61,6 +68,7 @@ namespace clrays
             Info.MetaSize *= sizeof(int);
             Info.SceneSize = (uint)scene_items.Length * sizeof(float);
             Info.FloatMapSize = (uint)buffer.Length * sizeof(float);
+            Info.SetTimePoint("Finish trace kernel");
         }
 
         public void Update()
@@ -103,22 +111,29 @@ namespace clrays
         public TraceKernel(string name, OpenCLProgram program, Scene scene, uint width, uint height)
         {
             data = new int[width * height];
+            Info.SetTimePoint("Init int buffer");
             buffer = new OpenCLBuffer<int>(program, data);
+            Info.SetTimePoint("Copy int buffer to device");
             //make kernel and set args
             kernel = new OpenCLKernel(program, name);
             kernel.SetArgument(0, buffer);
             //set constants
             kernel.SetArgument(1, width);
             kernel.SetArgument(2, height);
+            Info.SetTimePoint("Init trace kernel");
             //make scene buffers
             var scene_raw = scene.GetBuffers();
             var scene_params_raw = scene.GetParamsBuffer();
+            Info.SetTimePoint("Init scene buffers");
             scene_params = new OpenCLBuffer<int>(program, scene_params_raw);
             scene_items = new OpenCLBuffer<float>(program, scene_raw);
+            Info.SetTimePoint("Copy scene to device");
             var tex_raw = scene.GetTexturesBuffer();
             var tex_params_raw = scene.GetTextureParamsBuffer();
+            Info.SetTimePoint("Init texture buffers");
             tex_params = new OpenCLBuffer<int>(program, tex_params_raw);
             tex_items = new OpenCLBuffer<byte>(program, tex_raw);
+            Info.SetTimePoint("Copy textures to device");
             //set arrays
             kernel.SetArgument(3, scene_params);
             kernel.SetArgument(4, scene_items);
@@ -132,6 +147,7 @@ namespace clrays
             Info.MetaSize *= sizeof(int);
             Info.SceneSize = (uint)scene_items.Length * sizeof(float);
             Info.IntMapSize = (uint)buffer.Length * sizeof(int);
+            Info.SetTimePoint("Finish trace kernel");
         }
 
         public void Update()
@@ -174,6 +190,7 @@ namespace clrays
             kernel.SetArgument(2, height);
             work = new long[] { width, height };
             this.buffer = buffer;
+            Info.SetTimePoint("Init clear kernel");
         }
 
         public void Execute(ComputeEventList events)
@@ -199,7 +216,9 @@ namespace clrays
         public ImageKernel(string name, OpenCLProgram program, OpenCLBuffer<float> input, uint width, uint height)
         {
             data = new int[width * height];
+            Info.SetTimePoint("Init int buffer");
             buffer = new OpenCLBuffer<int>(program, data);
+            Info.SetTimePoint("Copy int buffer to device");
             kernel = new OpenCLKernel(program, name);
             kernel.SetArgument(0, input);
             kernel.SetArgument(1, buffer);
@@ -208,6 +227,7 @@ namespace clrays
             work = new long[] { width, height };
             dirty = false;
             Info.IntMapSize = (uint)data.Length * sizeof(int);
+            Info.SetTimePoint("Finish image kernel");
         }
 
         public void Execute(ComputeEventList events)
