@@ -1,3 +1,17 @@
+pub enum PlatformTest{
+    SdlWindow,
+    SdlAudio,
+    OpenCl,
+}
+
+pub fn run_platform_test(t: PlatformTest){
+    match t{
+        PlatformTest::SdlWindow => test_sdl_window(),
+        PlatformTest::SdlAudio => test_sdl_audio(),
+        PlatformTest::OpenCl => {},
+    }
+}
+
 pub fn test_sdl_window(){
     use sdl2::pixels::Color;
     use sdl2::event::Event;
@@ -19,6 +33,7 @@ pub fn test_sdl_window(){
     canvas.present();
     let mut event_pump = sdl_context.event_pump().unwrap();
     let mut i = 0;
+    let mut f = 0;
     'running: loop {
         i = (i + 1) % 255;
         canvas.set_draw_color(Color::RGB(i, 64, 255 - i));
@@ -36,6 +51,8 @@ pub fn test_sdl_window(){
 
         canvas.present();
         std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+        f += 1;
+        if f > 1000 { break; }
     }
 }
 
@@ -87,5 +104,5 @@ pub fn test_sdl_audio(){
     device.resume();
 
     // Play for 2 seconds
-    std::thread::sleep(Duration::from_millis(2000));
+    std::thread::sleep(Duration::from_millis(10000));
 }
