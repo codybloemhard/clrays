@@ -7,15 +7,11 @@ mod tests {
 }
 
 extern crate sdl2;
+extern crate ocl;
 
-mod test_platform;
-mod window;
-mod state;
-
-pub fn run(){
-    let mut window = window::Window::<state::StdState>::new("ClRays", 960, 540);
-    window.run(window::std_input_handler);
-}
+pub mod test_platform;
+pub mod window;
+pub mod state;
 
 pub fn test(t: test_platform::PlatformTest){
     test_platform::run_platform_test(t);
