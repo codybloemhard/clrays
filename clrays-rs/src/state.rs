@@ -22,5 +22,5 @@ impl State for StdState{
         self.should_close = true;
     }
 
-    fn update(&mut self, dt: f64){ }
+    fn update(&mut self, _dt: f64){ }
 }

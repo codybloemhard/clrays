@@ -17,21 +17,34 @@ impl<T: state::State> Window<T>{
         Self { title: title.to_string(), width, height, state: T::new() }
     }
 
-    pub fn run(&mut self, handle_input: fn(&mut sdl2::EventPump, &mut T)){
-        let contex = sdl2::init().unwrap();
-        let video_subsystem = contex.video().unwrap();
-
-        let window = video_subsystem.window(&self.title, self.width, self.height)
+    pub fn run(&mut self, handle_input: fn(&mut sdl2::EventPump, &mut T)) -> String{
+        let contex = match sdl2::init(){
+            Result::Ok(x) => x,
+            Result::Err(e) => return e,
+        };
+        let video_subsystem = match contex.video(){
+            Result::Ok(x) => x,
+            Result::Err(e) => return e,
+        };
+        let window = match video_subsystem.window(&self.title, self.width, self.height)
             .position_centered()
-            .build()
-            .unwrap();
+            .build(){
+                Result::Ok(x) => x,
+                Result::Err(e) => return window_build_error_to_string(e),
+            };
 
-        let mut canvas = window.into_canvas().build().unwrap();
+        let mut canvas = match window.into_canvas().build(){
+            Result::Ok(x) => x,
+            Result::Err(e) => return integer_ord_sdl_error_to_string(e),
+        };
 
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
         canvas.present();
-        let mut event_pump = contex.event_pump().unwrap();
+        let mut event_pump = match contex.event_pump(){
+            Result::Ok(x) => x,
+            Result::Err(e) => return e,
+        };
         loop {
             canvas.clear();
             handle_input(&mut event_pump, &mut self.state);
@@ -41,6 +54,23 @@ impl<T: state::State> Window<T>{
             canvas.present();
             std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
         }
+        "Closed properly".to_string()
+    }
+}
+
+pub fn window_build_error_to_string(wbe: sdl2::video::WindowBuildError) -> String{
+    match wbe{
+        sdl2::video::WindowBuildError::WidthOverflows(x) => format!("sdl2: WindowBuildError: WidthOverflows: {}", x),
+        sdl2::video::WindowBuildError::HeightOverflows(x) => format!("sdl2: WindowBuildError: HeightOverflows: {}", x),
+        sdl2::video::WindowBuildError::InvalidTitle(ne) => format!("sdl2: WindowBuildError: InvalidTitle: NulError: nul_position: {}", ne.nul_position()),
+        sdl2::video::WindowBuildError::SdlError(sdle) => format!("sdl12: WindowBuildError: SdlError: {}", sdle),
+    }
+}
+
+pub fn integer_ord_sdl_error_to_string(iose: sdl2::IntegerOrSdlError) -> String{
+    match iose{
+        sdl2::IntegerOrSdlError::SdlError(sdle) => format!("sdl2: IntegerOrSdlError: SdlError: {}", sdle),
+        sdl2::IntegerOrSdlError::IntegerOverflows(s,u) => format!("sdl2: IntegerOrSdlError: IntegerOverflows: string = {}, value = {}", s, u),
     }
 }
 
