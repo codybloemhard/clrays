@@ -17,25 +17,25 @@ impl<T: state::State> Window<T>{
         Self { title: title.to_string(), width, height, state: T::new() }
     }
 
-    pub fn run(&mut self, handle_input: fn(&mut sdl2::EventPump, &mut T)) -> String{
+    pub fn run(&mut self, handle_input: fn(&mut sdl2::EventPump, &mut T)) -> Option<String>{
         let contex = match sdl2::init(){
             Result::Ok(x) => x,
-            Result::Err(e) => return e,
+            Result::Err(e) => return Some(e),
         };
         let video_subsystem = match contex.video(){
             Result::Ok(x) => x,
-            Result::Err(e) => return e,
+            Result::Err(e) => return Some(e),
         };
         let window = match video_subsystem.window(&self.title, self.width, self.height)
             .position_centered()
             .build(){
                 Result::Ok(x) => x,
-                Result::Err(e) => return window_build_error_to_string(e),
+                Result::Err(e) => return Some(window_build_error_to_string(e)),
             };
 
         let mut canvas = match window.into_canvas().build(){
             Result::Ok(x) => x,
-            Result::Err(e) => return integer_ord_sdl_error_to_string(e),
+            Result::Err(e) => return Some(integer_ord_sdl_error_to_string(e)),
         };
 
         canvas.set_draw_color(Color::RGB(0, 0, 0));
@@ -43,7 +43,7 @@ impl<T: state::State> Window<T>{
         canvas.present();
         let mut event_pump = match contex.event_pump(){
             Result::Ok(x) => x,
-            Result::Err(e) => return e,
+            Result::Err(e) => return Some(e),
         };
         loop {
             canvas.clear();
@@ -54,7 +54,7 @@ impl<T: state::State> Window<T>{
             canvas.present();
             std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
         }
-        "Closed properly".to_string()
+        None
     }
 }
 
