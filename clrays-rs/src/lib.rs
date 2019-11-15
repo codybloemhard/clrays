@@ -12,6 +12,7 @@ extern crate ocl;
 pub mod test_platform;
 pub mod window;
 pub mod state;
+pub mod vec3;
 
 pub fn test(t: test_platform::PlatformTest){
     test_platform::run_platform_test(t);
