@@ -62,41 +62,61 @@ impl Vec3{
         self
     }
 
-    fn added(mut self, o: &Self) -> Self{
+    fn add(&mut self, o: &Self){
         self.x += o.x;
         self.y += o.y;
         self.z += o.z;
-        self
     }
 
-    fn subed(mut self, o: &Self) -> Self{
+    fn sub(&mut self, o: &Self){
         self.x -= o.x;
         self.y -= o.y;
         self.z -= o.z;
-        self
     }
 
-    fn muled(mut self, o: &Self) -> Self{
+    fn mul(&mut self, o: &Self){
         self.x *= o.x;
         self.y *= o.y;
         self.z *= o.z;
-        self
     }
 
-    fn dived_unsafe(mut self, o: &Self) -> Self{
+    fn div_unsafe(&mut self, o: &Self){
         self.x /= o.x;
         self.y /= o.y;
         self.z /= o.z;
-        self
     }
 
-    fn dived(mut self, o: &Self) -> Self{
+    fn div(&mut self, o: &Self){
         if o.x != 0.0 { self.x /= o.x; }
         else { self.x = std::f32::MAX; }
         if o.y != 0.0 { self.y /= o.y; }
         else { self.y = std::f32::MAX; }
         if o.z != 0.0 { self.z /= o.z; }
         else { self.z = std::f32::MAX; }
+    }
+
+    fn added(mut self, o: &Self) -> Self{
+        self.add(o);
+        self
+    }
+
+    fn subed(mut self, o: &Self) -> Self{
+        self.sub(o);
+        self
+    }
+
+    fn muled(mut self, o: &Self) -> Self{
+        self.mul(o);
+        self
+    }
+
+    fn dived_unsafe(mut self, o: &Self) -> Self{
+        self.div_unsafe(o);
+        self
+    }
+
+    fn dived(mut self, o: &Self) -> Self{
+        self.div(o);
         self
     }
 
@@ -129,6 +149,42 @@ mod test{
         assert_eq!(Vec3::new(1.0, 1.0, 1.0), Vec3::one());
     }
     #[test]
+    fn test_len_zero(){
+        assert_eq!(Vec3::zero().len(), 0.0);
+    }
+    #[test]
+    fn test_len_one(){
+        assert_eq!(Vec3::one().len() - 1.73205 < 0.001, true);
+    }
+    #[test]
+    fn test_len_scale(){
+        assert_eq!(Vec3::one().scaled(1.1).len() > Vec3::one().len(), true);
+    }
+    #[test]
+    fn test_dot_zero(){
+        assert_eq!(Vec3::zero().dot(&Vec3::zero()), 0.0);
+    }
+    #[test]
+    fn test_dot_far(){
+        assert_eq!(Vec3::new(1.0, 0.0, 0.0).dot(&Vec3::new(0.0, 1.0, 0.0)), 0.0);
+    }
+    #[test]
+    fn test_dot_close(){
+        assert_eq!(Vec3::new(1.0, 0.0, 0.0).dot(&Vec3::new(1.0, 0.0, 0.0)), 1.0);
+    }
+    #[test]
+    fn test_normalize(){
+        assert_eq!((Vec3::zero().normalized().len()).abs() < 0.001, true);
+    }
+    #[test]
+    fn test_normalize_unsafe(){
+        assert_eq!((Vec3::one().normalized_unsafe().len() - 1.0).abs() < 0.001, true);
+    }
+    #[test]
+    fn test_scale(){
+        assert_eq!((Vec3::one().normalized_unsafe().scaled(5.0).len() - 5.0).abs() < 0.001, true);
+    }
+    #[test]
     fn test_added_0(){
         assert_eq!(Vec3::zero().added(&Vec3::one()), Vec3::one());
     }
@@ -151,5 +207,25 @@ mod test{
     #[test]
     fn test_subed_2(){
         assert_eq!(Vec3::new(1.0, 2.0, 3.0).subed(&Vec3::new(4.0, 5.0, 6.0)), Vec3::new(-3.0,-3.0,-3.0));
+    }
+    #[test]
+    fn test_muled_0(){
+        assert_eq!(Vec3::new(1.0, 2.0, 3.0).muled(&Vec3::new(4.0, 5.0, 6.0)), Vec3::new(4.0, 10.0, 18.0));
+    }
+    #[test]
+    fn test_muled_1(){
+        assert_eq!(Vec3::new(1.0, 2.0, 3.0).muled(&Vec3::one()), Vec3::new(1.0, 2.0, 3.0));
+    }
+    #[test]
+    fn test_dived_unsafe(){
+        assert_eq!(Vec3::new(1.0, 2.0, 3.0).dived_unsafe(&Vec3::new(1.0, 2.0, 3.0)), Vec3::one());
+    }
+    #[test]
+    fn test_dived(){
+        assert_eq!(Vec3::new(1.0, 2.0, 3.0).dived(&Vec3::new(1.0, 2.0, 0.0)), Vec3::new(1.0, 1.0, std::f32::MAX));
+    }
+    #[test]
+    fn test_crossed(){
+        assert_eq!(Vec3::new(1.0, 0.0, 0.0).crossed(&Vec3::new(0.0, 1.0, 0.0)), Vec3::new(0.0, 0.0, 1.0));
     }
 }
