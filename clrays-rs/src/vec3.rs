@@ -1,74 +1,74 @@
 #[derive(PartialEq,Clone,Copy,Debug)]
-struct Vec3{
-    x: f32,
-    y: f32,
-    z: f32,
+pub struct Vec3{
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 impl Vec3{
-    fn new(x: f32, y: f32, z: f32) -> Self{
+    pub fn new(x: f32, y: f32, z: f32) -> Self{
         Self {x, y, z}
     }
 
-    fn zero() -> Self{
+    pub fn zero() -> Self{
         Self {x: 0.0, y: 0.0, z: 0.0}
     }
 
-    fn one() -> Self{
+    pub fn one() -> Self{
         Self {x: 1.0, y: 1.0, z: 1.0}
     }
 
-    fn right() -> Self{
+    pub fn right() -> Self{
         Self {x: 1.0, y: 0.0, z: 0.0}
     }
 
-    fn left() -> Self{
+    pub fn left() -> Self{
         Self {x: -1.0, y: 0.0, z: 0.0}
     }
 
-    fn up() -> Self{
+    pub fn up() -> Self{
         Self {x: 0.0, y: 1.0, z: 0.0}
     }
 
-    fn down() -> Self{
+    pub fn down() -> Self{
         Self {x: 0.0, y: -1.0, z: 0.0}
     }
 
-    fn forward() -> Self{
+    pub fn forward() -> Self{
         Self {x: 0.0, y: 0.0, z: 1.0}
     }
 
-    fn backward() -> Self{
+    pub fn backward() -> Self{
         Self {x: 0.0, y: 0.0, z: -1.0}
     }
 
-    fn neg(&mut self){
+    pub fn neg(&mut self){
         self.x = -self.x;
         self.y = -self.y;
         self.z = -self.z;
     }
 
-    fn neged(mut self) -> Self{
+    pub fn neged(mut self) -> Self{
         self.neg();
         self
     }
 
-    fn len(&self) -> f32{
+    pub fn len(&self) -> f32{
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 
-    fn dot(&self, o: &Self) -> f32{
+    pub fn dot(&self, o: &Self) -> f32{
         self.x * o.x + self.y * o.y + self.z * o.z
     }
 
-    fn normalize_unsafe(&mut self){
+    pub fn normalize_unsafe(&mut self){
         let l = self.len();
         self.x /= l;
         self.y /= l;
         self.z /= l;
     }
 
-    fn normalize(&mut self){
+    pub fn normalize(&mut self){
         let l = self.len();
         if l == 0.0 { return; }
         self.x /= l;
@@ -76,52 +76,52 @@ impl Vec3{
         self.z /= l;
     }
 
-    fn normalized_unsafe(mut self) -> Self{
+    pub fn normalized_unsafe(mut self) -> Self{
         self.normalize_unsafe();
         self
     }
 
-    fn normalized(mut self) -> Self{
+    pub fn normalized(mut self) -> Self{
         self.normalize();
         self
     }
 
-    fn scale(&mut self, s: f32){
+    pub fn scale(&mut self, s: f32){
         self.x *= s;
         self.y *= s;
         self.z *= s;
     }
 
-    fn scaled(mut self, s: f32) -> Self{
+    pub fn scaled(mut self, s: f32) -> Self{
         self.scale(s);
         self
     }
 
-    fn add(&mut self, o: &Self){
+    pub fn add(&mut self, o: &Self){
         self.x += o.x;
         self.y += o.y;
         self.z += o.z;
     }
 
-    fn sub(&mut self, o: &Self){
+    pub fn sub(&mut self, o: &Self){
         self.x -= o.x;
         self.y -= o.y;
         self.z -= o.z;
     }
 
-    fn mul(&mut self, o: &Self){
+    pub fn mul(&mut self, o: &Self){
         self.x *= o.x;
         self.y *= o.y;
         self.z *= o.z;
     }
 
-    fn div_unsafe(&mut self, o: &Self){
+    pub fn div_unsafe(&mut self, o: &Self){
         self.x /= o.x;
         self.y /= o.y;
         self.z /= o.z;
     }
 
-    fn div(&mut self, o: &Self){
+    pub fn div(&mut self, o: &Self){
         if o.x != 0.0 { self.x /= o.x; }
         else { self.x = std::f32::MAX; }
         if o.y != 0.0 { self.y /= o.y; }
@@ -130,32 +130,32 @@ impl Vec3{
         else { self.z = std::f32::MAX; }
     }
 
-    fn added(mut self, o: &Self) -> Self{
+    pub fn added(mut self, o: &Self) -> Self{
         self.add(o);
         self
     }
 
-    fn subed(mut self, o: &Self) -> Self{
+    pub fn subed(mut self, o: &Self) -> Self{
         self.sub(o);
         self
     }
 
-    fn muled(mut self, o: &Self) -> Self{
+    pub fn muled(mut self, o: &Self) -> Self{
         self.mul(o);
         self
     }
 
-    fn dived_unsafe(mut self, o: &Self) -> Self{
+    pub fn dived_unsafe(mut self, o: &Self) -> Self{
         self.div_unsafe(o);
         self
     }
 
-    fn dived(mut self, o: &Self) -> Self{
+    pub fn dived(mut self, o: &Self) -> Self{
         self.div(o);
         self
     }
 
-    fn cross(&mut self, o: &Self){
+    pub fn cross(&mut self, o: &Self){
         let xx = self.y * o.z - self.z * o.y;
         let yy = self.z * o.x - self.x * o.z;
         let zz = self.x * o.y - self.y * o.x;
@@ -164,7 +164,7 @@ impl Vec3{
         self.z = zz;
     }
     
-    fn crossed(self, o: &Self) -> Self{
+    pub fn crossed(self, o: &Self) -> Self{
         let x = self.y * o.z - self.z * o.y;
         let y = self.z * o.x - self.x * o.z;
         let z = self.x * o.y - self.y * o.x;
