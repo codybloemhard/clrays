@@ -1,5 +1,6 @@
 use crate::vec3::Vec3;
 use crate::trace_tex::{TexType, TraceTex};
+use crate::misc::Incrementable;
 use std::collections::HashMap;
 
 pub struct Material{
@@ -125,7 +126,7 @@ impl SceneItem for Light{
 pub struct Scene{
     pub spheres: Vec<Sphere>,
     pub planes: Vec<Plane>,
-    pub boxes: Vec<Plane>,
+    pub boxes: Vec<Box>,
     pub lights: Vec<Light>,
     scene_params: [i32; Self::SCENE_PARAM_SIZE],
     next_texture: i32,
@@ -202,4 +203,99 @@ impl Scene{
         self.scene_params[i + 1] = Self::f32_transm_i32(v.y);
         self.scene_params[i + 2] = Self::f32_transm_i32(v.z);
     }
+
+    pub fn get_textures_buffer(&self) -> Vec<u8>{
+        let mut size = 0;
+        for tex in self.textures.iter(){
+            let s = tex.pixels.len();
+            size += s;
+        }
+        let mut res = Vec::with_capacity(size);
+        let mut start = 0;
+        for tex in self.textures.iter(){
+            let len = tex.pixels.len();
+            for j in 0..len{
+                res[start + j] = tex.pixels[j];
+            }
+            start += len;
+        }
+        res
+    }
+
+    pub fn get_texture_params_buffer(&self) -> Vec<i32>{
+        let mut res = Vec::with_capacity(self.textures.len() * 3);
+        let mut start = 0;
+        for (i, tex) in self.textures.iter().enumerate(){
+            res[i * 3 + 0] = start as i32;
+            res[i * 3 + 1] = tex.width;
+            res[i * 3 + 2] = tex.height;
+            start += tex.pixels.len();
+        }
+        res
+    }
+
+    pub fn bufferize<T: SceneItem>(vec: &mut Vec<f32>, start: &mut usize, list: Vec<T>, stride: usize){
+        for (i, item) in list.iter().enumerate(){
+            let off = i * stride;
+            let data = item.get_data();
+            for (j, float) in data.iter().enumerate(){
+                vec[*start + off + j] = *float;
+            }
+        }
+        *start += list.len() * stride;
+    }
+
+    pub fn add_texture(&mut self, name: String, path: String, ttype: TexType){
+        if self.ghost_textures.get(&name).is_some(){
+            println!("Error: Texture name is already used: {}", name);
+            return;
+        }
+        self.ghost_textures.insert(name, (path,ttype));
+    }
+
+    fn actually_load_texture(&mut self, name: &String) -> bool{
+        if self.textures_ids.get(name).is_some() { return true;}
+        let (path,ttype);
+        if let Some((pathv,ttypev)) = self.ghost_textures.get(name){
+            path = pathv;
+            ttype = ttypev;
+        }else{
+            println!("Error: Texture not found: {}.", name);
+            return false;
+        }
+        let tex = if *ttype == TexType::Vector3c8bpc { TraceTex::vector_tex(path) }
+        else { TraceTex::scalar_tex(path) };
+        self.textures_ids.insert(name.clone(), self.next_texture.inc());
+        self.textures.push(tex);
+        //c#: Info.Textures.Add((name, (uint)tex.Pixels.Length));
+        true
+    }
+
+    pub fn get_texture(&mut self, name: String) -> i32{
+        if !self.actually_load_texture(&name) { return 0; }
+        if let Some(x) = self.textures_ids.get(&name){
+            return x + 1;
+        }
+        0
+    }
+
+    pub fn set_skybox(&mut self, name: &String){
+        if name == "" { 
+            self.skybox = 0;
+        }else if !self.actually_load_texture(name){
+            self.skybox = 0;
+        }else if let Some(x) = self.textures_ids.get(name){
+            self.skybox = x + 1;
+        }
+    }
 }
+
+pub trait LightAddable{ fn add(&mut self, l: Light); }
+pub trait SphereAddable{ fn add(&mut self, s: Sphere); }
+pub trait PlaneAddable{ fn add(&mut self, p: Plane); }
+pub trait BoxAddable{ fn add(&mut self, b: Box); }
+
+impl LightAddable for Scene{ fn add(&mut self, l: Light){ self.lights.push(l); } }
+impl SphereAddable for Scene{ fn add(&mut self, s: Sphere){ self.spheres.push(s); } }
+impl PlaneAddable for Scene{ fn add(&mut self, p: Plane){ self.planes.push(p); } }
+impl BoxAddable for Scene{ fn add(&mut self, b: Box){ self.boxes.push(b); } }
