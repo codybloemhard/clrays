@@ -18,6 +18,41 @@ impl Vec3{
         Self {x: 1.0, y: 1.0, z: 1.0}
     }
 
+    fn right() -> Self{
+        Self {x: 1.0, y: 0.0, z: 0.0}
+    }
+
+    fn left() -> Self{
+        Self {x: -1.0, y: 0.0, z: 0.0}
+    }
+
+    fn up() -> Self{
+        Self {x: 0.0, y: 1.0, z: 0.0}
+    }
+
+    fn down() -> Self{
+        Self {x: 0.0, y: -1.0, z: 0.0}
+    }
+
+    fn forward() -> Self{
+        Self {x: 0.0, y: 0.0, z: 1.0}
+    }
+
+    fn backward() -> Self{
+        Self {x: 0.0, y: 0.0, z: -1.0}
+    }
+
+    fn neg(&mut self){
+        self.x = -self.x;
+        self.y = -self.y;
+        self.z = -self.z;
+    }
+
+    fn neged(mut self) -> Self{
+        self.neg();
+        self
+    }
+
     fn len(&self) -> f32{
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
@@ -153,6 +188,10 @@ mod test{
         assert_eq!(Vec3::zero().len(), 0.0);
     }
     #[test]
+    fn test_neg(){
+        assert_eq!(Vec3::forward().neged(), Vec3::backward());
+    }
+    #[test]
     fn test_len_one(){
         assert_eq!(Vec3::one().len() - 1.73205 < 0.001, true);
     }
@@ -166,11 +205,11 @@ mod test{
     }
     #[test]
     fn test_dot_far(){
-        assert_eq!(Vec3::new(1.0, 0.0, 0.0).dot(&Vec3::new(0.0, 1.0, 0.0)), 0.0);
+        assert_eq!(Vec3::right().dot(&Vec3::up()), 0.0);
     }
     #[test]
     fn test_dot_close(){
-        assert_eq!(Vec3::new(1.0, 0.0, 0.0).dot(&Vec3::new(1.0, 0.0, 0.0)), 1.0);
+        assert_eq!(Vec3::right().dot(&Vec3::right()), 1.0);
     }
     #[test]
     fn test_normalize(){
@@ -226,6 +265,6 @@ mod test{
     }
     #[test]
     fn test_crossed(){
-        assert_eq!(Vec3::new(1.0, 0.0, 0.0).crossed(&Vec3::new(0.0, 1.0, 0.0)), Vec3::new(0.0, 0.0, 1.0));
+        assert_eq!(Vec3::right().crossed(&Vec3::up()), Vec3::forward());
     }
 }
