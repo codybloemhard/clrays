@@ -8,6 +8,7 @@ mod tests {
 
 extern crate sdl2;
 extern crate ocl;
+extern crate image;
 
 pub mod test_platform;
 pub mod window;

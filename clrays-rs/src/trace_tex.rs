@@ -11,19 +11,42 @@ pub struct TraceTex{
 }
 
 impl TraceTex{
-    pub fn vector_tex(path: &str) -> Self{//TODO: implement
-        Self{
-            pixels: Vec::new(),
-            width: 0,
-            height: 0,
-        }
+    pub fn vector_tex(path: &str) -> Result<Self,String>{
+        let img = match image::open(path){
+            Ok(x) => x,
+            Err(e) => { println!("{}", e); return Err("could not load image.".to_string()); }
+        };
+        let buff = img.to_rgb();
+
+        Result::Ok(Self{
+            pixels: buff.to_vec(),
+            width: buff.width() as i32,
+            height: buff.height() as i32,
+        })
     }
 
-    pub fn scalar_tex(path: &str) -> Self{//TODO: implement
-        Self{
-            pixels: Vec::new(),
-            width: 0,
-            height: 0,
+    pub fn scalar_tex(path: &str) -> Result<Self,String>{
+        let img = match image::open(path){
+            Ok(x) => x,
+            Err(e) => { println!("{}", e); return Err("could not load image.".to_string()); }
+        };
+        let buff = img.to_rgb();
+        let w = buff.width() as i32;
+        let h = buff.height() as i32;
+        let buff = buff.to_vec();
+        let mut avg = Vec::with_capacity(buff.len() / 3);
+        for i in 0..avg.len(){
+            let mut val = 0u16;
+            val += buff[i * 3 + 0] as u16;
+            val += buff[i * 3 + 1] as u16;
+            val += buff[i * 3 + 2] as u16;
+            val /= 3;
+            avg[i] = val as u8;
         }
+        Result::Ok(Self{
+            pixels: avg,
+            width: w,
+            height: h,
+        })
     }
 }

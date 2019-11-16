@@ -266,7 +266,8 @@ impl Scene{
         let tex = if *ttype == TexType::Vector3c8bpc { TraceTex::vector_tex(path) }
         else { TraceTex::scalar_tex(path) };
         self.textures_ids.insert(name.clone(), self.next_texture.inc());
-        self.textures.push(tex);
+        if let Ok(x) = tex {self.textures.push(x);}
+        else { return false; }
         //c#: Info.Textures.Add((name, (uint)tex.Pixels.Length));
         true
     }

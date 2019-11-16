@@ -17,3 +17,4 @@ path = "src/bin.rs"
 [dependencies]
 sdl2 = "0.32.2"
 ocl = "0.19.3"
+image = "0.22.3"
