@@ -289,14 +289,9 @@ impl Scene{
             self.skybox = x + 1;
         }
     }
+
+    pub fn add_light(&mut self, l: Light){ self.lights.push(l); }
+    pub fn add_sphere(&mut self, s: Sphere){ self.spheres.push(s); }
+    pub fn add_plane(&mut self, p: Plane){ self.planes.push(p); }
+    pub fn add_box(&mut self, b: Box){ self.boxes.push(b); }
 }
-
-pub trait LightAddable{ fn add(&mut self, l: Light); }
-pub trait SphereAddable{ fn add(&mut self, s: Sphere); }
-pub trait PlaneAddable{ fn add(&mut self, p: Plane); }
-pub trait BoxAddable{ fn add(&mut self, b: Box); }
-
-impl LightAddable for Scene{ fn add(&mut self, l: Light){ self.lights.push(l); } }
-impl SphereAddable for Scene{ fn add(&mut self, s: Sphere){ self.spheres.push(s); } }
-impl PlaneAddable for Scene{ fn add(&mut self, p: Plane){ self.planes.push(p); } }
-impl BoxAddable for Scene{ fn add(&mut self, b: Box){ self.boxes.push(b); } }
