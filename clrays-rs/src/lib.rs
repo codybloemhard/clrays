@@ -17,6 +17,7 @@ pub mod vec3;
 pub mod scene;
 pub mod trace_tex;
 pub mod misc;
+pub mod kernels;
 
 pub fn test(t: test_platform::PlatformTest){
     test_platform::run_platform_test(t);

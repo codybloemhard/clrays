@@ -1,14 +1,16 @@
 pub enum PlatformTest{
     SdlWindow,
     SdlAudio,
-    OpenCl,
+    OpenCl0,
+    OpenCl1,
 }
 
 pub fn run_platform_test(t: PlatformTest){
     match t{
         PlatformTest::SdlWindow => test_sdl_window(),
         PlatformTest::SdlAudio => test_sdl_audio(),
-        PlatformTest::OpenCl => test_opencl(),
+        PlatformTest::OpenCl0 => test_opencl0(),
+        PlatformTest::OpenCl1 => test_opencl1(),
     }
 }
 
@@ -107,7 +109,7 @@ pub fn test_sdl_audio(){
     std::thread::sleep(Duration::from_millis(10000));
 }
 
-pub fn test_opencl(){
+pub fn test_opencl0(){
     use ocl::ProQue;
 
     fn trivial() -> ocl::Result<()> {
@@ -139,6 +141,84 @@ pub fn test_opencl(){
     }
 
     let res = trivial();
+    match res{
+        Ok(_) => {},
+        Err(e) => println!("{}", e),
+    }
+}
+
+pub fn test_opencl1(){
+    use ocl::{Platform,Device,Context,Program,Queue,Buffer,flags,Kernel};
+    
+    fn run() -> ocl::Result<()>{
+        let src = r#"
+            __kernel void add(__global float* buffer, float scalar) {
+                buffer[get_global_id(0)] += scalar;
+            }
+        "#;
+        let platform = Platform::default();
+        let device = match Device::first(platform){
+            Ok(x) => x,
+            Err(e) => return Err(e),
+        };
+        let context = match Context::builder()
+        .platform(platform)
+        .devices(device.clone())
+        .build(){
+            Ok(x) => x,
+            Err(e) => return Err(e),
+        };
+        let program = match Program::builder()
+        .devices(device)
+        .src(src)
+        .build(&context){
+            Ok(x) => x,
+            Err(e) => return Err(e),
+        };
+        let queue = match Queue::new(&context, device, None){
+            Ok(x) => x,
+            Err(e) => return Err(e),
+        };
+        let dims = 1 << 20;
+        let buffer = match Buffer::<f32>::builder()
+        .queue(queue.clone())
+        .flags(flags::MEM_READ_WRITE)
+        .len(dims)
+        .fill_val(0f32)
+        .build(){
+            Ok(x) => x,
+            Err(e) => return Err(e),
+        };
+        let kernel = match Kernel::builder()
+        .program(&program)
+        .name("add")
+        .queue(queue.clone())
+        .global_work_size(dims)
+        .arg(&buffer)
+        .arg(&10f32)
+        .build(){
+            Ok(x) => x,
+            Err(e) => return Err(e),
+        };
+        unsafe { 
+            match kernel.cmd().queue(&queue).enq(){
+                Ok(_) => {},
+                Err(e) => return Err(e),
+            }
+        }
+        let mut vec = vec![0f32; dims];
+        match buffer.cmd()
+        .queue(&queue)
+        .read(&mut vec)
+        .enq(){
+            Ok(_) => {},
+            Err(e) => return Err(e),
+        }
+        assert_eq!(vec, vec![10.0f32; dims]);
+        Ok(())
+    }
+
+    let res = run();
     match res{
         Ok(_) => {},
         Err(e) => println!("{}", e),

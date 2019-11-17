@@ -1,12 +1,13 @@
 extern crate clrays_rs;
 use clrays_rs as clr;
+//use clr::test_platform::PlatformTest;
 use clr::window;
 use clr::state;
 use clr::scene::{Scene,Material,Plane,Sphere};
 use clr::vec3::Vec3;
 
 pub fn main(){
-    //clr::test(PlatformTest::OpenCl);
+    //clr::test(PlatformTest::OpenCl1);
     let mut scene = Scene::new();
     scene.sky_col = Vec3::new(0.2, 0.2, 0.9).normalized();
     scene.sky_intensity = 0.0;
