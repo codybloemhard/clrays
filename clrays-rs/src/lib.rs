@@ -18,6 +18,7 @@ pub mod scene;
 pub mod trace_tex;
 pub mod misc;
 pub mod kernels;
+pub mod cl_helpers;
 
 pub fn test(t: test_platform::PlatformTest){
     test_platform::run_platform_test(t);
