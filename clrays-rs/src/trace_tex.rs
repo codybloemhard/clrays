@@ -34,7 +34,7 @@ impl TraceTex{
         let w = buff.width() as i32;
         let h = buff.height() as i32;
         let buff = buff.to_vec();
-        let mut avg = Vec::with_capacity(buff.len() / 3);
+        let mut avg = crate::misc::build_vec(buff.len() / 3);
         for i in 0..avg.len(){
             let mut val = 0u16;
             val += buff[i * 3 + 0] as u16;

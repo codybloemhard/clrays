@@ -112,15 +112,13 @@ pub struct TraceKernel{
     dirty: bool,
     buffer: ClBuffer<i32>,
     scene_params: ClBuffer<i32>,
-    tex_params: ClBuffer<i32>,
-    scene_items: ClBuffer<f32>,
-    tex_items: ClBuffer<u8>,
+    res: (u32,u32),
 }
 
 impl TraceKernel{
-    pub fn new(name: &str, (w,h): (usize,usize), program: &Program, queue: &Queue, scene: &mut Scene) -> Result<Self, ocl::Error>{
+    pub fn new(name: &str, (w,h): (u32,u32), program: &Program, queue: &Queue, scene: &mut Scene) -> Result<Self, ocl::Error>{
         let dirty = false;
-        let buffer = match ClBuffer::<i32>::new(queue, w * h, 0){
+        let buffer = match ClBuffer::<i32>::new(queue, w as usize * h as usize, 0){
             Ok(x) => x,
             Err(e) => return Err(e),
         };
@@ -160,11 +158,42 @@ impl TraceKernel{
             Ok(x) => x,
             Err(e) => return Err(e),
         };
-        Ok(Self{ kernel, dirty, buffer, scene_params, tex_params, scene_items, tex_items })
+        Ok(Self{ kernel, dirty, buffer, scene_params, res: (w,h) })
+    }
+
+    pub fn update(&mut self, queue: &Queue) -> Result<(),ocl::Error>{
+        self.scene_params.upload(queue)
+    }
+
+    pub fn get_res(&self) -> (u32,u32){
+        self.res
     }
 }
 
-/*impl VoidKernel for TraceKernel{
-    fn execute(&mut self, queue: &Queue) -> Result<(), ocl::Error>;
-    fn get_buffer(&self) -> &ClBuffer<T>;
-}*/
+impl VoidKernel<i32> for TraceKernel{
+    fn execute(&mut self, queue: &Queue) -> Result<(), ocl::Error>{
+        unsafe { 
+            match self.kernel.cmd().queue(queue).enq(){
+                Ok(_) => { self.dirty = true; Ok(()) },
+                Err(e) => Err(e),
+            }
+        }
+    }
+
+    fn get_buffer(&self) -> &ClBuffer<i32>{
+        &self.buffer
+    }
+}
+
+impl ResultKernel<i32> for TraceKernel{
+    fn get_result(&mut self, queue: &Queue) -> Result<&[i32],ocl::Error>{
+        if self.dirty {
+            match self.buffer.download(queue){
+                Ok(_) => {},
+                Err(e) => return Err(e),
+            }
+        }
+        self.dirty = false;
+        Ok(self.buffer.get_slice())
+    }
+}

@@ -1,6 +1,6 @@
 use crate::vec3::Vec3;
 use crate::trace_tex::{TexType, TraceTex};
-use crate::misc::Incrementable;
+use crate::misc::{Incrementable,build_vec,make_nonzero_len};
 use std::collections::HashMap;
 
 pub struct Material{
@@ -177,12 +177,13 @@ impl Scene{
         len += self.spheres.len() * Self::SPHERE_SIZE as usize;
         len += self.planes.len() * Self::PLANE_SIZE as usize;
         len += self.boxes.len() * Self::BOX_SIZE as usize;
-        let mut res = Vec::with_capacity(len);
+        let mut res = build_vec(len);
         let mut i = 0;
         Self::bufferize(&mut res, &mut i, &self.lights, Self::LIGHT_SIZE as usize);
         Self::bufferize(&mut res, &mut i, &self.spheres, Self::SPHERE_SIZE as usize);
         Self::bufferize(&mut res, &mut i, &self.planes, Self::PLANE_SIZE as usize);
         Self::bufferize(&mut res, &mut i, &self.boxes, Self::BOX_SIZE as usize);
+        make_nonzero_len(&mut res);
         res
     }
 
@@ -225,7 +226,7 @@ impl Scene{
             let s = tex.pixels.len();
             size += s;
         }
-        let mut res = Vec::with_capacity(size);
+        let mut res = build_vec(size);
         let mut start = 0;
         for tex in self.textures.iter(){
             let len = tex.pixels.len();
@@ -234,11 +235,12 @@ impl Scene{
             }
             start += len;
         }
+        make_nonzero_len(&mut res);
         res
     }
 
     pub fn get_texture_params_buffer(&self) -> Vec<i32>{
-        let mut res = Vec::with_capacity(self.textures.len() * 3);
+        let mut res = build_vec(self.textures.len() * 3);
         let mut start = 0;
         for (i, tex) in self.textures.iter().enumerate(){
             res[i * 3 + 0] = start as i32;
@@ -246,6 +248,7 @@ impl Scene{
             res[i * 3 + 2] = tex.height;
             start += tex.pixels.len();
         }
+        make_nonzero_len(&mut res);
         res
     }
 

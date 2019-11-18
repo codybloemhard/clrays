@@ -1,12 +1,14 @@
 use ocl::{Buffer,flags,Queue};
+use crate::misc;
 
-pub struct ClBuffer<T: ocl::OclPrm>{
+pub struct ClBuffer<T: ocl::OclPrm + std::default::Default + std::clone::Clone>{
     ocl_buffer: Buffer::<T>,
     client_buffer: *mut Vec<T>,
 }
 
 impl<T: ocl::OclPrm> ClBuffer<T>{
     pub fn new(queue: &Queue, size: usize, init_val: T) -> Result<Self,ocl::Error>{
+        let size = std::cmp::max(size,1);
         let ocl_buffer = match Buffer::<T>::builder()
         .queue(queue.clone())
         .flags(flags::MEM_READ_WRITE)
@@ -16,7 +18,7 @@ impl<T: ocl::OclPrm> ClBuffer<T>{
             Ok(x) => x,
             Err(e) => return Err(e),
         };
-        let client_buffer = &mut Vec::with_capacity(size);
+        let client_buffer = &mut misc::build_vec(size);
         Ok(Self{
             ocl_buffer, client_buffer,
         })
@@ -25,10 +27,13 @@ impl<T: ocl::OclPrm> ClBuffer<T>{
     pub fn from(queue: &Queue, vec: *mut Vec<T>) -> Result<Self,ocl::Error>{
         let ocl_buffer;
         unsafe {
+            let len = vec.as_ref().unwrap().len(); 
+            if len == 0 { panic!("Error: ClBuffer::from got and empty vector!"); }
             ocl_buffer = match Buffer::<T>::builder()
             .queue(queue.clone())
             .flags(flags::MEM_READ_WRITE)
             .use_host_slice(&*vec)
+            .len(len)
             .build(){
                 Ok(x) => x,
                 Err(e) => return Err(e),
