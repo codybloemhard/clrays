@@ -271,7 +271,7 @@ impl Scene{
         self.ghost_textures.insert(name, (path,ttype));
     }
 
-    fn actually_load_texture(&mut self, name: &String) -> bool{
+    fn actually_load_texture(&mut self, name: &str) -> bool{
         if self.textures_ids.get(name).is_some() { return true;}
         let (path,ttype);
         if let Some((pathv,ttypev)) = self.ghost_textures.get(name){
@@ -283,7 +283,7 @@ impl Scene{
         }
         let tex = if *ttype == TexType::Vector3c8bpc { TraceTex::vector_tex(path) }
         else { TraceTex::scalar_tex(path) };
-        self.textures_ids.insert(name.clone(), self.next_texture.inc());
+        self.textures_ids.insert(name.to_string(), self.next_texture.inc());
         if let Ok(x) = tex {self.textures.push(x);}
         else { return false; }
         //c#: Info.Textures.Add((name, (uint)tex.Pixels.Length));
@@ -298,7 +298,7 @@ impl Scene{
         0
     }
 
-    pub fn set_skybox(&mut self, name: &String){
+    pub fn set_skybox(&mut self, name: &str){
         if name == "" { 
             self.skybox = 0;
         }else if !self.actually_load_texture(name){

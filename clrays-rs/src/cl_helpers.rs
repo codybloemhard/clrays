@@ -46,27 +46,22 @@ impl<T: ocl::OclPrm> ClBuffer<T>{
     }
 
     pub fn download(&mut self, queue: &Queue) -> Result<(),ocl::Error>{
-        unsafe{
-            match self.ocl_buffer.cmd()
-            .queue(queue)
-            .read(&mut self.client_buffer)
-            .enq(){
-                Ok(_) => Ok(()),
-                Err(e) => Err(e),
-            }
+        match self.ocl_buffer.cmd()
+        .queue(queue)
+        .read(&mut self.client_buffer)
+        .enq(){
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
     pub fn upload(&mut self, queue: &Queue) -> Result<(),ocl::Error>{
-        unsafe{
-            let deref = &*self.client_buffer;
-            match self.ocl_buffer.cmd()
-            .queue(queue)
-            .write(deref)
-            .enq(){
-                Ok(_) => Ok(()),
-                Err(e) => Err(e),
-            }
+        match self.ocl_buffer.cmd()
+        .queue(queue)
+        .write(&self.client_buffer)
+        .enq(){
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 

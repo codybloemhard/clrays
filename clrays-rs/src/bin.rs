@@ -15,16 +15,20 @@ pub fn main() -> Result<(),String>{
     scene.sky_intensity = 0.0;
     scene.cam_pos = Vec3::zero();
     scene.cam_dir = Vec3::backward();
+    scene.add_texture("sky".to_string(), "../Assets/Textures/sky1.jpg".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
+    scene.add_texture("wood".to_string(), "../Assets/Textures/wood.png".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
+    scene.set_skybox("wood");
     scene.add_plane(Plane{
-        pos: Vec3::down(),
-        nor: Vec3::up(),
+        pos: Vec3::zero(),
+        nor: Vec3::down(),
         mat: Material::basic(),
     });
     scene.add_sphere(Sphere{
-        pos: Vec3::new(2.0, 0.0, -5.0),
+        pos: Vec3::new(0.0, 0.0, -5.0),
         rad: 1.0,
         mat: Material::basic(),
     });
+    scene.update();
 
     use std::io::prelude::*;
     let mut file = std::fs::File::open("../Assets/Kernels/raytrace.cl").unwrap();
@@ -60,10 +64,12 @@ pub fn main() -> Result<(),String>{
     };
     trace_kernel.update(&queue).expect("expect: kernel update");
     trace_kernel.execute(&queue).expect("expect: kernel execute");
-    trace_kernel.get_result(&queue).expect("expect: kernel result.");
-    
+    let tex = match trace_kernel.get_result(&queue){
+        Ok(x) => x,
+        Err(e) => return Err("Error: kernel result".to_string()),
+    };
 
     let mut window = window::Window::<state::StdState>::new("ClRays", 960, 540);
-    window.run(window::std_input_handler);
+    window.run(window::std_input_handler, Some(tex));
     Ok(())
 }

@@ -112,6 +112,9 @@ pub struct TraceKernel{
     dirty: bool,
     buffer: ClBuffer<i32>,
     scene_params: ClBuffer<i32>,
+    scene_items: ClBuffer<f32>,
+    tex_params: ClBuffer<i32>,
+    tex_items: ClBuffer<u8>,
     res: (u32,u32),
 }
 
@@ -158,11 +161,23 @@ impl TraceKernel{
             Ok(x) => x,
             Err(e) => return Err(e),
         };
-        Ok(Self{ kernel, dirty, buffer, scene_params, res: (w,h) })
+        Ok(Self{ kernel, dirty, buffer, scene_params, scene_items, tex_params, tex_items, res: (w,h) })
     }
 
     pub fn update(&mut self, queue: &Queue) -> Result<(),ocl::Error>{
-        self.scene_params.upload(queue)
+        match self.scene_params.upload(queue){
+            Ok(_) => {}, Err(e) => return Err(e),
+        }
+        match self.scene_items.upload(queue){
+            Ok(_) => {}, Err(e) => return Err(e),
+        }
+        match self.tex_params.upload(queue){
+            Ok(_) => {}, Err(e) => return Err(e),
+        }
+        match self.tex_items.upload(queue){
+            Ok(_) => {}, Err(e) => return Err(e),
+        }
+        Ok(())
     }
 
     pub fn get_res(&self) -> (u32,u32){

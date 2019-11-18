@@ -4,6 +4,7 @@ use sdl2::pixels::Color;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use std::time::Duration;
+use sdl2::render::TextureCreator;
 
 pub struct Window<T>{
     title: String,
@@ -17,7 +18,7 @@ impl<T: state::State> Window<T>{
         Self { title: title.to_string(), width, height, state: T::new() }
     }
 
-    pub fn run(&mut self, handle_input: fn(&mut sdl2::EventPump, &mut T)) -> Option<String>{
+    pub fn run(&mut self, handle_input: fn(&mut sdl2::EventPump, &mut T), int_tex: Option<&[i32]>) -> Option<String>{
         let contex = match sdl2::init(){
             Result::Ok(x) => x,
             Result::Err(e) => return Some(e),
@@ -41,12 +42,24 @@ impl<T: state::State> Window<T>{
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
         canvas.present();
+        if let Some(int_texv) = int_tex{
+            for (i,int) in int_texv.iter().enumerate(){
+                let y = i / self.width as usize;
+                let x = i - (y * self.width as usize);
+                let r = (int >> 16) & 0xff;
+                let g = (int >> 8) & 0xff;
+                let b = (int >> 0) & 0xff;
+                let col = Color::RGB(r as u8, g as u8, b as u8);
+                canvas.set_draw_color(col);
+                canvas.draw_point(sdl2::rect::Point::new(x as i32, y as i32));
+            }
+        }
         let mut event_pump = match contex.event_pump(){
             Result::Ok(x) => x,
             Result::Err(e) => return Some(e),
         };
         loop {
-            canvas.clear();
+            //canvas.clear();
             handle_input(&mut event_pump, &mut self.state);
             if self.state.should_close() { break; }
             self.state.update(0.0);
