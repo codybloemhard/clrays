@@ -1,4 +1,4 @@
-use ocl::{Buffer,Kernel,Program,Queue};
+use ocl::{Kernel,Program,Queue};
 use std::rc::Rc;
 use crate::cl_helpers::{ClBuffer};
 use crate::scene::Scene;
@@ -122,8 +122,8 @@ impl TraceKernel{
             Ok(x) => x,
             Err(e) => return Err(e),
         };
-        let scene_raw = &mut scene.get_buffers();
-        let scene_params_raw = &mut scene.get_params_buffer();
+        let scene_raw = scene.get_buffers();
+        let scene_params_raw = scene.get_params_buffer();
         let scene_params = match ClBuffer::from(queue, scene_params_raw){
             Ok(x) => x,
             Err(e) => return Err(e),
@@ -132,8 +132,8 @@ impl TraceKernel{
             Ok(x) => x,
             Err(e) => return Err(e),
         };
-        let tex_raw = &mut scene.get_textures_buffer();
-        let tex_params_raw = &mut scene.get_texture_params_buffer();
+        let tex_raw = scene.get_textures_buffer();
+        let tex_params_raw = scene.get_texture_params_buffer();
         let tex_params = match ClBuffer::from(queue, tex_params_raw){
             Ok(x) => x,
             Err(e) => return Err(e),

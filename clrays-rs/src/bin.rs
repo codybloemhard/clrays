@@ -5,14 +5,10 @@ use clr::window;
 use clr::state;
 use clr::scene::{Scene,Material,Plane,Sphere};
 use clr::vec3::Vec3;
-use clr::kernels::{TraceKernel};
+use clr::kernels::{VoidKernel,ResultKernel,TraceKernel};
+use clr::cl_helpers;
 
-pub fn main(){
-    let mut v = vec![0usize; 10];
-    for i in 0..10{
-        v[i] = i;
-    }
-
+pub fn main() -> Result<(),String>{
     //clr::test(PlatformTest::OpenCl1);
     let mut scene = Scene::new();
     scene.sky_col = Vec3::new(0.2, 0.2, 0.9).normalized();
@@ -38,28 +34,36 @@ pub fn main(){
     let platform = ocl::Platform::default();
     let device = match ocl::Device::first(platform){
         Ok(x) => x,
-        Err(_) => return,
+        Err(_) => return Err("Error: device".to_string()),
     };
     let context = match ocl::Context::builder()
     .platform(platform)
     .devices(device.clone())
     .build(){
         Ok(x) => x,
-        Err(_) => return,
+        Err(_) => return Err("Error: context".to_string()),
     };
     let program = match ocl::Program::builder()
     .devices(device)
     .src(src)
     .build(&context){
         Ok(x) => x,
-        Err(_) => return,
+        Err(_) => return Err("Error: program".to_string()),
     };
     let queue = match ocl::Queue::new(&context, device, None){
         Ok(x) => x,
-        Err(_) => return,
+        Err(_) => return Err("Error: queue".to_string()),
     };
-    let mut trace_kernel = TraceKernel::new("", (960,540), &program, &queue, &mut scene);
+    let mut trace_kernel = match TraceKernel::new("raytracing", (960,540), &program, &queue, &mut scene){
+        Ok(x) => x,
+        Err(e) => return Err("Error: kernel new".to_string()),
+    };
+    trace_kernel.update(&queue).expect("expect: kernel update");
+    trace_kernel.execute(&queue).expect("expect: kernel execute");
+    trace_kernel.get_result(&queue).expect("expect: kernel result.");
+    
 
     let mut window = window::Window::<state::StdState>::new("ClRays", 960, 540);
     window.run(window::std_input_handler);
+    Ok(())
 }

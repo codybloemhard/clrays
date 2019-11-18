@@ -11,6 +11,7 @@ impl Incrementable for i32{
 
 pub fn build_vec<T: std::default::Default + std::clone::Clone>
     (size: usize) -> Vec<T>{
+        let size = size;
     let mut vec = Vec::with_capacity(size);
     let x = T::default();
     vec.resize(size, x);

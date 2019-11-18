@@ -3,7 +3,7 @@ use crate::misc;
 
 pub struct ClBuffer<T: ocl::OclPrm + std::default::Default + std::clone::Clone>{
     ocl_buffer: Buffer::<T>,
-    client_buffer: *mut Vec<T>,
+    client_buffer: Vec<T>,
 }
 
 impl<T: ocl::OclPrm> ClBuffer<T>{
@@ -18,21 +18,21 @@ impl<T: ocl::OclPrm> ClBuffer<T>{
             Ok(x) => x,
             Err(e) => return Err(e),
         };
-        let client_buffer = &mut misc::build_vec(size);
+        let client_buffer = misc::build_vec(size);
         Ok(Self{
             ocl_buffer, client_buffer,
         })
     }
 
-    pub fn from(queue: &Queue, vec: *mut Vec<T>) -> Result<Self,ocl::Error>{
+    pub fn from(queue: &Queue, vec: Vec<T>) -> Result<Self,ocl::Error>{
         let ocl_buffer;
         unsafe {
-            let len = vec.as_ref().unwrap().len(); 
+            let len = vec.len();
             if len == 0 { panic!("Error: ClBuffer::from got and empty vector!"); }
             ocl_buffer = match Buffer::<T>::builder()
             .queue(queue.clone())
             .flags(flags::MEM_READ_WRITE)
-            .use_host_slice(&*vec)
+            .use_host_slice(&vec)
             .len(len)
             .build(){
                 Ok(x) => x,
@@ -46,10 +46,10 @@ impl<T: ocl::OclPrm> ClBuffer<T>{
     }
 
     pub fn download(&mut self, queue: &Queue) -> Result<(),ocl::Error>{
-        unsafe{ 
+        unsafe{
             match self.ocl_buffer.cmd()
             .queue(queue)
-            .read(&mut *self.client_buffer)
+            .read(&mut self.client_buffer)
             .enq(){
                 Ok(_) => Ok(()),
                 Err(e) => Err(e),
@@ -71,7 +71,7 @@ impl<T: ocl::OclPrm> ClBuffer<T>{
     }
 
     pub fn get_slice(&self) -> &[T]{
-        unsafe { &*self.client_buffer }
+        &self.client_buffer
     }
 
     pub fn get_ocl_buffer(&self) -> &Buffer<T>{
