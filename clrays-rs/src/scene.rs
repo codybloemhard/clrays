@@ -172,7 +172,21 @@ impl Scene{
         self.get_params_buffer();
     }
 
-    pub fn get_params_buffer(&mut self){
+    pub fn get_buffers(&mut self) -> Vec<f32>{
+        let mut len = self.lights.len() * Self::LIGHT_SIZE as usize;
+        len += self.spheres.len() * Self::SPHERE_SIZE as usize;
+        len += self.planes.len() * Self::PLANE_SIZE as usize;
+        len += self.boxes.len() * Self::BOX_SIZE as usize;
+        let mut res = Vec::with_capacity(len);
+        let mut i = 0;
+        Self::bufferize(&mut res, &mut i, &self.lights, Self::LIGHT_SIZE as usize);
+        Self::bufferize(&mut res, &mut i, &self.spheres, Self::SPHERE_SIZE as usize);
+        Self::bufferize(&mut res, &mut i, &self.planes, Self::PLANE_SIZE as usize);
+        Self::bufferize(&mut res, &mut i, &self.boxes, Self::BOX_SIZE as usize);
+        res
+    }
+
+    pub fn get_params_buffer(&mut self) -> Vec<i32>{
         let mut i = 0;
         self.scene_params[0] = Self::LIGHT_SIZE;
         self.scene_params[1] = self.lights.len() as i32;
@@ -192,6 +206,7 @@ impl Scene{
         self.scene_params[16] = Self::f32_transm_i32(self.sky_intensity);
         self.put_in_scene_params(17, self.cam_pos);
         self.put_in_scene_params(20, self.cam_dir);
+        self.scene_params.to_vec()
     }
 
     fn f32_transm_i32(f: f32) -> i32{
@@ -234,7 +249,7 @@ impl Scene{
         res
     }
 
-    pub fn bufferize<T: SceneItem>(vec: &mut Vec<f32>, start: &mut usize, list: Vec<T>, stride: usize){
+    pub fn bufferize<T: SceneItem>(vec: &mut Vec<f32>, start: &mut usize, list: &Vec<T>, stride: usize){
         for (i, item) in list.iter().enumerate(){
             let off = i * stride;
             let data = item.get_data();
