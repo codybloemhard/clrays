@@ -210,13 +210,13 @@ pub fn test_opencl1(){
 }
 
 pub fn test_opencl2(){
-    use ocl::{Buffer,flags,Kernel};
-    use crate::cl_helpers::create_five;
+    use ocl::{Kernel};
+    use crate::cl_helpers::{create_five,ClBuffer};
     
     fn run() -> ocl::Result<()>{
         let src = r#"
             __kernel void write(__global int* buffer) {
-                buffer[get_global_id(0)] = get_global_id(0);;
+                buffer[get_global_id(0)] += get_global_id(0);
             }
         "#;
         let (_,_,_,program,queue) = match create_five(src){
@@ -224,12 +224,11 @@ pub fn test_opencl2(){
             Err(e) => return Err(e),
         };
         let dims = 1 << 12;
-        let buffer = match Buffer::<i32>::builder()
-        .queue(queue.clone())
-        .flags(flags::MEM_READ_WRITE)
-        .len(dims)
-        .fill_val(0i32)
-        .build(){
+        let mut startingbuffer = vec![0i32; dims];
+        for i in 0..dims{
+            startingbuffer[i] = i as i32;
+        }
+        let mut clbuffer = match ClBuffer::from(&queue, startingbuffer){
             Ok(x) => x,
             Err(e) => return Err(e),
         };
@@ -238,7 +237,7 @@ pub fn test_opencl2(){
         .name("write")
         .queue(queue.clone())
         .global_work_size(dims)
-        .arg(&buffer)
+        .arg(clbuffer.get_ocl_buffer())
         .build(){
             Ok(x) => x,
             Err(e) => return Err(e),
@@ -249,19 +248,12 @@ pub fn test_opencl2(){
                 Err(e) => return Err(e),
             }
         }
-        let mut vec = vec![0i32; dims];
-        match buffer.cmd()
-        .queue(&queue)
-        .read(&mut vec)
-        .enq(){
-            Ok(_) => {},
-            Err(e) => return Err(e),
-        }
+        clbuffer.download(&queue).expect("expect: test_opencl2 clbuffer download");
         let mut testvec = vec![0i32; dims];
         for i in 0..dims{
-            testvec[i] = i as i32;
+            testvec[i] = (i*2) as i32;
         }
-        assert_eq!(vec, testvec);
+        assert_eq!(clbuffer.get_slice(), testvec.as_slice());
         Ok(())
     }
 
