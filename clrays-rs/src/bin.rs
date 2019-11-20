@@ -13,18 +13,18 @@ pub fn main() -> Result<(),String>{
     let mut scene = Scene::new();
     scene.sky_col = Vec3::new(0.2, 0.2, 0.9).normalized();
     scene.sky_intensity = 1.0;
-    scene.cam_pos = Vec3::zero();
+    scene.cam_pos = Vec3::up();
     scene.cam_dir = Vec3::backward();
     scene.add_texture("sky".to_string(), "../Assets/Textures/sky1.jpg".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
     scene.add_texture("wood".to_string(), "../Assets/Textures/wood.png".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
     scene.set_skybox("wood");
     scene.add_plane(Plane{
         pos: Vec3::zero(),
-        nor: Vec3::down(),
+        nor: Vec3::up(),
         mat: Material::basic(),
     });
     scene.add_sphere(Sphere{
-        pos: Vec3::new(0.0, 0.0, -5.0),
+        pos: Vec3::new(0.0, 1.0, -5.0),
         rad: 1.0,
         mat: Material::basic(),
     });
@@ -36,7 +36,7 @@ pub fn main() -> Result<(),String>{
     scene.update();
 
     use std::io::prelude::*;
-    let mut file = std::fs::File::open("../Assets/Kernels/raytrace.cl").unwrap();
+    let mut file = std::fs::File::open("../Assets/Kernels/raytrace_debug.cl").unwrap();
     let mut src = String::new();
     file.read_to_string(&mut src).expect("file to string aaah broken");
 
@@ -60,7 +60,7 @@ pub fn main() -> Result<(),String>{
         .expect("expect test: tex items buffer");
     let kernel = ocl::Kernel::builder()
     .program(&program)
-    .name("raytracing_format_gradient_test")
+    .name("raytracing")
     .queue(queue.clone())
     .global_work_size([w,h])
     .arg(buffer.get_ocl_buffer())
@@ -72,7 +72,7 @@ pub fn main() -> Result<(),String>{
     .arg(tex_items.get_ocl_buffer())
     .build().expect("expect test: build kernel");
 
-    unsafe { 
+    unsafe {
         kernel.cmd().queue(&queue).enq().expect("expect test: run kernel");
     }
 
