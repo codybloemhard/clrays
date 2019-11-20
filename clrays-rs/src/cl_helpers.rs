@@ -1,4 +1,4 @@
-use ocl::{Buffer,flags,Queue};
+use ocl::{Buffer,flags,Queue,Program,Device,Platform,Context};
 use crate::misc;
 
 pub struct ClBuffer<T: ocl::OclPrm + std::default::Default + std::clone::Clone>{
@@ -72,4 +72,31 @@ impl<T: ocl::OclPrm> ClBuffer<T>{
     pub fn get_ocl_buffer(&self) -> &Buffer<T>{
         &self.ocl_buffer
     }
+}
+
+pub fn create_five(src: &str) -> Result<(Platform,Device,Context,Program,Queue),ocl::Error>{
+    let platform = Platform::default();
+    let device = match Device::first(platform){
+        Ok(x) => x,
+        Err(e) => return Err(e),
+    };
+    let context = match Context::builder()
+    .platform(platform)
+    .devices(device.clone())
+    .build(){
+        Ok(x) => x,
+        Err(e) => return Err(e),
+    };
+    let program = match Program::builder()
+    .devices(device)
+    .src(src)
+    .build(&context){
+        Ok(x) => x,
+        Err(e) => return Err(e),
+    };
+    let queue = match Queue::new(&context, device, None){
+        Ok(x) => x,
+        Err(e) => return Err(e),
+    };
+    Ok((platform,device,context,program,queue))
 }

@@ -3,6 +3,7 @@ pub enum PlatformTest{
     SdlAudio,
     OpenCl0,
     OpenCl1,
+    OpenCl2,
 }
 
 pub fn run_platform_test(t: PlatformTest){
@@ -11,6 +12,7 @@ pub fn run_platform_test(t: PlatformTest){
         PlatformTest::SdlAudio => test_sdl_audio(),
         PlatformTest::OpenCl0 => test_opencl0(),
         PlatformTest::OpenCl1 => test_opencl1(),
+        PlatformTest::OpenCl2 => test_opencl2(),
     }
 }
 
@@ -148,34 +150,16 @@ pub fn test_opencl0(){
 }
 
 pub fn test_opencl1(){
-    use ocl::{Platform,Device,Context,Program,Queue,Buffer,flags,Kernel};
-    
+    use ocl::{Buffer,flags,Kernel};
+    use crate::cl_helpers::create_five;
+
     fn run() -> ocl::Result<()>{
         let src = r#"
             __kernel void add(__global float* buffer, float scalar) {
                 buffer[get_global_id(0)] += scalar;
             }
         "#;
-        let platform = Platform::default();
-        let device = match Device::first(platform){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
-        let context = match Context::builder()
-        .platform(platform)
-        .devices(device.clone())
-        .build(){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
-        let program = match Program::builder()
-        .devices(device)
-        .src(src)
-        .build(&context){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
-        let queue = match Queue::new(&context, device, None){
+        let (_,_,_,program,queue) = match create_five(src){
             Ok(x) => x,
             Err(e) => return Err(e),
         };
@@ -215,6 +199,69 @@ pub fn test_opencl1(){
             Err(e) => return Err(e),
         }
         assert_eq!(vec, vec![10.0f32; dims]);
+        Ok(())
+    }
+
+    let res = run();
+    match res{
+        Ok(_) => {},
+        Err(e) => println!("{}", e),
+    }
+}
+
+pub fn test_opencl2(){
+    use ocl::{Buffer,flags,Kernel};
+    use crate::cl_helpers::create_five;
+    
+    fn run() -> ocl::Result<()>{
+        let src = r#"
+            __kernel void write(__global int* buffer) {
+                buffer[get_global_id(0)] = get_global_id(0);;
+            }
+        "#;
+        let (_,_,_,program,queue) = match create_five(src){
+            Ok(x) => x,
+            Err(e) => return Err(e),
+        };
+        let dims = 1 << 12;
+        let buffer = match Buffer::<i32>::builder()
+        .queue(queue.clone())
+        .flags(flags::MEM_READ_WRITE)
+        .len(dims)
+        .fill_val(0i32)
+        .build(){
+            Ok(x) => x,
+            Err(e) => return Err(e),
+        };
+        let kernel = match Kernel::builder()
+        .program(&program)
+        .name("write")
+        .queue(queue.clone())
+        .global_work_size(dims)
+        .arg(&buffer)
+        .build(){
+            Ok(x) => x,
+            Err(e) => return Err(e),
+        };
+        unsafe { 
+            match kernel.cmd().queue(&queue).enq(){
+                Ok(_) => {},
+                Err(e) => return Err(e),
+            }
+        }
+        let mut vec = vec![0i32; dims];
+        match buffer.cmd()
+        .queue(&queue)
+        .read(&mut vec)
+        .enq(){
+            Ok(_) => {},
+            Err(e) => return Err(e),
+        }
+        let mut testvec = vec![0i32; dims];
+        for i in 0..dims{
+            testvec[i] = i as i32;
+        }
+        assert_eq!(vec, testvec);
         Ok(())
     }
 

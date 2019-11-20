@@ -1,15 +1,15 @@
 extern crate clrays_rs;
 use clrays_rs as clr;
-//use clr::test_platform::PlatformTest;
+use clr::test_platform::PlatformTest;
 use clr::window;
 use clr::state;
 use clr::scene::{Scene,Material,Plane,Sphere};
 use clr::vec3::Vec3;
 use clr::kernels::{VoidKernel,ResultKernel,TraceKernel};
-use clr::cl_helpers;
+use clr::cl_helpers::{create_five};
 
 pub fn main() -> Result<(),String>{
-    //clr::test(PlatformTest::OpenCl1);
+    clr::test(PlatformTest::OpenCl2);
     let mut scene = Scene::new();
     scene.sky_col = Vec3::new(0.2, 0.2, 0.9).normalized();
     scene.sky_intensity = 0.0;
@@ -35,29 +35,8 @@ pub fn main() -> Result<(),String>{
     let mut src = String::new();
     file.read_to_string(&mut src).expect("file to string aaah broken");
 
-    let platform = ocl::Platform::default();
-    let device = match ocl::Device::first(platform){
-        Ok(x) => x,
-        Err(_) => return Err("Error: device".to_string()),
-    };
-    let context = match ocl::Context::builder()
-    .platform(platform)
-    .devices(device.clone())
-    .build(){
-        Ok(x) => x,
-        Err(_) => return Err("Error: context".to_string()),
-    };
-    let program = match ocl::Program::builder()
-    .devices(device)
-    .src(src)
-    .build(&context){
-        Ok(x) => x,
-        Err(_) => return Err("Error: program".to_string()),
-    };
-    let queue = match ocl::Queue::new(&context, device, None){
-        Ok(x) => x,
-        Err(_) => return Err("Error: queue".to_string()),
-    };
+    let (_,_,_,program,queue) = create_five(&src).expect("expect: create big five");
+
     let mut trace_kernel = match TraceKernel::new("raytracing", (960,540), &program, &queue, &mut scene){
         Ok(x) => x,
         Err(e) => return Err("Error: kernel new".to_string()),
