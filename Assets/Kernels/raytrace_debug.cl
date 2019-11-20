@@ -354,9 +354,8 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     struct RayHit hit = InterScene(ray, scene);
     if(hit.t >= MAX_RENDER_DIST)
         return SkyCol(ray->dir, scene);
-    return (float3)(1.0f,0.5f,0.5f);
     //texture
-    float2 uv;
+    /*float2 uv;
     float3 texcol = (float3)(1.0f);
     if(hit.mat->texture > 0){
         uchar uvtype = hit.mat->uvtype;
@@ -397,11 +396,10 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     if(hit.mat->metalicmap > 0){
         float value = GetTexScalar(hit.mat->metalicmap - 1, uv, scene);
         hit.mat->reflectivity *= value;
-    }
+    }*/
     //diffuse, specular
     float3 diff, spec;
     Blinn(&hit, scene, ray->dir, &diff, &spec);
-    diff *= texcol;
     //reflection
     float3 newdir = normalize(reflect(ray->dir, hit.nor));
     struct Ray nray;
