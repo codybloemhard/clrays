@@ -497,6 +497,24 @@ __kernel void raytracing(
     intmap[pixid] = res;
 }
 
+__kernel void raytracing_format_gradient_test(
+    __global int *intmap,
+    const uint w,
+    const uint h,
+    __global int *sc_params,
+    __global float *sc_items,
+    __global int *tx_params,
+    __global uchar *tx_items
+){
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    uint pixid = x + y * w;
+    float3 col = (float3)((float)x / w,(float)y / h, 0.0);
+    col *= 255.0f;
+    int res = ((int)col.x << 16) + ((int)col.y << 8) + (int)col.z;
+    intmap[pixid] = res;
+}
+
 __kernel void clear(
     __global float *floatmap,
     const uint w,

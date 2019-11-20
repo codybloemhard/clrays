@@ -3,16 +3,16 @@ use clrays_rs as clr;
 use clr::test_platform::PlatformTest;
 use clr::window;
 use clr::state;
-use clr::scene::{Scene,Material,Plane,Sphere};
+use clr::scene::{Scene,Material,Plane,Sphere,Light};
 use clr::vec3::Vec3;
 use clr::kernels::{VoidKernel,ResultKernel,TraceKernel};
-use clr::cl_helpers::{create_five};
+use clr::cl_helpers::{create_five,ClBuffer};
 
 pub fn main() -> Result<(),String>{
-    clr::test(PlatformTest::OpenCl2);
+    //clr::test(PlatformTest::OpenCl2);
     let mut scene = Scene::new();
     scene.sky_col = Vec3::new(0.2, 0.2, 0.9).normalized();
-    scene.sky_intensity = 0.0;
+    scene.sky_intensity = 1.0;
     scene.cam_pos = Vec3::zero();
     scene.cam_dir = Vec3::backward();
     scene.add_texture("sky".to_string(), "../Assets/Textures/sky1.jpg".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
@@ -28,6 +28,11 @@ pub fn main() -> Result<(),String>{
         rad: 1.0,
         mat: Material::basic(),
     });
+    scene.add_light(Light{
+        pos: Vec3::up(),
+        intensity: 5.0,
+        col: Vec3::one(),
+    });
     scene.update();
 
     use std::io::prelude::*;
@@ -37,16 +42,42 @@ pub fn main() -> Result<(),String>{
 
     let (_,_,_,program,queue) = create_five(&src).expect("expect: create big five");
 
-    let mut trace_kernel = match TraceKernel::new("raytracing", (960,540), &program, &queue, &mut scene){
-        Ok(x) => x,
-        Err(e) => return Err("Error: kernel new".to_string()),
-    };
-    trace_kernel.update(&queue).expect("expect: kernel update");
-    trace_kernel.execute(&queue).expect("expect: kernel execute");
-    let tex = match trace_kernel.get_result(&queue){
-        Ok(x) => x,
-        Err(e) => return Err("Error: kernel result".to_string()),
-    };
+    let w = 960u32;
+    let h = 540u32;
+    let mut buffer = ClBuffer::<i32>::new(&queue, w as usize * h as usize, 0)
+        .expect("expect test: make buffer");
+    let scene_raw = scene.get_buffers();
+    let scene_params_raw = scene.get_params_buffer();
+    let scene_params = ClBuffer::from(&queue, scene_params_raw)
+        .expect("expect test: scene params buffer");
+    let scene_items = ClBuffer::from(&queue, scene_raw)
+        .expect("expect test: scene items buffer");
+    let tex_raw = scene.get_textures_buffer();
+    let tex_params_raw = scene.get_texture_params_buffer();
+    let tex_params = ClBuffer::from(&queue, tex_params_raw)
+        .expect("expect test: tex params buffer");
+    let tex_items = ClBuffer::from(&queue, tex_raw)
+        .expect("expect test: tex items buffer");
+    let kernel = ocl::Kernel::builder()
+    .program(&program)
+    .name("raytracing_format_gradient_test")
+    .queue(queue.clone())
+    .global_work_size([w,h])
+    .arg(buffer.get_ocl_buffer())
+    .arg(w as u32)
+    .arg(h as u32)
+    .arg(scene_params.get_ocl_buffer())
+    .arg(scene_items.get_ocl_buffer())
+    .arg(tex_params.get_ocl_buffer())
+    .arg(tex_items.get_ocl_buffer())
+    .build().expect("expect test: build kernel");
+
+    unsafe { 
+        kernel.cmd().queue(&queue).enq().expect("expect test: run kernel");
+    }
+
+    buffer.download(&queue).expect("expect test: download buffer");
+    let tex = buffer.get_slice();
 
     let mut window = window::Window::<state::StdState>::new("ClRays", 960, 540);
     window.run(window::std_input_handler, Some(tex));
