@@ -321,7 +321,7 @@ impl Scene{
         else { TraceTex::scalar_tex(path) };
         if let Ok(x) = tex {
             self.textures.push(x);
-            self.textures_ids.insert(name.to_string(), self.next_texture.inc());
+            self.textures_ids.insert(name.to_string(), self.next_texture.inc_post());
         }
         else { return false; }
         //c#: Info.Textures.Add((name, (uint)tex.Pixels.Length));

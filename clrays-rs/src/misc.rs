@@ -1,11 +1,16 @@
 pub trait Incrementable{
-    fn inc(&mut self) -> Self;
+    fn inc_pre(&mut self) -> Self;
+    fn inc_post(&mut self) -> Self;
 }
 
 impl Incrementable for i32{
-    fn inc(&mut self) -> Self{
+    fn inc_pre(&mut self) -> Self{
         *self += 1;
         *self
+    }
+    fn inc_post(&mut self) -> Self{
+        *self += 1;
+        *self - 1
     }
 }
 
