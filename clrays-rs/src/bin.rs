@@ -21,21 +21,26 @@ pub fn main() -> Result<(),String>{
     scene.add_plane(Plane{
         pos: Vec3::zero(),
         nor: Vec3::up(),
-        mat: Material::basic(),
+        mat: Material::basic().with_colour(Vec3::new(0.1, 1.0, 0.1)),
     });
     scene.add_sphere(Sphere{
         pos: Vec3::new(-1.0, 1.0, -5.0),
         rad: 1.0,
-        mat: Material::basic(),
+        mat: Material::basic()
+            .with_colour(Vec3::new(1.0, 0.1, 0.1))
+            .with_roughness(1.0),
     });
     scene.add_sphere(Sphere{
         pos: Vec3::new(1.0, 1.0, -5.0),
         rad: 1.0,
-        mat: Material::basic(),
+        mat: Material::basic()
+            .with_colour(Vec3::new(0.1,0.1,1.0))
+            .with_roughness(0.5)
+            .with_reflectivity(0.5),
     });
     scene.add_light(Light{
         pos: Vec3::up(),
-        intensity: 30.0,
+        intensity: 50.0,
         col: Vec3::one(),
     });
 

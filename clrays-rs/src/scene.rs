@@ -35,6 +35,46 @@ impl Material{
             tex_scale: 1.0,
         }
     }
+
+    pub fn with_colour(mut self, col: Vec3) -> Self{
+        self.col = col;
+        self
+    }
+
+    pub fn with_reflectivity(mut self, refl: f32) -> Self{
+        self.reflectivity = refl;
+        self
+    }
+
+    pub fn with_roughness(mut self, roughn: f32) -> Self{
+        self.roughness = roughn;
+        self
+    }
+
+    pub fn with_texture(mut self, tex: i32) -> Self{
+        self.texture = tex;
+        self
+    }
+
+    pub fn with_normal_map(mut self, norm: i32) -> Self{
+        self.normal_map = norm;
+        self
+    }
+
+    pub fn with_roughness_map(mut self, roughm: i32) -> Self{
+        self.roughness_map = roughm;
+        self
+    }
+
+    pub fn with_metalic_map(mut self, metalm: i32) -> Self{
+        self.metalic_map = metalm;
+        self
+    }
+
+    pub fn with_tex_scale(mut self, v: f32) -> Self{
+        self.tex_scale = 1.0 / v;
+        self
+    }
 }
 
 pub trait SceneItem{
