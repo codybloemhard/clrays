@@ -4,7 +4,7 @@ use clr::test_platform::PlatformTest;
 use clr::window;
 use clr::state;
 use clr::scene::{Scene,Material,Plane,Sphere,Light};
-use clr::vec3::Vec3;
+use clr::vec3::{Vec3,BasicColour};
 use clr::kernels::{VoidKernel,ResultKernel,TraceKernel};
 use clr::cl_helpers::{create_five,ClBuffer};
 
@@ -21,20 +21,21 @@ pub fn main() -> Result<(),String>{
     scene.add_plane(Plane{
         pos: Vec3::zero(),
         nor: Vec3::up(),
-        mat: Material::basic().with_colour(Vec3::new(0.1, 1.0, 0.1)),
+        mat: Material::basic()
+            .with_colour(Vec3::std_colour(BasicColour::Green)),
     });
     scene.add_sphere(Sphere{
         pos: Vec3::new(-1.0, 1.0, -5.0),
         rad: 1.0,
         mat: Material::basic()
-            .with_colour(Vec3::new(1.0, 0.1, 0.1))
+            .with_colour(Vec3::std_colour(BasicColour::Red))
             .with_roughness(1.0),
     });
     scene.add_sphere(Sphere{
         pos: Vec3::new(1.0, 1.0, -5.0),
         rad: 1.0,
         mat: Material::basic()
-            .with_colour(Vec3::new(0.1,0.1,1.0))
+            .with_colour(Vec3::std_colour(BasicColour::Blue))
             .with_roughness(0.5)
             .with_reflectivity(0.5),
     });

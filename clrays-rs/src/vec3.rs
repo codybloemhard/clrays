@@ -5,6 +5,14 @@ pub struct Vec3{
     pub z: f32,
 }
 
+pub enum BasicColour{
+    Red,
+    Green,
+    Blue,
+    Black,
+    White
+}
+
 impl Vec3{
     pub fn new(x: f32, y: f32, z: f32) -> Self{
         Self {x, y, z}
@@ -40,6 +48,34 @@ impl Vec3{
 
     pub fn backward() -> Self{
         Self {x: 0.0, y: 0.0, z: -1.0}
+    }
+
+    pub fn red() -> Self{
+        Self {x: 1.0, y: 0.0, z: 0.0}
+    }
+
+    pub fn green() -> Self{
+        Self {x: 0.0, y: 1.0, z: 0.0}
+    }
+
+    pub fn blue() -> Self{
+        Self {x: 0.0, y: 0.0, z: 1.0}
+    }
+
+    pub fn soft_colour(col: BasicColour, on_strength: f32, off_strength: f32) -> Self{
+        let of = off_strength;
+        let on = on_strength;
+        match col{
+            BasicColour::White => Self { x: on, y: on, z: on },
+            BasicColour::Black => Self { x: of, y: of, z: of },
+            BasicColour::Red => Self { x: on, y: of, z: of },
+            BasicColour::Green => Self { x: of, y: on, z: of },
+            BasicColour::Blue => Self { x: of, y: of, z: on },
+        }
+    }
+
+    pub fn std_colour(col: BasicColour) -> Self{
+        Vec3::soft_colour(col, 0.9, 0.1)
     }
 
     pub fn neg(&mut self){
