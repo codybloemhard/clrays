@@ -18,13 +18,15 @@ pub fn main() -> Result<(),String>{
     scene.cam_pos = Vec3::up();
     scene.cam_dir = Vec3::backward();
     //scene.add_texture("sky".to_string(), "../Assets/Textures/sky1.jpg".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
-    //scene.add_texture("wood".to_string(), "../Assets/Textures/wood.png".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
+    scene.add_texture("test".to_string(), "../Assets/Textures/wood.png".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
     //scene.set_skybox("wood");
+    let woodtex = scene.get_texture("test".to_string());
     scene.add_plane(Plane{
         pos: Vec3::zero(),
         nor: Vec3::up(),
         mat: Material::basic()
-            .with_colour(Vec3::std_colour(BasicColour::Green)),
+            //.with_colour(Vec3::std_colour(BasicColour::Green))
+            .with_texture(woodtex),
     });
     scene.add_sphere(Sphere{
         pos: Vec3::new(-1.0, 1.0, -5.0),
@@ -52,7 +54,7 @@ pub fn main() -> Result<(),String>{
     let (_,_,_,program,queue) = unpack!(create_five(&src));
 
     let (w,h) = (960u32,540u32);
-    let mut kernel = unpack!(TraceKernel::new("raytracing", (w,h), &program, &queue, &mut scene));
+    let mut kernel = unpack!(TraceKernel::new("raytracing_format_texture_test", (w,h), &program, &queue, &mut scene));
     unpack!(kernel.execute(&queue));
     let tex = unpack!(kernel.get_result(&queue));
 

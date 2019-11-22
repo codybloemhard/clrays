@@ -496,7 +496,7 @@ __kernel void raytracing(
     int res = ((int)col.x << 16) + ((int)col.y << 8) + (int)col.z;
     intmap[pixid] = res;
 }
-
+//takes same input as raytracing, outputs a gradient
 __kernel void raytracing_format_gradient_test(
     __global int *intmap,
     const uint w,
@@ -512,6 +512,29 @@ __kernel void raytracing_format_gradient_test(
     float3 col = (float3)((float)x / w,(float)y / h, 0.0);
     col *= 255.0f;
     int res = ((int)col.x << 16) + ((int)col.y << 8) + (int)col.z;
+    intmap[pixid] = res;
+}
+//takes same input as raytracing, outputs the first texture
+__kernel void raytracing_format_texture_test(
+    __global int *intmap,
+    const uint w,
+    const uint h,
+    __global int *sc_params,
+    __global float *sc_items,
+    __global int *tx_params,
+    __global uchar *tx_items
+){
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    uint pixid = x + y * w;
+    int ww = tx_params[1];
+    int hh = tx_params[2];
+    int xx = (float)x / w * ww;
+    int yy = (float)y / h * hh;
+    uchar rr = tx_items[(yy * ww + xx) * 3 + 0];
+    uchar gg = tx_items[(yy * ww + xx) * 3 + 1];
+    uchar bb = tx_items[(yy * ww + xx) * 3 + 2];
+    int res = ((int)rr << 16) + ((int)gg << 8) + (int)bb;
     intmap[pixid] = res;
 }
 
