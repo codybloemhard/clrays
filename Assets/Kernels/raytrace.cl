@@ -91,12 +91,14 @@ global int TxGetHeight(int tex, struct Scene *scene){
     return scene->tex_params[tex * 3 + 2];
 }
 //get sample
+#define TEX_COL_SWIZZLE xyz //rust version of clrays
+//#define TEX_COL_SWIZZLE zyx //C# version of clrays
 global float3 TxGetSample(int tex, struct Scene *scene, int x, int y, int w){
     int offset = TxGetStart(tex, scene) + (y * w + x) * 3;
     float3 col = (float3)(scene->textures[offset + 0],
                             scene->textures[offset + 1],
                             scene->textures[offset + 2]);
-    return col.zyx / 255.0f;
+    return col.TEX_COL_SWIZZLE / 255.0f;
 }
 //shared logic
 #define UV_TO_XY \

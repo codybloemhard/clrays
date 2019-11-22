@@ -17,16 +17,15 @@ pub fn main() -> Result<(),String>{
     scene.sky_intensity = 0.0;
     scene.cam_pos = Vec3::up();
     scene.cam_dir = Vec3::backward();
-    //scene.add_texture("sky".to_string(), "../Assets/Textures/sky1.jpg".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
-    scene.add_texture("test".to_string(), "../Assets/Textures/wood.png".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
-    //scene.set_skybox("wood");
+    scene.add_texture("sky".to_string(), "../Assets/Textures/sky1.jpg".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
+    scene.add_texture("wood".to_string(), "../Assets/Textures/wood.png".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
+    scene.set_skybox("sky");
     
-    let woodtex = scene.get_texture("test".to_string());
+    let woodtex = scene.get_texture("wood".to_string());
     scene.add_plane(Plane{
         pos: Vec3::zero(),
         nor: Vec3::up(),
         mat: Material::basic()
-            //.with_colour(Vec3::std_colour(BasicColour::Green))
             .with_texture(woodtex),
     });
     scene.add_sphere(Sphere{
