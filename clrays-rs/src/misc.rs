@@ -44,11 +44,21 @@ pub fn load_source(path: &str) -> Result<String,std::io::Error>{
 }
 
 #[macro_export]
-macro_rules! unpack {
+macro_rules! unpackdb {
     ($x:expr) =>{
         match $x{
             Ok(z) => z,
             Err(e) => return Err(format!("{:?}", e)),
+        };
+    }
+}
+
+#[macro_export]
+macro_rules! unpack {
+    ($x:expr) =>{
+        match $x{
+            Ok(z) => z,
+            Err(e) => return Err(e),
         };
     }
 }

@@ -19,17 +19,14 @@ pub struct ClearKernel{
 
 impl ClearKernel{
     pub fn new(name: &str, (w,h): (u32,u32), program: &Program, queue: &Queue, buffer: Rc<ClBuffer<f32>>) -> Result<Self,ocl::Error>{
-        let kernel = match Kernel::builder()
+        let kernel = unpack!(Kernel::builder()
         .program(program)
         .name(name)
         .queue(queue.clone())
         .global_work_size([w,h])
         .arg(buffer.get_ocl_buffer())
         .arg(&10f32)
-        .build(){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
+        .build());
         Result::Ok(Self{ kernel,buffer })
     }
 }
@@ -62,7 +59,7 @@ impl ImageKernel{
             Ok(x) => x,
             Err(e) => return Err(e),
         };
-        let kernel = match Kernel::builder()
+        let kernel = unpack!(Kernel::builder()
         .program(program)
         .name(name)
         .queue(queue.clone())
@@ -71,10 +68,7 @@ impl ImageKernel{
         .arg(buffer.get_ocl_buffer())
         .arg(w as u32)
         .arg(h as u32)
-        .build(){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
+        .build());
         Ok(Self{ buffer,kernel,dirty })
     }
 }
@@ -121,31 +115,16 @@ pub struct TraceKernel{
 impl TraceKernel{
     pub fn new(name: &str, (w,h): (u32,u32), program: &Program, queue: &Queue, scene: &mut Scene) -> Result<Self, ocl::Error>{
         let dirty = false;
-        let buffer = match ClBuffer::<i32>::new(queue, w as usize * h as usize, 0){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
+        let buffer = unpack!(ClBuffer::<i32>::new(queue, w as usize * h as usize, 0));
         let scene_raw = scene.get_buffers();
         let scene_params_raw = scene.get_params_buffer();
-        let scene_params = match ClBuffer::from(queue, scene_params_raw){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
-        let scene_items = match ClBuffer::from(queue, scene_raw){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
+        let scene_params = unpack!(ClBuffer::from(queue, scene_params_raw));
+        let scene_items = unpack!(ClBuffer::from(queue, scene_raw));
         let tex_raw = scene.get_textures_buffer();
         let tex_params_raw = scene.get_texture_params_buffer();
-        let tex_params = match ClBuffer::from(queue, tex_params_raw){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
-        let tex_items = match ClBuffer::from(queue, tex_raw){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
-        let kernel = match Kernel::builder()
+        let tex_params = unpack!(ClBuffer::from(queue, tex_params_raw));
+        let tex_items = unpack!(ClBuffer::from(queue, tex_raw));
+        let kernel = unpack!(Kernel::builder()
         .program(program)
         .name(name)
         .queue(queue.clone())
@@ -157,11 +136,7 @@ impl TraceKernel{
         .arg(scene_items.get_ocl_buffer())
         .arg(tex_params.get_ocl_buffer())
         .arg(tex_items.get_ocl_buffer())
-        .build(){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
-        
+        .build());
         Ok(Self{ kernel, dirty, buffer, scene_params, scene_items, tex_params, tex_items, res: (w,h) })
     }
 
