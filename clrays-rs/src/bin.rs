@@ -12,31 +12,35 @@ pub fn main() -> Result<(),String>{
     //clr::test(PlatformTest::OpenCl2);
     let mut scene = Scene::new();
     scene.sky_col = Vec3::new(0.2, 0.2, 0.9).normalized();
-    scene.sky_intensity = 1.0;
+    scene.sky_intensity = 0.0;
     scene.cam_pos = Vec3::up();
     scene.cam_dir = Vec3::backward();
-    scene.add_texture("sky".to_string(), "../Assets/Textures/sky1.jpg".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
-    scene.add_texture("wood".to_string(), "../Assets/Textures/wood.png".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
-    scene.set_skybox("wood");
+    //scene.add_texture("sky".to_string(), "../Assets/Textures/sky1.jpg".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
+    //scene.add_texture("wood".to_string(), "../Assets/Textures/wood.png".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
+    //scene.set_skybox("wood");
     scene.add_plane(Plane{
         pos: Vec3::zero(),
         nor: Vec3::up(),
         mat: Material::basic(),
     });
     scene.add_sphere(Sphere{
-        pos: Vec3::new(0.0, 1.0, -5.0),
+        pos: Vec3::new(-1.0, 1.0, -5.0),
+        rad: 1.0,
+        mat: Material::basic(),
+    });
+    scene.add_sphere(Sphere{
+        pos: Vec3::new(1.0, 1.0, -5.0),
         rad: 1.0,
         mat: Material::basic(),
     });
     scene.add_light(Light{
         pos: Vec3::up(),
-        intensity: 5.0,
+        intensity: 30.0,
         col: Vec3::one(),
     });
-    scene.update();
 
     use std::io::prelude::*;
-    let mut file = std::fs::File::open("../Assets/Kernels/raytrace_debug.cl").unwrap();
+    let mut file = std::fs::File::open("../Assets/Kernels/raytrace.cl").unwrap();
     let mut src = String::new();
     file.read_to_string(&mut src).expect("file to string aaah broken");
 

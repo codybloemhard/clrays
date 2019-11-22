@@ -26,7 +26,7 @@ impl Material{
     pub fn basic() -> Self{
         Self{
             col: Vec3::one(),
-            reflectivity: 1.0,
+            reflectivity: 0.0,
             roughness: 1.0,
             texture: 0,
             normal_map: 0,
@@ -162,14 +162,10 @@ impl Scene{
             textures: Vec::new(),
             skybox: 0,
             sky_col: Vec3::one(),
-            sky_intensity: 1.0,
+            sky_intensity: 0.0,
             cam_pos: Vec3::zero(),
             cam_dir: Vec3::backward(),
         }
-    }
-
-    pub fn update(&mut self){
-        self.get_params_buffer();
     }
 
     pub fn get_buffers(&mut self) -> Vec<f32>{
