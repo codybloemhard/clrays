@@ -23,3 +23,27 @@ pub fn make_nonzero_len<T: std::default::Default> (v: &mut Vec<T>){
         v.push(T::default());
     }
 }
+
+pub fn load_source(path: &str) -> Result<String,std::io::Error>{
+    use std::io::prelude::*;
+    let mut file = match std::fs::File::open(path){
+        Ok(x) => x,
+        Err(e) => return Err(e),
+    };
+    let mut src = String::new();
+    let err = file.read_to_string(&mut src);
+    if let Err(e) = err{
+        return Err(e);
+    }
+    Ok(src)
+}
+
+#[macro_export]
+macro_rules! unpack {
+    ($x:expr) =>{
+        match $x{
+            Ok(z) => z,
+            Err(e) => return Err(format!("{:?}", e)),
+        };
+    }
+}

@@ -165,8 +165,8 @@ impl TraceKernel{
         Ok(Self{ kernel, dirty, buffer, scene_params, scene_items, tex_params, tex_items, res: (w,h) })
     }
 
-    pub fn update(&mut self, queue: &Queue) -> Result<(),ocl::Error>{
-        /*match self.scene_params.upload(queue){
+    /*pub fn update(&mut self, queue: &Queue) -> Result<(),ocl::Error>{
+        match self.scene_params.upload(queue){
             Ok(_) => {}, Err(e) => return Err(e),
         }
         match self.scene_items.upload(queue){
@@ -177,9 +177,9 @@ impl TraceKernel{
         }
         match self.tex_items.upload(queue){
             Ok(_) => {}, Err(e) => return Err(e),
-        }*/
+        }
         Ok(())
-    }
+    }*/
 
     pub fn get_res(&self) -> (u32,u32){
         self.res

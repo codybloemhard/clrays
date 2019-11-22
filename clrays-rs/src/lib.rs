@@ -16,6 +16,7 @@ pub mod state;
 pub mod vec3;
 pub mod scene;
 pub mod trace_tex;
+#[macro_use]
 pub mod misc;
 pub mod kernels;
 pub mod cl_helpers;
