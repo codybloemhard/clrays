@@ -22,7 +22,7 @@ namespace clrays
             Col = Vector3.One;
             texScale = 1f;
             Roughness = 1f;
-            Reflectivity = 1f;
+            Reflectivity = 0f;
         }
     }
 

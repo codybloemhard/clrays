@@ -317,12 +317,12 @@ impl Scene{
         *start += list.len() * stride;
     }
 
-    pub fn add_texture(&mut self, name: String, path: String, ttype: TexType){
-        if self.ghost_textures.get(&name).is_some(){
+    pub fn add_texture(&mut self, name: &str, path: &str, ttype: TexType){
+        if self.ghost_textures.get(name).is_some(){
             println!("Error: Texture name is already used: {}", name);
             return;
         }
-        self.ghost_textures.insert(name, (path,ttype));
+        self.ghost_textures.insert(name.to_string(), (path.to_string(),ttype));
     }
 
     fn actually_load_texture(&mut self, name: &str, info: &mut Info) -> bool{
@@ -335,20 +335,25 @@ impl Scene{
             println!("Error: Texture not found: {}.", name);
             return false;
         }
-        let tex = if *ttype == TexType::Vector3c8bpc { TraceTex::vector_tex(path) }
+        let tex = if *ttype == TexType::Vector3c8bpc 
+        { TraceTex::vector_tex(path) }
         else { TraceTex::scalar_tex(path) };
-        if let Ok(x) = tex {
-            info.textures.push((name.to_string(), x.pixels.len() as u64));
-            self.textures.push(x);
-            self.textures_ids.insert(name.to_string(), self.next_texture.inc_post());
+        match tex{
+            Ok(x) =>{
+                info.textures.push((name.to_string(), x.pixels.len() as u64));
+                self.textures.push(x);
+                self.textures_ids.insert(name.to_string(), self.next_texture.inc_post());
+            },
+            Err(e) =>{
+                println!("{:?}", e);
+            }
         }
-        else { return false; }
         true
     }
 
-    pub fn get_texture(&mut self, name: String, info: &mut Info) -> i32{
-        if !self.actually_load_texture(&name, info) { return 0; }
-        if let Some(x) = self.textures_ids.get(&name){
+    pub fn get_texture(&mut self, name: &str, info: &mut Info) -> i32{
+        if !self.actually_load_texture(name, info) { return 0; }
+        if let Some(x) = self.textures_ids.get(name){
             return x + 1;
         }
         0

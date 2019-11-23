@@ -32,20 +32,20 @@ namespace clrays {
             scene = new Scene();
             scene.AddTexture("wood", "Assets/Textures/wood.png");
             scene.AddTexture("sphere", "Assets/Textures/spheremap.jpg");
-            scene.AddTexture("stone-alb", "Assets/Textures/stone-albedo.tif");
-            scene.AddTexture("stone-nor", "Assets/Textures/stone-normal.tif");
-            scene.AddTexture("stone-rou", "Assets/Textures/stone-rough.tif", TexType.Scalar8b);
-            scene.AddTexture("tiles-alb", "Assets/Textures/tiles-albedo.tif");
-            scene.AddTexture("tiles-nor", "Assets/Textures/tiles-normal.tif");
-            scene.AddTexture("tiles-rou", "Assets/Textures/tiles-rough.tif", TexType.Scalar8b);
-            scene.AddTexture("scifi-alb", "Assets/Textures/scifi-albedo.tif");
-            scene.AddTexture("scifi-nor", "Assets/Textures/scifi-normal.tif");
-            scene.AddTexture("scifi-rou", "Assets/Textures/scifi-rough.tif", TexType.Scalar8b);
-            scene.AddTexture("scifi-met", "Assets/Textures/scifi-metal.tif", TexType.Scalar8b);
-            scene.AddTexture("solar-alb", "Assets/Textures/solar-albedo.tif");
-            scene.AddTexture("solar-nor", "Assets/Textures/solar-normal.tif");
-            scene.AddTexture("solar-rou", "Assets/Textures/solar-rough.tif", TexType.Scalar8b);
-            scene.AddTexture("solar-met", "Assets/Textures/solar-metal.tif", TexType.Scalar8b);
+            scene.AddTexture("stone-alb", "Assets/Textures/stone-albedo.png");
+            scene.AddTexture("stone-nor", "Assets/Textures/stone-normal.png");
+            scene.AddTexture("stone-rou", "Assets/Textures/stone-rough.png", TexType.Scalar8b);
+            scene.AddTexture("tiles-alb", "Assets/Textures/tiles-albedo.png");
+            scene.AddTexture("tiles-nor", "Assets/Textures/tiles-normal.png");
+            scene.AddTexture("tiles-rou", "Assets/Textures/tiles-rough.png", TexType.Scalar8b);
+            scene.AddTexture("scifi-alb", "Assets/Textures/scifi-albedo.png");
+            scene.AddTexture("scifi-nor", "Assets/Textures/scifi-normal.png");
+            scene.AddTexture("scifi-rou", "Assets/Textures/scifi-rough.png", TexType.Scalar8b);
+            scene.AddTexture("scifi-met", "Assets/Textures/scifi-metal.png", TexType.Scalar8b);
+            scene.AddTexture("solar-alb", "Assets/Textures/solar-albedo.png");
+            scene.AddTexture("solar-nor", "Assets/Textures/solar-normal.png");
+            scene.AddTexture("solar-rou", "Assets/Textures/solar-rough.png", TexType.Scalar8b);
+            scene.AddTexture("solar-met", "Assets/Textures/solar-metal.png", TexType.Scalar8b);
             scene.AddTexture("sky", "Assets/Textures/sky1.jpg");
             scene.SetSkybox("sky");
             scene.SkyCol = new Vector3(0.2f, 0.2f, 0.9f).Normalized();
@@ -97,7 +97,7 @@ namespace clrays {
                 Rad = 1f,
                 Mat = new Material
                 {
-                    //Reflectivity = 0f,
+                    Reflectivity = 0.5f,
                     Texture = scene.GetTexture("scifi-alb"),
                     NormalMap = scene.GetTexture("scifi-nor"),
                     RoughnessMap = scene.GetTexture("scifi-rou"),
