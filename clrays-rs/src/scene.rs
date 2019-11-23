@@ -81,6 +81,7 @@ impl Material{
 pub trait SceneItem{
     fn get_pos(&self) -> Vec3;
     fn get_data(&self) -> Vec<f32>;
+    fn add(self, scene: &mut Scene);
 }
 
 pub struct Plane{
@@ -103,6 +104,10 @@ impl SceneItem for Plane{
         self.mat.roughness_map as f32, self.mat.metalic_map as f32,
         self.mat.tex_scale]
     }
+
+    fn add(self, scene: &mut Scene){
+        scene.add_plane(self);
+    }
 }
 
 pub struct Sphere{
@@ -123,6 +128,10 @@ impl SceneItem for Sphere{
         self.mat.texture as f32, self.mat.normal_map as f32,
         self.mat.roughness_map as f32, self.mat.metalic_map as f32,
         self.mat.tex_scale]
+    }
+
+    fn add(self, scene: &mut Scene){
+        scene.add_sphere(self);
     }
 }
 
@@ -145,6 +154,10 @@ impl SceneItem for Box{
         self.mat.roughness_map as f32, self.mat.metalic_map as f32,
         self.mat.tex_scale]
     }
+
+    fn add(self, scene: &mut Scene){
+        scene.add_box(self);
+    }
 }
 
 pub struct Light{
@@ -161,6 +174,10 @@ impl SceneItem for Light{
     fn get_data(&self) -> Vec<f32>{
         vec![self.pos.x, self.pos.y, self.pos.z,
         self.intensity, self.col.x, self.col.y, self.col.z]
+    }
+
+    fn add(self, scene: &mut Scene){
+        scene.add_light(self);
     }
 }
 

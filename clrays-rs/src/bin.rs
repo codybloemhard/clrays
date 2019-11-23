@@ -4,7 +4,7 @@ use clrays_rs as clr;
 use clr::test_platform::PlatformTest;
 use clr::window;
 use clr::state;
-use clr::scene::{Scene,Material,Plane,Sphere,Light};
+use clr::scene::{Scene,SceneItem,Material,Plane,Sphere,Light};
 use clr::vec3::{Vec3,BasicColour};
 use clr::kernels::{VoidKernel,ResultKernel,TraceKernel};
 use clr::cl_helpers::{create_five};
@@ -23,37 +23,37 @@ pub fn main() -> Result<(),String>{
     scene.add_texture("wood".to_string(), "../Assets/Textures/wood.png".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
     scene.set_skybox("sky", &mut info);
     
-    let woodtex = scene.get_texture("wood".to_string(), &mut info);
-    scene.add_plane(Plane{
+    Plane{
         pos: Vec3::zero(),
         nor: Vec3::up(),
         mat: Material::basic()
-            .with_texture(woodtex),
-    });
-    scene.add_sphere(Sphere{
+            .with_texture(scene.get_texture("wood".to_string(), &mut info)),
+    }.add(&mut scene);
+
+    Sphere{
         pos: Vec3::new(-1.0, 1.0, -5.0),
         rad: 1.0,
         mat: Material::basic()
             .with_colour(Vec3::std_colour(BasicColour::Red))
             .with_roughness(1.0),
-    });
-    scene.add_sphere(Sphere{
+    }.add(&mut scene);
+    Sphere{
         pos: Vec3::new(1.0, 1.0, -5.0),
         rad: 1.0,
         mat: Material::basic()
             .with_colour(Vec3::std_colour(BasicColour::Blue))
             .with_roughness(0.1)
             .with_reflectivity(0.5),
-    });
-    scene.add_light(Light{
+    }.add(&mut scene);
+    Light{
         pos: Vec3::new(1.0, 3.0, -2.0),
         intensity: 50.0,
         col: Vec3::one(),
-    });
+    }.add(&mut scene);
+
     info.start_time();
     let src = unpackdb!(load_source("../Assets/Kernels/raytrace.cl"));
     info.set_time_point("Loading source file");
-
     let (_,_,_,program,queue) = unpackdb!(create_five(&src));
     info.set_time_point("Creating OpenCL objects");
 
