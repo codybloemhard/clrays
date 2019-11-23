@@ -9,6 +9,7 @@ mod tests {
 extern crate sdl2;
 extern crate ocl;
 extern crate image;
+extern crate stopwatch;
 
 pub mod test_platform;
 pub mod window;
@@ -20,6 +21,7 @@ pub mod trace_tex;
 pub mod misc;
 pub mod kernels;
 pub mod cl_helpers;
+pub mod info;
 
 pub fn test(t: test_platform::PlatformTest){
     test_platform::run_platform_test(t);

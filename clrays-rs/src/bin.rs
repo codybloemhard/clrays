@@ -9,19 +9,21 @@ use clr::vec3::{Vec3,BasicColour};
 use clr::kernels::{VoidKernel,ResultKernel,TraceKernel};
 use clr::cl_helpers::{create_five};
 use clr::misc::{load_source};
+use clr::info::{Info};
 
 pub fn main() -> Result<(),String>{
     //clr::test(PlatformTest::OpenCl2);
+    let mut info = Info::new();
     let mut scene = Scene::new();
     scene.sky_col = Vec3::soft_colour(BasicColour::Blue, 0.9, 0.2).normalized();
     scene.sky_intensity = 0.0;
     scene.cam_pos = Vec3::up();
     scene.cam_dir = Vec3::backward();
-    //scene.add_texture("sky".to_string(), "../Assets/Textures/sky1.jpg".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
+    scene.add_texture("sky".to_string(), "../Assets/Textures/sky1.jpg".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
     scene.add_texture("wood".to_string(), "../Assets/Textures/wood.png".to_string(), clr::trace_tex::TexType::Vector3c8bpc);
-    //scene.set_skybox("sky");
+    scene.set_skybox("sky", &mut info);
     
-    let woodtex = scene.get_texture("wood".to_string());
+    let woodtex = scene.get_texture("wood".to_string(), &mut info);
     scene.add_plane(Plane{
         pos: Vec3::zero(),
         nor: Vec3::up(),
@@ -55,6 +57,7 @@ pub fn main() -> Result<(),String>{
 
     let (w,h) = (960u32,540u32);
     let mut kernel = unpackdb!(TraceKernel::new("raytracing", (w,h), &program, &queue, &mut scene));
+    info.print_info();
     unpackdb!(kernel.execute(&queue));
     let tex = unpackdb!(kernel.get_result(&queue));
 

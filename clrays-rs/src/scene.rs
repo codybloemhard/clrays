@@ -1,6 +1,7 @@
 use crate::vec3::Vec3;
 use crate::trace_tex::{TexType, TraceTex};
 use crate::misc::{Incrementable,build_vec,make_nonzero_len};
+use crate::info::{Info};
 use std::collections::HashMap;
 
 pub struct Material{
@@ -307,7 +308,7 @@ impl Scene{
         self.ghost_textures.insert(name, (path,ttype));
     }
 
-    fn actually_load_texture(&mut self, name: &str) -> bool{
+    fn actually_load_texture(&mut self, name: &str, info: &mut Info) -> bool{
         if self.textures_ids.get(name).is_some() { return true;}
         let (path,ttype);
         if let Some((pathv,ttypev)) = self.ghost_textures.get(name){
@@ -320,26 +321,26 @@ impl Scene{
         let tex = if *ttype == TexType::Vector3c8bpc { TraceTex::vector_tex(path) }
         else { TraceTex::scalar_tex(path) };
         if let Ok(x) = tex {
+            info.textures.push((name.to_string(), x.pixels.len() as u64));
             self.textures.push(x);
             self.textures_ids.insert(name.to_string(), self.next_texture.inc_post());
         }
         else { return false; }
-        //c#: Info.Textures.Add((name, (uint)tex.Pixels.Length));
         true
     }
 
-    pub fn get_texture(&mut self, name: String) -> i32{
-        if !self.actually_load_texture(&name) { return 0; }
+    pub fn get_texture(&mut self, name: String, info: &mut Info) -> i32{
+        if !self.actually_load_texture(&name, info) { return 0; }
         if let Some(x) = self.textures_ids.get(&name){
             return x + 1;
         }
         0
     }
 
-    pub fn set_skybox(&mut self, name: &str){
+    pub fn set_skybox(&mut self, name: &str, info: &mut Info){
         if name == "" { 
             self.skybox = 0;
-        }else if !self.actually_load_texture(name){
+        }else if !self.actually_load_texture(name, info){
             self.skybox = 0;
         }else if let Some(x) = self.textures_ids.get(name){
             self.skybox = x + 1;
