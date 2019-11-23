@@ -57,6 +57,10 @@ impl Info{
         self.watch.start();
     }
 
+    pub fn stop_time(&mut self){
+        self.watch.stop();
+    }
+
     pub fn set_time_point(&mut self, name: &str){
         self.times.push((name.to_string(),self.watch.elapsed_ms()));
     }

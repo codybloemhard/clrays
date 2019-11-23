@@ -50,13 +50,17 @@ pub fn main() -> Result<(),String>{
         intensity: 50.0,
         col: Vec3::one(),
     });
-
+    info.start_time();
     let src = unpackdb!(load_source("../Assets/Kernels/raytrace.cl"));
+    info.set_time_point("Loading source file");
 
     let (_,_,_,program,queue) = unpackdb!(create_five(&src));
+    info.set_time_point("Creating OpenCL objects");
 
     let (w,h) = (960u32,540u32);
-    let mut kernel = unpackdb!(TraceKernel::new("raytracing", (w,h), &program, &queue, &mut scene));
+    let mut kernel = unpackdb!(TraceKernel::new("raytracing", (w,h), &program, &queue, &mut scene, &mut info));
+    info.set_time_point("Last time stamp");
+    info.stop_time();
     info.print_info();
     unpackdb!(kernel.execute(&queue));
     let tex = unpackdb!(kernel.get_result(&queue));
