@@ -107,9 +107,6 @@ pub struct TraceKernel{
     dirty: bool,
     buffer: ClBuffer<i32>,
     scene_params: ClBuffer<i32>,
-    scene_items: ClBuffer<f32>,
-    tex_params: ClBuffer<i32>,
-    tex_items: ClBuffer<u8>,
     res: (u32,u32),
 }
 
@@ -122,14 +119,14 @@ impl TraceKernel{
         let scene_raw = scene.get_buffers();
         let scene_params_raw = scene.get_params_buffer();
         info.set_time_point("Build scene data");
-        let scene_params = unpack!(ClBuffer::from(queue, scene_params_raw));
-        let scene_items = unpack!(ClBuffer::from(queue, scene_raw));
+        let mut scene_params = unpack!(ClBuffer::from(queue, scene_params_raw));
+        let mut scene_items = unpack!(ClBuffer::from(queue, scene_raw));
         info.set_time_point("Build scene buffers");
         let tex_raw = scene.get_textures_buffer();
         let tex_params_raw = scene.get_texture_params_buffer();
         info.set_time_point("Build texture data");
-        let tex_params = unpack!(ClBuffer::from(queue, tex_params_raw));
-        let tex_items = unpack!(ClBuffer::from(queue, tex_raw));
+        let mut tex_params = unpack!(ClBuffer::from(queue, tex_params_raw));
+        let mut tex_items = unpack!(ClBuffer::from(queue, tex_raw));
         info.set_time_point("Build texture buffers");
         let kernel = unpack!(Kernel::builder()
         .program(program)
@@ -145,24 +142,26 @@ impl TraceKernel{
         .arg(tex_items.get_ocl_buffer())
         .build());
         info.set_time_point("Create kernel");
-        Ok(Self{ kernel, dirty, buffer, scene_params, scene_items, tex_params, tex_items, res: (w,h) })
+        /*Choice: Either: upload an let ClBuffer's go out of scope
+        Or: store ClBuffer's in the struct so they still live.
+        They will be uploaded automatically then.
+        I choose to upload here and let them go, as i don't need them later on and i can time the uploading.
+        Except tehe scene_params. It is small and used to change camera etc. */
+        unpack!(scene_params.upload(&queue));
+        info.set_time_point("Upload scene_params");
+        unpack!(scene_items.upload(&queue));
+        info.set_time_point("Upload scene_items");
+        unpack!(tex_params.upload(&queue));
+        info.set_time_point("Upload tex_params");
+        unpack!(tex_items.upload(&queue));
+        info.set_time_point("Upload tex_items");
+        Ok(Self{ kernel, dirty, buffer, scene_params, res: (w,h) })
     }
 
-    /*pub fn update(&mut self, queue: &Queue) -> Result<(),ocl::Error>{
-        match self.scene_params.upload(queue){
-            Ok(_) => {}, Err(e) => return Err(e),
-        }
-        match self.scene_items.upload(queue){
-            Ok(_) => {}, Err(e) => return Err(e),
-        }
-        match self.tex_params.upload(queue){
-            Ok(_) => {}, Err(e) => return Err(e),
-        }
-        match self.tex_items.upload(queue){
-            Ok(_) => {}, Err(e) => return Err(e),
-        }
+    pub fn update(&mut self, queue: &Queue) -> Result<(),ocl::Error>{
+        unpack!(self.scene_params.upload(queue));
         Ok(())
-    }*/
+    }
 
     pub fn get_res(&self) -> (u32,u32){
         self.res

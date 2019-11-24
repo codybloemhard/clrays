@@ -11,6 +11,7 @@ use clr::cl_helpers::{create_five};
 use clr::misc::{load_source};
 use clr::info::{Info};
 use clr::trace_tex::{TexType};
+use clr::trace_processor::{TraceProcessor,TraceType};
 
 pub fn main() -> Result<(),String>{
     //clr::test(PlatformTest::OpenCl2);
@@ -83,21 +84,12 @@ pub fn main() -> Result<(),String>{
         col: Vec3::one(),
     }.add(&mut scene);
 
-    info.start_time();
-    let src = unpackdb!(load_source("../Assets/Kernels/raytrace.cl"));
-    info.set_time_point("Loading source file");
-    let (_,_,_,program,queue) = unpackdb!(create_five(&src));
-    info.set_time_point("Creating OpenCL objects");
-
     //let (w,h) = (960u32,540u32);
     let (w,h) = (1600u32,900u32);
-    let mut kernel = unpackdb!(TraceKernel::new("raytracing", (w,h), &program, &queue, &mut scene, &mut info));
-    info.set_time_point("Last time stamp");
-    info.stop_time();
-    info.print_info();
-    unpackdb!(kernel.execute(&queue));
-    let tex = unpackdb!(kernel.get_result(&queue));
-
+    
+    let mut tracer = unpackdb!(TraceProcessor::new((w,h), 2, &mut scene, &mut info, TraceType::Real));
+    let tex = unpackdb!(tracer.render());
+    
     let mut window = window::Window::<state::StdState>::new("ClRays", w, h);
     window.run(window::std_input_handler, Some(tex));
     Ok(())
