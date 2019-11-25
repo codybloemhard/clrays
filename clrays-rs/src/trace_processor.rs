@@ -1,4 +1,4 @@
-use ocl::{Queue,Program};
+use ocl::{Queue};
 use crate::kernels::*;
 use crate::scene::{Scene};
 use crate::info::{Info};
@@ -39,6 +39,13 @@ impl TraceProcessor{
         Ok(TraceProcessor::AaTracer(kernel,clear_kernel,img_kernel,queue))
     }
 
+    pub fn update(&mut self) -> Result<(),ocl::Error>{
+        match self{
+            TraceProcessor::RealTracer(kernel,queue) => kernel.update(queue),
+            TraceProcessor::AaTracer(kernel,_,_,queue) => kernel.update(queue),
+        }
+    }
+
     pub fn render(&mut self) -> Result<&[i32],ocl::Error>{
         match self{
             TraceProcessor::RealTracer(kernel,queue) =>{
@@ -47,7 +54,6 @@ impl TraceProcessor{
             },
             TraceProcessor::AaTracer(kernel,clear_kernel,img_kernel,queue) =>{
                 unpack!(clear_kernel.execute(&queue));
-                kernel.update(&queue);
                 unpack!(kernel.execute(&queue));
                 unpack!(img_kernel.execute(&queue));
                 img_kernel.get_result(&queue)

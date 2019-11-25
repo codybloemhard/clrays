@@ -14,6 +14,17 @@ impl Incrementable for i32{
     }
 }
 
+impl Incrementable for usize{
+    fn inc_pre(&mut self) -> Self{
+        *self += 1;
+        *self
+    }
+    fn inc_post(&mut self) -> Self{
+        *self += 1;
+        *self - 1
+    }
+}
+
 pub fn build_vec<T: std::default::Default + std::clone::Clone>
     (size: usize) -> Vec<T>{
         let size = size;

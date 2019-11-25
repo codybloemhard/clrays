@@ -1,24 +1,26 @@
 use crate::state;
+use crate::trace_processor::TraceProcessor;
+use crate::misc::Incrementable;
 
 use sdl2::pixels::Color;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use std::time::Duration;
-use sdl2::render::TextureCreator;
+use stopwatch::Stopwatch;
 
 pub struct Window<T>{
     title: String,
     width: u32,
     height: u32,
-    state: T
+    state: T,
+    tracer: TraceProcessor,
 }
 
 impl<T: state::State> Window<T>{
-    pub fn new(title: &str, width: u32, height: u32) -> Self{
-        Self { title: title.to_string(), width, height, state: T::new() }
+    pub fn new(title: &str, width: u32, height: u32, tracer: TraceProcessor) -> Self{
+        Self { title: title.to_string(), width, height, state: T::new(), tracer, }
     }
 
-    pub fn run(&mut self, handle_input: fn(&mut sdl2::EventPump, &mut T), int_tex: Option<&[i32]>) -> Option<String>{
+    pub fn run(&mut self, handle_input: fn(&mut sdl2::EventPump, &mut T)) -> Option<String>{
         let contex = match sdl2::init(){
             Result::Ok(x) => x,
             Result::Err(e) => return Some(e),
@@ -42,32 +44,44 @@ impl<T: state::State> Window<T>{
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
         canvas.present();
-        if let Some(int_texv) = int_tex{
-            for (i,int) in int_texv.iter().enumerate(){
-                let y = i / self.width as usize;
-                let x = i - (y * self.width as usize);
-                let r = (int >> 16) & 0xff;
-                let g = (int >> 8) & 0xff;
-                let b = (int >> 0) & 0xff;
-                let col = Color::RGB(r as u8, g as u8, b as u8);
-                canvas.set_draw_color(col);
-                canvas.draw_point(sdl2::rect::Point::new(x as i32, y as i32));
-            }
-        }
         let mut event_pump = match contex.event_pump(){
             Result::Ok(x) => x,
             Result::Err(e) => return Some(e),
         };
+        let mut frame = 0;
+        let mut watch = Stopwatch::start_new();
+        let mut elapsed = 0;
         loop {
             //canvas.clear();
             handle_input(&mut event_pump, &mut self.state);
             if self.state.should_close() { break; }
             self.state.update(0.0);
             if self.state.should_close() { break; }
-            canvas.present();
-            std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+            self.tracer.update();
+            let int_tex = self.tracer.render().unwrap();
+            if frame % 10 == 0{
+                buffer_to_screen(int_tex, &mut canvas, self.width as usize);
+                canvas.present();
+            }
+            let e = watch.elapsed_ms();
+            println!("Frame: {} in {} ms.", frame.inc_post(), e - elapsed);
+            elapsed = e;
+            //std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
         }
         None
+    }
+}
+
+pub fn buffer_to_screen(int_tex: &[i32], canvas: &mut sdl2::render::Canvas<sdl2::video::Window>, w: usize){
+    for (i,int) in int_tex.iter().enumerate(){
+        let y = i / w;
+        let x = i - (y * w);
+        let r = (int >> 16) & 0xff;
+        let g = (int >> 8) & 0xff;
+        let b = (int >> 0) & 0xff;
+        let col = Color::RGB(r as u8, g as u8, b as u8);
+        canvas.set_draw_color(col);
+        canvas.draw_point(sdl2::rect::Point::new(x as i32, y as i32)).expect("Error: sdl2 could not draw point.");
     }
 }
 

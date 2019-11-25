@@ -89,9 +89,8 @@ pub fn main() -> Result<(),String>{
 
     //let mut tracer = unpackdb!(TraceProcessor::new_real((w,h), &mut scene, &mut info));
     let mut tracer = unpackdb!(TraceProcessor::new_aa((w,h), 2, &mut scene, &mut info));
-    let tex = unpackdb!(tracer.render());
     
-    let mut window = window::Window::<state::StdState>::new("ClRays", w, h);
-    window.run(window::std_input_handler, Some(tex));
+    let mut window = window::Window::<state::StdState>::new("ClRays", w, h, tracer);
+    window.run(window::std_input_handler);
     Ok(())
 }
