@@ -6,9 +6,6 @@ use clr::window;
 use clr::state;
 use clr::scene::{Scene,SceneItem,Material,Plane,Sphere,Light};
 use clr::vec3::{Vec3,BasicColour};
-use clr::kernels::{VoidKernel,ResultKernel,TraceKernelReal};
-use clr::cl_helpers::{create_five};
-use clr::misc::{load_source};
 use clr::info::{Info};
 use clr::trace_tex::{TexType};
 use clr::trace_processor::{TraceProcessor};
@@ -85,10 +82,10 @@ pub fn main() -> Result<(),String>{
     }.add(&mut scene);
 
     //let (w,h) = (960u32,540u32);
-    let (w,h) = (1600u32,900u32);
-
-    //let mut tracer = unpackdb!(TraceProcessor::new_real((w,h), &mut scene, &mut info));
-    let mut tracer = unpackdb!(TraceProcessor::new_aa((w,h), 2, &mut scene, &mut info));
+    //let (w,h) = (1600u32,900u32);
+    let (w,h) = (1920u32,1080u32);
+    let tracer = unpackdb!(TraceProcessor::new_real((w,h), &mut scene, &mut info));
+    //let tracer = unpackdb!(TraceProcessor::new_aa((w,h), 2, &mut scene, &mut info));
     
     let mut window = window::Window::<state::StdState>::new("ClRays", w, h, tracer);
     window.run(window::std_input_handler);

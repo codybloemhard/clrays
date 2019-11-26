@@ -10,6 +10,7 @@ extern crate sdl2;
 extern crate ocl;
 extern crate image;
 extern crate stopwatch;
+extern crate gl;
 
 #[macro_use]
 pub mod misc;
