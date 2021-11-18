@@ -335,7 +335,7 @@ impl Scene{
             println!("Error: Texture not found: {}.", name);
             return false;
         }
-        let tex = if *ttype == TexType::Vector3c8bpc 
+        let tex = if *ttype == TexType::Vector3c8bpc
         { TraceTex::vector_tex(path) }
         else { TraceTex::scalar_tex(path) };
         match tex{
@@ -360,7 +360,7 @@ impl Scene{
     }
 
     pub fn set_skybox(&mut self, name: &str, info: &mut Info){
-        if name == "" { 
+        if name == "" {
             self.skybox = 0;
         }else if !self.actually_load_texture(name, info){
             self.skybox = 0;

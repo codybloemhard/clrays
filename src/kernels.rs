@@ -36,7 +36,7 @@ impl ClearKernel{
 
 impl VoidKernel<f32> for ClearKernel{
     fn execute(&mut self, queue: &Queue) -> Result<(), ocl::Error>{
-        unsafe { 
+        unsafe {
             match self.kernel.cmd().queue(queue).enq(){
                 Ok(_) => Ok(()),
                 Err(e) => Err(e),
@@ -78,7 +78,7 @@ impl ImageKernel{
 
 impl VoidKernel<i32> for ImageKernel{
     fn execute(&mut self, queue: &Queue) -> Result<(), ocl::Error>{
-        unsafe { 
+        unsafe {
             match self.kernel.cmd().queue(queue).enq(){
                 Ok(_) => { self.dirty = true; Ok(()) },
                 Err(e) => Err(e),
@@ -138,7 +138,7 @@ impl TraceKernelReal{
         kbuilder.name(name);
         kbuilder.queue(queue.clone());
         kbuilder.global_work_size([w,h]);
-        
+
         kbuilder.arg(buffer.get_ocl_buffer());
         kbuilder.arg(w as u32);
         kbuilder.arg(h as u32);
@@ -177,7 +177,7 @@ impl TraceKernelReal{
 
 impl VoidKernel<i32> for TraceKernelReal{
     fn execute(&mut self, queue: &Queue) -> Result<(), ocl::Error>{
-        unsafe { 
+        unsafe {
             match self.kernel.cmd().queue(queue).enq(){
                 Ok(_) => { self.dirty = true; Ok(()) },
                 Err(e) => Err(e),
@@ -275,7 +275,7 @@ impl TraceKernelAa{
 
 impl VoidKernel<f32> for TraceKernelAa{
     fn execute(&mut self, queue: &Queue) -> Result<(), ocl::Error>{
-        unsafe { 
+        unsafe {
             match self.kernel.cmd().queue(queue).enq(){
                 Ok(_) => { self.dirty = true; Ok(()) },
                 Err(e) => Err(e),

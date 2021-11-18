@@ -13,7 +13,7 @@ pub enum TraceProcessor{
 impl TraceProcessor{
     pub fn new_real((width,height): (u32,u32), scene: &mut Scene, info: &mut Info) -> Result<Self,String>{
         info.start_time();
-        let src = unpackdb!(load_source("../Assets/Kernels/raytrace.cl"));
+        let src = unpackdb!(load_source("assets/kernels/raytrace.cl"));
         info.set_time_point("Loading source file");
         let (_,_,_,program,queue) = unpackdb!(create_five(&src));
         info.set_time_point("Creating OpenCL objects");
@@ -26,7 +26,7 @@ impl TraceProcessor{
 
     pub fn new_aa((width,height): (u32,u32), aa: u32, scene: &mut Scene, info: &mut Info) -> Result<Self,String>{
         info.start_time();
-        let src = unpackdb!(load_source("../Assets/Kernels/raytrace.cl"));
+        let src = unpackdb!(load_source("assets/kernels/raytrace.cl"));
         info.set_time_point("Loading source file");
         let (_,_,_,program,queue) = unpackdb!(create_five(&src));
         info.set_time_point("Creating OpenCL objects");

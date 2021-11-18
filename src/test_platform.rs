@@ -24,14 +24,14 @@ pub fn test_sdl_window(){
 
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
- 
+
     let window = video_subsystem.window("rust-sdl2 demo", 800, 600)
         .position_centered()
         .build()
         .unwrap();
- 
+
     let mut canvas = window.into_canvas().build().unwrap();
-    
+
     canvas.set_draw_color(Color::RGB(0, 255, 255));
     canvas.clear();
     canvas.present();
@@ -69,10 +69,10 @@ pub fn test_sdl_audio(){
         phase: f32,
         volume: f32
     }
-    
+
     impl AudioCallback for SquareWave {
         type Channel = f32;
-    
+
         fn callback(&mut self, out: &mut [f32]) {
             // Generate a square wave
             for x in out.iter_mut() {
@@ -184,7 +184,7 @@ pub fn test_opencl1(){
             Ok(x) => x,
             Err(e) => return Err(e),
         };
-        unsafe { 
+        unsafe {
             match kernel.cmd().queue(&queue).enq(){
                 Ok(_) => {},
                 Err(e) => return Err(e),
@@ -212,7 +212,7 @@ pub fn test_opencl1(){
 pub fn test_opencl2(){
     use ocl::{Kernel};
     use crate::cl_helpers::{create_five,ClBuffer};
-    
+
     fn run() -> ocl::Result<()>{
         let src = r#"
             __kernel void write(__global int* buffer) {
@@ -242,7 +242,7 @@ pub fn test_opencl2(){
             Ok(x) => x,
             Err(e) => return Err(e),
         };
-        unsafe { 
+        unsafe {
             match kernel.cmd().queue(&queue).enq(){
                 Ok(_) => {},
                 Err(e) => return Err(e),

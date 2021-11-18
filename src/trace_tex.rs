@@ -19,7 +19,7 @@ impl TraceTex{
             Err(e) => { println!("{}", e); return Err("could not load image.".to_string()); }
         };
         let buff = img.to_rgb();
-        
+
         Result::Ok(Self{
             pixels: buff.to_vec(),
             width: buff.width() as i32,
