@@ -35,7 +35,7 @@ pub fn build_vec<T: std::default::Default + std::clone::Clone>
 }
 
 pub fn make_nonzero_len<T: std::default::Default> (v: &mut Vec<T>){
-    if v.len() == 0{
+    if v.is_empty(){
         v.push(T::default());
     }
 }

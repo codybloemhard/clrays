@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate clrays_rs;
 use clrays_rs as clr;
-use clr::test_platform::PlatformTest;
 use clr::window;
 use clr::state;
 use clr::scene::{Scene,SceneItem,Material,Plane,Sphere,Light};
@@ -11,7 +10,7 @@ use clr::trace_tex::{TexType};
 use clr::trace_processor::{TraceProcessor};
 
 pub fn main() -> Result<(),String>{
-    //clr::test(PlatformTest::OpenCl2);
+    // clr::test(clr::test_platform::PlatformTest::OpenCl2);
     let mut info = Info::new();
     let mut scene = Scene::new();
     scene.sky_col = Vec3::soft_colour(BasicColour::Blue, 0.9, 0.2).normalized();

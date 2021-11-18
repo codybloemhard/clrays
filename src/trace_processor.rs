@@ -6,8 +6,8 @@ use crate::cl_helpers::{create_five};
 use crate::misc::{load_source};
 
 pub enum TraceProcessor{
-    RealTracer(TraceKernelReal,Queue),
-    AaTracer(TraceKernelAa,ClearKernel,ImageKernel,Queue)
+    RealTracer(Box<TraceKernelReal>, Queue),
+    AaTracer(Box<TraceKernelAa>, Box<ClearKernel>, Box<ImageKernel>, Queue)
 }
 
 impl TraceProcessor{
@@ -21,7 +21,7 @@ impl TraceProcessor{
         info.set_time_point("Last time stamp");
         info.stop_time();
         info.print_info();
-        Ok(TraceProcessor::RealTracer(kernel,queue))
+        Ok(TraceProcessor::RealTracer(Box::new(kernel), queue))
     }
 
     pub fn new_aa((width,height): (u32,u32), aa: u32, scene: &mut Scene, info: &mut Info) -> Result<Self,String>{
@@ -36,7 +36,12 @@ impl TraceProcessor{
         info.set_time_point("Last time stamp");
         info.stop_time();
         info.print_info();
-        Ok(TraceProcessor::AaTracer(kernel,clear_kernel,img_kernel,queue))
+        Ok(TraceProcessor::AaTracer(
+            Box::new(kernel),
+            Box::new(clear_kernel),
+            Box::new(img_kernel),
+            queue,
+        ))
     }
 
     pub fn update(&mut self) -> Result<(),ocl::Error>{
@@ -49,14 +54,14 @@ impl TraceProcessor{
     pub fn render(&mut self) -> Result<&[i32],ocl::Error>{
         match self{
             TraceProcessor::RealTracer(kernel,queue) =>{
-                unpack!(kernel.execute(&queue));
-                kernel.get_result(&queue)
+                unpack!(kernel.execute(queue));
+                kernel.get_result(queue)
             },
             TraceProcessor::AaTracer(kernel,clear_kernel,img_kernel,queue) =>{
-                unpack!(clear_kernel.execute(&queue));
-                unpack!(kernel.execute(&queue));
-                unpack!(img_kernel.execute(&queue));
-                img_kernel.get_result(&queue)
+                unpack!(clear_kernel.execute(queue));
+                unpack!(kernel.execute(queue));
+                unpack!(img_kernel.execute(queue));
+                img_kernel.get_result(queue)
             },
         }
     }

@@ -66,7 +66,7 @@ impl<T: state::State> Window<T>{
             if self.state.should_close() { break; }
             self.state.update(0.0);
             if self.state.should_close() { break; }
-            self.tracer.update();
+            self.tracer.update().expect("Couldn't update tracer!");
             let mut int_tex = self.tracer.render().unwrap().to_vec();
             unsafe{
                 gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as i32, glw, glh, 0, gl::BGRA, gl::UNSIGNED_BYTE, int_tex.as_mut_ptr() as *mut std::ffi::c_void);

@@ -139,6 +139,7 @@ pub fn test_opencl0(){
         buffer.read(&mut vec).enq()?;
 
         println!("The value at index [{}] is now '{}'!", 200007, vec[200007]);
+        println!("Test opencl0 went ok!");
         Ok(())
     }
 
@@ -199,6 +200,7 @@ pub fn test_opencl1(){
             Err(e) => return Err(e),
         }
         assert_eq!(vec, vec![10.0f32; dims]);
+        println!("Test opencl1 went ok!");
         Ok(())
     }
 
@@ -225,8 +227,8 @@ pub fn test_opencl2(){
         };
         let dims = 1 << 12;
         let mut startingbuffer = vec![0i32; dims];
-        for i in 0..dims{
-            startingbuffer[i] = i as i32;
+        for (i, buffer_elem) in startingbuffer.iter_mut().enumerate().take(dims){
+            *buffer_elem = i as i32;
         }
         let mut clbuffer = match ClBuffer::from(&queue, startingbuffer){
             Ok(x) => x,
@@ -250,10 +252,11 @@ pub fn test_opencl2(){
         }
         clbuffer.download(&queue).expect("expect: test_opencl2 clbuffer download");
         let mut testvec = vec![0i32; dims];
-        for i in 0..dims{
-            testvec[i] = (i*2) as i32;
+        for (i, buffer_elem) in testvec.iter_mut().enumerate().take(dims){
+            *buffer_elem = (i * 2) as i32;
         }
         assert_eq!(clbuffer.get_slice(), testvec.as_slice());
+        println!("Test opencl2 went ok!");
         Ok(())
     }
 

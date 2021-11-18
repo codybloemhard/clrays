@@ -1,5 +1,6 @@
 use stopwatch::{Stopwatch};
 
+#[derive(Default)]
 pub struct Info{
     pub textures: Vec<(String,u64)>,
     pub meta_size: u64,
@@ -12,15 +13,7 @@ pub struct Info{
 
 impl Info{
     pub fn new() -> Self{
-        Self{
-            textures: Vec::new(),
-            meta_size: 0,
-            scene_size: 0,
-            int_buffer_size: 0,
-            float_buffer_size: 0,
-            times: Vec::new(),
-            watch: Stopwatch::new(),
-        }
+        Self::default()
     }
     pub fn print_info(&self){
         println!("Metadata: {} B.", self.meta_size);

@@ -198,6 +198,12 @@ pub struct Scene{
     pub cam_dir: Vec3,
 }
 
+impl Default for Scene {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Scene{
     const SCENE_SIZE: i32 = 11;
     const SCENE_PARAM_SIZE: usize = 4 * 3 + Self::SCENE_SIZE as usize;
@@ -265,11 +271,11 @@ impl Scene{
     }
 
     fn f32_transm_i32(f: f32) -> i32{
-        unsafe { std::mem::transmute(f) }
+        f.to_bits() as i32
     }
 
     fn put_in_scene_params(&mut self, i: usize, v: Vec3){
-        self.scene_params[i + 0] = Self::f32_transm_i32(v.x);
+        self.scene_params[i    ] = Self::f32_transm_i32(v.x);
         self.scene_params[i + 1] = Self::f32_transm_i32(v.y);
         self.scene_params[i + 2] = Self::f32_transm_i32(v.z);
     }
@@ -284,9 +290,7 @@ impl Scene{
         let mut start = 0;
         for tex in self.textures.iter(){
             let len = tex.pixels.len();
-            for j in 0..len{
-                res[start + j] = tex.pixels[j];
-            }
+            res[start..(len + start)].clone_from_slice(&tex.pixels[..len]);
             start += len;
         }
         make_nonzero_len(&mut res);
@@ -297,7 +301,7 @@ impl Scene{
         let mut res = build_vec(self.textures.len() * 3);
         let mut start = 0;
         for (i, tex) in self.textures.iter().enumerate(){
-            res[i * 3 + 0] = start as i32;
+            res[i * 3    ] = start as i32;
             res[i * 3 + 1] = tex.width;
             res[i * 3 + 2] = tex.height;
             start += tex.pixels.len();
@@ -306,7 +310,7 @@ impl Scene{
         res
     }
 
-    pub fn bufferize<T: SceneItem>(vec: &mut Vec<f32>, start: &mut usize, list: &Vec<T>, stride: usize){
+    pub fn bufferize<T: SceneItem>(vec: &mut Vec<f32>, start: &mut usize, list: &[T], stride: usize){
         for (i, item) in list.iter().enumerate(){
             let off = i * stride;
             let data = item.get_data();
@@ -360,11 +364,9 @@ impl Scene{
     }
 
     pub fn set_skybox(&mut self, name: &str, info: &mut Info){
-        if name == "" {
+        if name.is_empty() || !self.actually_load_texture(name, info){
             self.skybox = 0;
-        }else if !self.actually_load_texture(name, info){
-            self.skybox = 0;
-        }else if let Some(x) = self.textures_ids.get(name){
+        } else if let Some(x) = self.textures_ids.get(name){
             self.skybox = x + 1;
         }
     }

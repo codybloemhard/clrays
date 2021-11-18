@@ -82,7 +82,7 @@ pub fn create_five(src: &str) -> Result<(Platform,Device,Context,Program,Queue),
     };
     let context = match Context::builder()
     .platform(platform)
-    .devices(device.clone())
+    .devices(device)
     .build(){
         Ok(x) => x,
         Err(e) => return Err(e),

@@ -39,7 +39,7 @@ impl TraceTex{
         let mut avg = build_vec(buff.len() / 3);
         for i in 0..avg.len(){
             let mut val = 0u16;
-            val += buff[i * 3 + 0] as u16;
+            val += buff[i * 3    ] as u16;
             val += buff[i * 3 + 1] as u16;
             val += buff[i * 3 + 2] as u16;
             val /= 3;

@@ -1,9 +1,10 @@
-use ocl::{Kernel,Program,Queue};
-use ocl::builders::{KernelBuilder};
-use std::rc::Rc;
-use crate::cl_helpers::{ClBuffer};
+use crate::cl_helpers::{ ClBuffer };
 use crate::scene::Scene;
 use crate::info::Info;
+
+use ocl::{ Kernel, Program, Queue };
+
+use std::rc::Rc;
 
 pub trait VoidKernel<T: ocl::OclPrm>{
     fn execute(&mut self, queue: &Queue) -> Result<(), ocl::Error>;
@@ -154,13 +155,13 @@ impl TraceKernelReal{
         They will be uploaded automatically then.
         I choose to upload here and let them go, as i don't need them later on and i can time the uploading.
         Except tehe scene_params. It is small and used to change camera etc. */
-        unpack!(scene_params.upload(&queue));
+        unpack!(scene_params.upload(queue));
         info.set_time_point("Upload scene_params");
-        unpack!(scene_items.upload(&queue));
+        unpack!(scene_items.upload(queue));
         info.set_time_point("Upload scene_items");
-        unpack!(tex_params.upload(&queue));
+        unpack!(tex_params.upload(queue));
         info.set_time_point("Upload tex_params");
-        unpack!(tex_items.upload(&queue));
+        unpack!(tex_items.upload(queue));
         info.set_time_point("Upload tex_items");
         Ok(Self{ kernel, dirty, buffer, scene_params, res: (w,h) })
     }
@@ -248,13 +249,13 @@ impl TraceKernelAa{
         kbuilder.arg(tex_items.get_ocl_buffer());
         let kernel = unpack!(kbuilder.build());
         info.set_time_point("Create kernel");
-        unpack!(scene_params.upload(&queue));
+        unpack!(scene_params.upload(queue));
         info.set_time_point("Upload scene_params");
-        unpack!(scene_items.upload(&queue));
+        unpack!(scene_items.upload(queue));
         info.set_time_point("Upload scene_items");
-        unpack!(tex_params.upload(&queue));
+        unpack!(tex_params.upload(queue));
         info.set_time_point("Upload tex_params");
-        unpack!(tex_items.upload(&queue));
+        unpack!(tex_items.upload(queue));
         info.set_time_point("Upload tex_items");
         Ok(Self{ kernel, dirty, buffer: Rc::new(buffer), scene_params, res: (w,h) })
     }
