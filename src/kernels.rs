@@ -23,25 +23,22 @@ pub struct ClearKernel{
 impl ClearKernel{
     pub fn new(name: &str, (w, h): (u32, u32), program: &Program, queue: &Queue, buffer: Rc<ClBuffer<f32>>) -> Result<Self, ocl::Error>{
         let kernel = Kernel::builder()
-        .program(program)
-        .name(name)
-        .queue(queue.clone())
-        .global_work_size([w,h])
-        .arg(buffer.get_ocl_buffer())
-        .arg(w)
-        .arg(h)
-        .build()?;
-        Result::Ok(Self{ kernel,buffer })
+            .program(program)
+            .name(name)
+            .queue(queue.clone())
+            .global_work_size([w, h])
+            .arg(buffer.get_ocl_buffer())
+            .arg(w)
+            .arg(h)
+            .build()?;
+        Result::Ok(Self{ kernel, buffer })
     }
 }
 
 impl VoidKernel<f32> for ClearKernel{
     fn execute(&mut self, queue: &Queue) -> Result<(), ocl::Error>{
         unsafe {
-            match self.kernel.cmd().queue(queue).enq(){
-                Ok(_) => Ok(()),
-                Err(e) => Err(e),
-            }
+            self.kernel.cmd().queue(queue).enq().map(|_| ())
         }
     }
 
@@ -59,31 +56,25 @@ pub struct ImageKernel{
 impl ImageKernel{
     pub fn new(name: &str, (w, h): (u32, u32), program: &Program, queue: &Queue, input: &ClBuffer<f32>) -> Result<Self, ocl::Error>{
         let dirty = false;
-        let buffer = match ClBuffer::<i32>::new(queue, w as usize * h as usize, 0){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
+        let buffer = ClBuffer::<i32>::new(queue, w as usize * h as usize, 0)?;
         let kernel = Kernel::builder()
-        .program(program)
-        .name(name)
-        .queue(queue.clone())
-        .global_work_size([w,h])
-        .arg(input.get_ocl_buffer())
-        .arg(buffer.get_ocl_buffer())
-        .arg(w as u32)
-        .arg(h as u32)
-        .build()?;
-        Ok(Self{ buffer,kernel,dirty })
+            .program(program)
+            .name(name)
+            .queue(queue.clone())
+            .global_work_size([w, h])
+            .arg(input.get_ocl_buffer())
+            .arg(buffer.get_ocl_buffer())
+            .arg(w as u32)
+            .arg(h as u32)
+            .build()?;
+        Ok(Self{ buffer, kernel, dirty })
     }
 }
 
 impl VoidKernel<i32> for ImageKernel{
     fn execute(&mut self, queue: &Queue) -> Result<(), ocl::Error>{
         unsafe {
-            match self.kernel.cmd().queue(queue).enq(){
-                Ok(_) => { self.dirty = true; Ok(()) },
-                Err(e) => Err(e),
-            }
+            self.kernel.cmd().queue(queue).enq().map(|_| self.dirty = true)
         }
     }
 
@@ -95,10 +86,7 @@ impl VoidKernel<i32> for ImageKernel{
 impl ResultKernel<i32> for ImageKernel{
     fn get_result(&mut self, queue: &Queue) -> Result<&[i32], ocl::Error>{
         if self.dirty {
-            match self.buffer.download(queue){
-                Ok(_) => {},
-                Err(e) => return Err(e),
-            }
+            self.buffer.download(queue)?;
         }
         self.dirty = false;
         Ok(self.buffer.get_slice())
@@ -110,7 +98,7 @@ pub struct TraceKernelReal{
     dirty: bool,
     buffer: ClBuffer<i32>,
     scene_params: ClBuffer<i32>,
-    res: (u32,u32),
+    res: (u32, u32),
 }
 
 impl TraceKernelReal{
@@ -179,10 +167,7 @@ impl TraceKernelReal{
 impl VoidKernel<i32> for TraceKernelReal{
     fn execute(&mut self, queue: &Queue) -> Result<(), ocl::Error>{
         unsafe {
-            match self.kernel.cmd().queue(queue).enq(){
-                Ok(_) => { self.dirty = true; Ok(()) },
-                Err(e) => Err(e),
-            }
+            self.kernel.cmd().queue(queue).enq().map(|_| self.dirty = true)
         }
     }
 
@@ -194,10 +179,7 @@ impl VoidKernel<i32> for TraceKernelReal{
 impl ResultKernel<i32> for TraceKernelReal{
     fn get_result(&mut self, queue: &Queue) -> Result<&[i32], ocl::Error>{
         if self.dirty {
-            match self.buffer.download(queue){
-                Ok(_) => {},
-                Err(e) => return Err(e),
-            }
+            self.buffer.download(queue)?;
         }
         self.dirty = false;
         Ok(self.buffer.get_slice())
@@ -209,7 +191,7 @@ pub struct TraceKernelAa{
     dirty: bool,
     buffer: Rc<ClBuffer<f32>>,
     scene_params: ClBuffer<i32>,
-    res: (u32,u32),
+    res: (u32, u32),
 }
 
 impl TraceKernelAa{
@@ -277,10 +259,7 @@ impl TraceKernelAa{
 impl VoidKernel<f32> for TraceKernelAa{
     fn execute(&mut self, queue: &Queue) -> Result<(), ocl::Error>{
         unsafe {
-            match self.kernel.cmd().queue(queue).enq(){
-                Ok(_) => { self.dirty = true; Ok(()) },
-                Err(e) => Err(e),
-            }
+            self.kernel.cmd().queue(queue).enq().map(|_| self.dirty = true)
         }
     }
 

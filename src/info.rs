@@ -15,6 +15,7 @@ impl Info{
     pub fn new() -> Self{
         Self::default()
     }
+
     pub fn print_info(&self){
         println!("Metadata: {} B.", self.meta_size);
         println!("Scene:    {} B.", self.scene_size);

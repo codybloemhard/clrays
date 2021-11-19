@@ -13,11 +13,8 @@ pub struct TraceTex{
 }
 
 impl TraceTex{
-    pub fn vector_tex(path: &str) -> Result<Self,String>{
-        let img = match image::open(path){
-            Ok(x) => x,
-            Err(e) => { println!("{}", e); return Err("could not load image.".to_string()); }
-        };
+    pub fn vector_tex(path: &str) -> Result<Self, String>{
+        let img = unpackdb!(image::open(path), format!("Could not open image {}!", path));
         let buff = img.to_rgb();
 
         Result::Ok(Self{
@@ -27,11 +24,8 @@ impl TraceTex{
         })
     }
 
-    pub fn scalar_tex(path: &str) -> Result<Self,String>{
-        let img = match image::open(path){
-            Ok(x) => x,
-            Err(e) => { println!("{}", e); return Err("could not load image.".to_string()); }
-        };
+    pub fn scalar_tex(path: &str) -> Result<Self, String>{
+        let img = unpackdb!(image::open(path), format!("Could not open image {}!", path));
         let buff = img.to_rgb();
         let w = buff.width() as i32;
         let h = buff.height() as i32;

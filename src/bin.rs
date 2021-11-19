@@ -87,8 +87,8 @@ pub fn main() -> Result<(), String>{
     //let (w,h) = (960u32,540u32);
     //let (w,h) = (1600u32,900u32);
     let (w,h) = (1920u32,1080u32);
-    let tracer = unpackdb!(TraceProcessor::new_real((w,h), &mut scene, &mut info));
-    //let tracer = unpackdb!(TraceProcessor::new_aa((w,h), 2, &mut scene, &mut info));
+    //let tracer = unpackdb!(TraceProcessor::new_real((w, h), &mut scene, &mut info), "Could not create TraceProcessor");
+    let tracer = unpackdb!(TraceProcessor::new_aa((w, h), 2, &mut scene, &mut info), "Could not create TraceProssor");
 
     let mut window = window::Window::<state::StdState>::new("ClRays", w, h, tracer);
     window.run(window::std_input_handler);

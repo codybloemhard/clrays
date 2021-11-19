@@ -1,4 +1,4 @@
-#[derive(PartialEq,Clone,Copy,Debug)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub struct Vec3{
     pub x: f32,
     pub y: f32,

@@ -9,36 +9,30 @@ pub struct ClBuffer<T: ocl::OclPrm + std::default::Default + std::clone::Clone>{
 
 impl<T: ocl::OclPrm> ClBuffer<T>{
     pub fn new(queue: &Queue, size: usize, init_val: T) -> Result<Self, ocl::Error>{
-        let size = std::cmp::max(size,1);
-        let ocl_buffer = match Buffer::<T>::builder()
-        .queue(queue.clone())
-        .flags(flags::MEM_READ_WRITE)
-        .len(size)
-        .fill_val(init_val)
-        .build(){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
+        let size = std::cmp::max(size, 1);
+        let ocl_buffer = Buffer::<T>::builder()
+            .queue(queue.clone())
+            .flags(flags::MEM_READ_WRITE)
+            .len(size)
+            .fill_val(init_val)
+            .build()?;
         let client_buffer = misc::build_vec(size);
         Ok(Self{
             ocl_buffer, client_buffer,
         })
     }
 
-    pub fn from(queue: &Queue, vec: Vec<T>) -> Result<Self, ocl::Error>{
+    pub fn from(queue: &Queue, vec: Vec<T>) -> Result<Self, String>{
         let ocl_buffer;
         unsafe {
             let len = vec.len();
-            if len == 0 { panic!("Error: ClBuffer::from got and empty vector!"); }
-            ocl_buffer = match Buffer::<T>::builder()
-            .queue(queue.clone())
-            .flags(flags::MEM_READ_WRITE)
-            .use_host_slice(&vec)
-            .len(len)
-            .build(){
-                Ok(x) => x,
-                Err(e) => return Err(e),
-            };
+            if len == 0 { return Err("ClBuffer::from got and empty vector!".to_string()); }
+            ocl_buffer = unpackdb!(Buffer::<T>::builder()
+                .queue(queue.clone())
+                .flags(flags::MEM_READ_WRITE)
+                .use_host_slice(&vec)
+                .len(len)
+                .build(), "Could not build ocl buffer!");
         }
         let client_buffer = vec;
         Ok(Self{
@@ -47,23 +41,17 @@ impl<T: ocl::OclPrm> ClBuffer<T>{
     }
 
     pub fn download(&mut self, queue: &Queue) -> Result<(), ocl::Error>{
-        match self.ocl_buffer.cmd()
-        .queue(queue)
-        .read(&mut self.client_buffer)
-        .enq(){
-            Ok(_) => Ok(()),
-            Err(e) => Err(e),
-        }
+        self.ocl_buffer.cmd()
+            .queue(queue)
+            .read(&mut self.client_buffer)
+            .enq()
     }
 
     pub fn upload(&mut self, queue: &Queue) -> Result<(), ocl::Error>{
-        match self.ocl_buffer.cmd()
-        .queue(queue)
-        .write(&self.client_buffer)
-        .enq(){
-            Ok(_) => Ok(()),
-            Err(e) => Err(e),
-        }
+        self.ocl_buffer.cmd()
+            .queue(queue)
+            .write(&self.client_buffer)
+            .enq()
     }
 
     pub fn get_slice(&self) -> &[T]{
@@ -77,27 +65,15 @@ impl<T: ocl::OclPrm> ClBuffer<T>{
 
 pub fn create_five(src: &str) -> Result<(Platform, Device, Context, Program, Queue), ocl::Error>{
     let platform = Platform::default();
-    let device = match Device::first(platform){
-        Ok(x) => x,
-        Err(e) => return Err(e),
-    };
-    let context = match Context::builder()
-    .platform(platform)
-    .devices(device)
-    .build(){
-        Ok(x) => x,
-        Err(e) => return Err(e),
-    };
-    let program = match Program::builder()
-    .devices(device)
-    .src(src)
-    .build(&context){
-        Ok(x) => x,
-        Err(e) => return Err(e),
-    };
-    let queue = match Queue::new(&context, device, None){
-        Ok(x) => x,
-        Err(e) => return Err(e),
-    };
-    Ok((platform,device,context,program,queue))
+    let device = Device::first(platform)?;
+    let context = Context::builder()
+        .platform(platform)
+        .devices(device)
+        .build()?;
+    let program = Program::builder()
+        .devices(device)
+        .src(src)
+        .build(&context)?;
+    let queue = Queue::new(&context, device, None)?;
+    Ok((platform, device, context, program, queue))
 }

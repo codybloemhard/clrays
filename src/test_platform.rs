@@ -1,3 +1,13 @@
+use crate::cl_helpers::{ create_five, ClBuffer };
+
+use sdl2::pixels::Color;
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
+use sdl2::audio::{ AudioCallback, AudioSpecDesired };
+use ocl::{ Buffer, flags, Kernel, ProQue };
+
+use std::time::Duration;
+
 pub enum PlatformTest{
     SdlWindow,
     SdlAudio,
@@ -17,11 +27,6 @@ pub fn run_platform_test(t: PlatformTest){
 }
 
 pub fn test_sdl_window(){
-    use sdl2::pixels::Color;
-    use sdl2::event::Event;
-    use sdl2::keyboard::Keycode;
-    use std::time::Duration;
-
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
@@ -61,9 +66,6 @@ pub fn test_sdl_window(){
 }
 
 pub fn test_sdl_audio(){
-    use sdl2::audio::{AudioCallback, AudioSpecDesired};
-    use std::time::Duration;
-
     struct SquareWave {
         phase_inc: f32,
         phase: f32,
@@ -112,48 +114,34 @@ pub fn test_sdl_audio(){
 }
 
 pub fn test_opencl0(){
-    use ocl::ProQue;
+    let src = r#"
+        __kernel void add(__global float* buffer, float scalar) {
+            buffer[get_global_id(0)] += scalar;
+        }
+    "#;
 
-    fn trivial() -> ocl::Result<()> {
-        let src = r#"
-            __kernel void add(__global float* buffer, float scalar) {
-                buffer[get_global_id(0)] += scalar;
-            }
-        "#;
+    let pro_que = ProQue::builder()
+        .src(src)
+        .dims(1 << 20)
+        .build().unwrap();
 
-        let pro_que = ProQue::builder()
-            .src(src)
-            .dims(1 << 20)
-            .build()?;
+    let buffer = pro_que.create_buffer::<f32>().unwrap();
 
-        let buffer = pro_que.create_buffer::<f32>()?;
+    let kernel = pro_que.kernel_builder("add")
+        .arg(&buffer)
+        .arg(10.0f32)
+        .build().unwrap();
 
-        let kernel = pro_que.kernel_builder("add")
-            .arg(&buffer)
-            .arg(10.0f32)
-            .build()?;
+    unsafe { kernel.enq().unwrap(); }
 
-        unsafe { kernel.enq()?; }
+    let mut vec = vec![0.0f32; buffer.len()];
+    buffer.read(&mut vec).enq().unwrap();
 
-        let mut vec = vec![0.0f32; buffer.len()];
-        buffer.read(&mut vec).enq()?;
-
-        println!("The value at index [{}] is now '{}'!", 200007, vec[200007]);
-        println!("Test opencl0 went ok!");
-        Ok(())
-    }
-
-    let res = trivial();
-    match res{
-        Ok(_) => {},
-        Err(e) => println!("{}", e),
-    }
+    println!("The value at index [{}] is now '{}'!", 200007, vec[200007]);
+    println!("Test opencl0 went ok!");
 }
 
 pub fn test_opencl1(){
-    use ocl::{Buffer,flags,Kernel};
-    use crate::cl_helpers::create_five;
-
     fn run() -> ocl::Result<()>{
         let src = r#"
             __kernel void add(__global float* buffer, float scalar) {
@@ -212,57 +200,34 @@ pub fn test_opencl1(){
 }
 
 pub fn test_opencl2(){
-    use ocl::{Kernel};
-    use crate::cl_helpers::{create_five,ClBuffer};
-
-    fn run() -> ocl::Result<()>{
-        let src = r#"
-            __kernel void write(__global int* buffer) {
-                buffer[get_global_id(0)] += get_global_id(0);
-            }
-        "#;
-        let (_,_,_,program,queue) = match create_five(src){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
-        let dims = 1 << 12;
-        let mut startingbuffer = vec![0i32; dims];
-        for (i, buffer_elem) in startingbuffer.iter_mut().enumerate().take(dims){
-            *buffer_elem = i as i32;
+    let src = r#"
+        __kernel void write(__global int* buffer) {
+            buffer[get_global_id(0)] += get_global_id(0);
         }
-        let mut clbuffer = match ClBuffer::from(&queue, startingbuffer){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
-        let kernel = match Kernel::builder()
+    "#;
+    let (_, _, _, program, queue) = create_five(src).unwrap();
+    let dims = 1 << 12;
+    let mut startingbuffer = vec![0i32; dims];
+    for (i, buffer_elem) in startingbuffer.iter_mut().enumerate().take(dims){
+        *buffer_elem = i as i32;
+    }
+    let mut clbuffer = ClBuffer::from(&queue, startingbuffer).unwrap();
+    let kernel = Kernel::builder()
         .program(&program)
         .name("write")
         .queue(queue.clone())
         .global_work_size(dims)
         .arg(clbuffer.get_ocl_buffer())
-        .build(){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
-        unsafe {
-            match kernel.cmd().queue(&queue).enq(){
-                Ok(_) => {},
-                Err(e) => return Err(e),
-            }
-        }
-        clbuffer.download(&queue).expect("expect: test_opencl2 clbuffer download");
-        let mut testvec = vec![0i32; dims];
-        for (i, buffer_elem) in testvec.iter_mut().enumerate().take(dims){
-            *buffer_elem = (i * 2) as i32;
-        }
-        assert_eq!(clbuffer.get_slice(), testvec.as_slice());
-        println!("Test opencl2 went ok!");
-        Ok(())
-    }
+        .build().unwrap();
 
-    let res = run();
-    match res{
-        Ok(_) => {},
-        Err(e) => println!("{}", e),
+    unsafe {
+        kernel.cmd().queue(&queue).enq().unwrap();
     }
+    clbuffer.download(&queue).expect("expect: test_opencl2 clbuffer download");
+    let mut testvec = vec![0i32; dims];
+    for (i, buffer_elem) in testvec.iter_mut().enumerate().take(dims){
+        *buffer_elem = (i * 2) as i32;
+    }
+    assert_eq!(clbuffer.get_slice(), testvec.as_slice());
+    println!("Test opencl2 went ok!");
 }
