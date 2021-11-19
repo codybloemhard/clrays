@@ -1,7 +1,8 @@
 use crate::vec3::Vec3;
-use crate::trace_tex::{TexType, TraceTex};
-use crate::misc::{Incrementable,build_vec,make_nonzero_len};
-use crate::info::{Info};
+use crate::trace_tex::{ TexType, TraceTex };
+use crate::misc::{ Incrementable, build_vec, make_nonzero_len };
+use crate::info::Info;
+
 use std::collections::HashMap;
 
 pub struct Material{

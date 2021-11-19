@@ -1,15 +1,16 @@
 #[macro_use]
 extern crate clrays_rs;
+
 use clrays_rs as clr;
 use clr::window;
 use clr::state;
-use clr::scene::{Scene,SceneItem,Material,Plane,Sphere,Light};
-use clr::vec3::{Vec3,BasicColour};
-use clr::info::{Info};
-use clr::trace_tex::{TexType};
-use clr::trace_processor::{TraceProcessor};
+use clr::scene::{ Scene, SceneItem, Material, Plane, Sphere, Light };
+use clr::vec3::{ Vec3, BasicColour };
+use clr::info::{ Info };
+use clr::trace_tex::{ TexType };
+use clr::trace_processor::{ TraceProcessor };
 
-pub fn main() -> Result<(),String>{
+pub fn main() -> Result<(), String>{
     // clr::test(clr::test_platform::PlatformTest::OpenCl2);
     let mut info = Info::new();
     let mut scene = Scene::new();

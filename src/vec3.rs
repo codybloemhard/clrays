@@ -199,7 +199,7 @@ impl Vec3{
         self.y = yy;
         self.z = zz;
     }
-    
+
     pub fn crossed(self, o: &Self) -> Self{
         let x = self.y * o.z - self.z * o.y;
         let y = self.z * o.x - self.x * o.z;

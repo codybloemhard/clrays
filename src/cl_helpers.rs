@@ -1,5 +1,6 @@
-use ocl::{Buffer,flags,Queue,Program,Device,Platform,Context};
 use crate::misc;
+
+use ocl::{ Buffer, flags, Queue, Program, Device, Platform, Context};
 
 pub struct ClBuffer<T: ocl::OclPrm + std::default::Default + std::clone::Clone>{
     ocl_buffer: Buffer::<T>,
@@ -7,7 +8,7 @@ pub struct ClBuffer<T: ocl::OclPrm + std::default::Default + std::clone::Clone>{
 }
 
 impl<T: ocl::OclPrm> ClBuffer<T>{
-    pub fn new(queue: &Queue, size: usize, init_val: T) -> Result<Self,ocl::Error>{
+    pub fn new(queue: &Queue, size: usize, init_val: T) -> Result<Self, ocl::Error>{
         let size = std::cmp::max(size,1);
         let ocl_buffer = match Buffer::<T>::builder()
         .queue(queue.clone())
@@ -24,7 +25,7 @@ impl<T: ocl::OclPrm> ClBuffer<T>{
         })
     }
 
-    pub fn from(queue: &Queue, vec: Vec<T>) -> Result<Self,ocl::Error>{
+    pub fn from(queue: &Queue, vec: Vec<T>) -> Result<Self, ocl::Error>{
         let ocl_buffer;
         unsafe {
             let len = vec.len();
@@ -45,7 +46,7 @@ impl<T: ocl::OclPrm> ClBuffer<T>{
         })
     }
 
-    pub fn download(&mut self, queue: &Queue) -> Result<(),ocl::Error>{
+    pub fn download(&mut self, queue: &Queue) -> Result<(), ocl::Error>{
         match self.ocl_buffer.cmd()
         .queue(queue)
         .read(&mut self.client_buffer)
@@ -55,7 +56,7 @@ impl<T: ocl::OclPrm> ClBuffer<T>{
         }
     }
 
-    pub fn upload(&mut self, queue: &Queue) -> Result<(),ocl::Error>{
+    pub fn upload(&mut self, queue: &Queue) -> Result<(), ocl::Error>{
         match self.ocl_buffer.cmd()
         .queue(queue)
         .write(&self.client_buffer)
@@ -74,7 +75,7 @@ impl<T: ocl::OclPrm> ClBuffer<T>{
     }
 }
 
-pub fn create_five(src: &str) -> Result<(Platform,Device,Context,Program,Queue),ocl::Error>{
+pub fn create_five(src: &str) -> Result<(Platform, Device, Context, Program, Queue), ocl::Error>{
     let platform = Platform::default();
     let device = match Device::first(platform){
         Ok(x) => x,

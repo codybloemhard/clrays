@@ -40,7 +40,7 @@ pub fn make_nonzero_len<T: std::default::Default> (v: &mut Vec<T>){
     }
 }
 
-pub fn load_source(path: &str) -> Result<String,std::io::Error>{
+pub fn load_source(path: &str) -> Result<String, std::io::Error>{
     use std::io::prelude::*;
     let mut file = match std::fs::File::open(path){
         Ok(x) => x,
@@ -59,17 +59,8 @@ macro_rules! unpackdb {
     ($x:expr) =>{
         match $x{
             Ok(z) => z,
-            Err(e) => return Err(format!("{:?}", e)),
+            Err(e) => return Err(format!("{}", e)),
         };
     }
 }
 
-#[macro_export]
-macro_rules! unpack {
-    ($x:expr) =>{
-        match $x{
-            Ok(z) => z,
-            Err(e) => return Err(e),
-        };
-    }
-}

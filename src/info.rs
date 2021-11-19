@@ -1,4 +1,4 @@
-use stopwatch::{Stopwatch};
+use stopwatch::{ Stopwatch };
 
 #[derive(Default)]
 pub struct Info{
