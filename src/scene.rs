@@ -97,13 +97,15 @@ impl SceneItem for Plane{
     }
 
     fn get_data(&self) -> Vec<f32>{
-        vec![self.pos.x, self.pos.y, self.pos.z,
-        self.nor.x, self.nor.y, self.nor.z,
-        self.mat.col.x, self.mat.col.y, self.mat.col.z,
-        self.mat.reflectivity, self.mat.roughness,
-        self.mat.texture as f32, self.mat.normal_map as f32,
-        self.mat.roughness_map as f32, self.mat.metalic_map as f32,
-        self.mat.tex_scale]
+        vec![
+            self.pos.x, self.pos.y, self.pos.z,
+            self.nor.x, self.nor.y, self.nor.z,
+            self.mat.col.x, self.mat.col.y, self.mat.col.z,
+            self.mat.reflectivity, self.mat.roughness,
+            self.mat.texture as f32, self.mat.normal_map as f32,
+            self.mat.roughness_map as f32, self.mat.metalic_map as f32,
+            self.mat.tex_scale
+        ]
     }
 
     fn add(self, scene: &mut Scene){
@@ -123,12 +125,14 @@ impl SceneItem for Sphere{
     }
 
     fn get_data(&self) -> Vec<f32>{
-        vec![self.pos.x, self.pos.y, self.pos.z, self.rad,
-        self.mat.col.x, self.mat.col.y, self.mat.col.z,
-        self.mat.reflectivity, self.mat.roughness,
-        self.mat.texture as f32, self.mat.normal_map as f32,
-        self.mat.roughness_map as f32, self.mat.metalic_map as f32,
-        self.mat.tex_scale]
+        vec![
+            self.pos.x, self.pos.y, self.pos.z, self.rad,
+            self.mat.col.x, self.mat.col.y, self.mat.col.z,
+            self.mat.reflectivity, self.mat.roughness,
+            self.mat.texture as f32, self.mat.normal_map as f32,
+            self.mat.roughness_map as f32, self.mat.metalic_map as f32,
+            self.mat.tex_scale
+        ]
     }
 
     fn add(self, scene: &mut Scene){
@@ -149,11 +153,13 @@ impl SceneItem for Box{
 
     fn get_data(&self) -> Vec<f32>{
         let hs = self.size.scaled(0.5);
-        vec![self.pos.x - hs.x, self.pos.y - hs.y, self.pos.z - hs.z,
-        self.pos.x + hs.x, self.pos.y + hs.y, self.pos.z + hs.z,
-        self.mat.texture as f32, self.mat.normal_map as f32,
-        self.mat.roughness_map as f32, self.mat.metalic_map as f32,
-        self.mat.tex_scale]
+        vec![
+            self.pos.x - hs.x, self.pos.y - hs.y, self.pos.z - hs.z,
+            self.pos.x + hs.x, self.pos.y + hs.y, self.pos.z + hs.z,
+            self.mat.texture as f32, self.mat.normal_map as f32,
+            self.mat.roughness_map as f32, self.mat.metalic_map as f32,
+            self.mat.tex_scale
+        ]
     }
 
     fn add(self, scene: &mut Scene){
@@ -173,8 +179,10 @@ impl SceneItem for Light{
     }
 
     fn get_data(&self) -> Vec<f32>{
-        vec![self.pos.x, self.pos.y, self.pos.z,
-        self.intensity, self.col.x, self.col.y, self.col.z]
+        vec![
+            self.pos.x, self.pos.y, self.pos.z,
+            self.intensity, self.col.x, self.col.y, self.col.z
+        ]
     }
 
     fn add(self, scene: &mut Scene){
@@ -265,20 +273,16 @@ impl Scene{
         //scene
         self.scene_params[12] = self.skybox;
         self.put_in_scene_params(13, self.sky_col);
-        self.scene_params[16] = Self::f32_transm_i32(self.sky_intensity);
+        self.scene_params[16] = self.sky_intensity.to_bits() as i32;
         self.put_in_scene_params(17, self.cam_pos);
         self.put_in_scene_params(20, self.cam_dir);
         self.scene_params.to_vec()
     }
 
-    fn f32_transm_i32(f: f32) -> i32{
-        f.to_bits() as i32
-    }
-
     fn put_in_scene_params(&mut self, i: usize, v: Vec3){
-        self.scene_params[i    ] = Self::f32_transm_i32(v.x);
-        self.scene_params[i + 1] = Self::f32_transm_i32(v.y);
-        self.scene_params[i + 2] = Self::f32_transm_i32(v.z);
+        self.scene_params[i    ] = v.x.to_bits() as i32;
+        self.scene_params[i + 1] = v.y.to_bits() as i32;
+        self.scene_params[i + 2] = v.z.to_bits() as i32;
     }
 
     pub fn get_textures_buffer(&self) -> Vec<u8>{
@@ -327,29 +331,28 @@ impl Scene{
             println!("Error: Texture name is already used: {}", name);
             return;
         }
-        self.ghost_textures.insert(name.to_string(), (path.to_string(),ttype));
+        self.ghost_textures.insert(name.to_string(), (path.to_string(), ttype));
     }
 
     fn actually_load_texture(&mut self, name: &str, info: &mut Info) -> bool{
         if self.textures_ids.get(name).is_some() { return true;}
-        let (path,ttype);
-        if let Some((pathv,ttypev)) = self.ghost_textures.get(name){
+        let (path, ttype);
+        if let Some((pathv, ttypev)) = self.ghost_textures.get(name){
             path = pathv;
             ttype = ttypev;
-        }else{
+        } else {
             println!("Error: Texture not found: {}.", name);
             return false;
         }
-        let tex = if *ttype == TexType::Vector3c8bpc
-        { TraceTex::vector_tex(path) }
+        let tex = if *ttype == TexType::Vector3c8bpc { TraceTex::vector_tex(path) }
         else { TraceTex::scalar_tex(path) };
         match tex{
-            Ok(x) =>{
+            Ok(x) => {
                 info.textures.push((name.to_string(), x.pixels.len() as u64));
                 self.textures.push(x);
                 self.textures_ids.insert(name.to_string(), self.next_texture.inc_post());
             },
-            Err(e) =>{
+            Err(e) => {
                 println!("{:?}", e);
             }
         }
@@ -358,6 +361,7 @@ impl Scene{
 
     pub fn get_texture(&mut self, name: &str, info: &mut Info) -> i32{
         if !self.actually_load_texture(name, info) { return 0; }
+
         if let Some(x) = self.textures_ids.get(name){
             return x + 1;
         }

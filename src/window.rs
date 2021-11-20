@@ -45,7 +45,6 @@ impl<T: state::State> Window<T>{
             Result::Err(e) => return Some(e),
         };
         let mut elapsed = watch.elapsed_ms();
-        println!("SDL setup time: {} ms", elapsed);
         let mut texture = 0u32;
         let mut fbo = 0u32;
         let (glw,glh) = (self.width as i32, self.height as i32);
@@ -60,6 +59,7 @@ impl<T: state::State> Window<T>{
             gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
             gl::FramebufferTexture(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, texture, 0);
         }
+        println!("SDL+OpenGl setup time: {} ms", elapsed);
         let mut frame = 0;
         loop {
             handle_input(&mut event_pump, &mut self.state);

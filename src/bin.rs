@@ -13,6 +13,8 @@ use clr::trace_processor::{ TraceProcessor };
 pub fn main() -> Result<(), String>{
     // clr::test(clr::test_platform::PlatformTest::OpenCl2);
     let mut info = Info::new();
+    info.start_time();
+
     let mut scene = Scene::new();
     scene.sky_col = Vec3::soft_colour(BasicColour::Blue, 0.9, 0.2).normalized();
     scene.sky_intensity = 0.0;
@@ -34,7 +36,7 @@ pub fn main() -> Result<(), String>{
     scene.add_texture("solar-nor", "assets/textures/solar-normal.png", TexType::Vector3c8bpc);
     scene.add_texture("solar-rou", "assets/textures/solar-rough.png", TexType::Scalar8b);
     scene.add_texture("solar-met", "assets/textures/solar-metal.png", TexType::Scalar8b);
-    scene.add_texture("sky", "assets/textures/sky1.jpg", TexType::Vector3c8bpc);
+    scene.add_texture("sky", "assets/textures/sky0.jpg", TexType::Vector3c8bpc);
     scene.set_skybox("sky", &mut info);
 
     Plane{
@@ -89,6 +91,10 @@ pub fn main() -> Result<(), String>{
     let (w,h) = (1920u32,1080u32);
     //let tracer = unpackdb!(TraceProcessor::new_real((w, h), &mut scene, &mut info), "Could not create TraceProcessor");
     let tracer = unpackdb!(TraceProcessor::new_aa((w, h), 2, &mut scene, &mut info), "Could not create TraceProssor");
+
+    info.stop_time();
+    info.print_info();
+    //return Ok(());
 
     let mut window = window::Window::<state::StdState>::new("ClRays", w, h, tracer);
     window.run(window::std_input_handler);

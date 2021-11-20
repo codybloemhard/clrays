@@ -17,14 +17,14 @@ impl Info{
     }
 
     pub fn print_info(&self){
-        println!("Metadata: {} B.", self.meta_size);
-        println!("Scene:    {} B.", self.scene_size);
-        println!("Int FB:   {} B.", self.int_buffer_size);
-        println!("Float FB: {} B.", self.float_buffer_size);
+        println!("Metadata: {}.", Self::format_size(self.meta_size));
+        println!("Scene:    {}.", Self::format_size(self.scene_size));
+        println!("Int FB:   {}.", Self::format_size(self.int_buffer_size));
+        println!("Float FB: {}.", Self::format_size(self.float_buffer_size));
         let mut sum = 0;
-        for (i,(name,size)) in self.textures.iter().enumerate(){
+        for (i, (name, size)) in self.textures.iter().enumerate(){
             sum += size;
-            println!("Texture{} : {} : {} B.", i, name, size);
+            println!("{} : {} : {}.", i, name, Self::format_size(*size));
         }
         println!("Totalsize: ");
         Self::print_size_verbose(sum);
@@ -32,7 +32,7 @@ impl Info{
         sum += self.meta_size + self.scene_size + self.int_buffer_size + self.float_buffer_size;
         Self::print_size_verbose(sum);
         let mut last = 0;
-        for (name,time) in self.times.iter(){
+        for (name, time) in self.times.iter(){
             let elapsed = time - last;
             last = *time;
             println!("{}: {} ms.", name, elapsed);
@@ -41,10 +41,22 @@ impl Info{
     }
 
     pub fn print_size_verbose(size: u64){
-        println!("      {} B.", size);
-        println!("      {} KB.", size / 1024);
-        println!("      {} MB.", size / 1024u64.pow(2));
-        println!("      {} GB.", size / 1024u64.pow(3));
+        println!("\t{} B.", size);
+        println!("\t{} KB.", size / 1024);
+        println!("\t{} MB.", size / 1024u64.pow(2));
+        println!("\t{} GB.", size / 1024u64.pow(3));
+    }
+
+    pub fn format_size(size: u64) -> String{
+        let mut max = 1_u64;
+        for label in ["B", "KB", "MB", "GB"]{
+            let new_max = max * 1024;
+            if size < new_max {
+                return format!("{} {}", size / max, label);
+            }
+            max = new_max;
+        }
+        return format!("{} {}", size / max, "TB");
     }
 
     pub fn start_time(&mut self){
@@ -56,6 +68,6 @@ impl Info{
     }
 
     pub fn set_time_point(&mut self, name: &str){
-        self.times.push((name.to_string(),self.watch.elapsed_ms()));
+        self.times.push((name.to_string(), self.watch.elapsed_ms()));
     }
 }

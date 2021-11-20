@@ -13,20 +13,16 @@ pub enum TraceProcessor{
 
 impl TraceProcessor{
     pub fn new_real((width, height): (u32, u32), scene: &mut Scene, info: &mut Info) -> Result<Self, String>{
-        info.start_time();
         let src = unpackdb!(load_source("assets/kernels/raytrace.clt"), "Could not load raytrace kernel!");
         info.set_time_point("Loading source file");
         let (_, _, _, program, queue) = unpackdb!(create_five(&src), "Could not init program and queue!");
         info.set_time_point("Creating OpenCL objects");
         let kernel = unpackdb!(TraceKernelReal::new("raytracing", (width, height), &program, &queue, scene, info), "Could not create TraceKernelReal!");
         info.set_time_point("Last time stamp");
-        info.stop_time();
-        info.print_info();
         Ok(TraceProcessor::RealTracer(Box::new(kernel), queue))
     }
 
     pub fn new_aa((width, height): (u32, u32), aa: u32, scene: &mut Scene, info: &mut Info) -> Result<Self, String>{
-        info.start_time();
         let src = unpackdb!(load_source("assets/kernels/raytrace.cl"), "Could not load raytrace kernel!");
         info.set_time_point("Loading source file");
         let (_, _, _, program, queue) = unpackdb!(create_five(&src), "Could not init program and queue!");
@@ -35,8 +31,6 @@ impl TraceProcessor{
         let clear_kernel = unpackdb!(ClearKernel::new("clear", (width,height), &program, &queue, kernel.get_buffer_rc()), "Could not create ClearKernel!");
         let img_kernel = unpackdb!(ImageKernel::new("image_from_floatmap", (width,height), &program, &queue, kernel.get_buffer()), "Could not create ImageKernel!");
         info.set_time_point("Last time stamp");
-        info.stop_time();
-        info.print_info();
         Ok(TraceProcessor::AaTracer(
             Box::new(kernel),
             Box::new(clear_kernel),
