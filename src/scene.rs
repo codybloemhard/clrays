@@ -199,6 +199,7 @@ pub struct Scene{
     next_texture: i32,
     ghost_textures: HashMap<String, (String, TexType)>,
     textures_ids: HashMap<String, i32>,
+    indexed_textures: Vec<(String, TexType, String)>,
     textures: Vec<TraceTex>,
     skybox: i32,
     pub sky_col: Vec3,
@@ -232,6 +233,7 @@ impl Scene{
             next_texture: 0,
             ghost_textures: HashMap::new(),
             textures_ids: HashMap::new(),
+            indexed_textures: Vec::new(),
             textures: Vec::new(),
             skybox: 0,
             sky_col: Vec3::one(),
@@ -334,46 +336,39 @@ impl Scene{
         self.ghost_textures.insert(name.to_string(), (path.to_string(), ttype));
     }
 
-    fn actually_load_texture(&mut self, name: &str, info: &mut Info) -> bool{
-        if self.textures_ids.get(name).is_some() { return true;}
-        let (path, ttype);
-        if let Some((pathv, ttypev)) = self.ghost_textures.get(name){
-            path = pathv;
-            ttype = ttypev;
+    pub fn get_texture(&mut self, name: &str) -> i32{
+        if let Some((path, ttype)) = self.ghost_textures.get(name){
+            let id = self.next_texture.inc_post();
+            self.textures_ids.insert(name.to_string(), id);
+            self.indexed_textures.push((path.clone(), *ttype, name.to_string()));
+            id + 1
+        } else if let Some(x) = self.textures_ids.get(name){
+            x + 1
         } else {
-            println!("Error: Texture not found: {}.", name);
-            return false;
+            println!("Warning: could not look up texture \"{}\"", name);
+            0
         }
-        let tex = if *ttype == TexType::Vector3c8bpc { TraceTex::vector_tex(path) }
-        else { TraceTex::scalar_tex(path) };
-        match tex{
-            Ok(x) => {
-                info.textures.push((name.to_string(), x.pixels.len() as u64));
-                self.textures.push(x);
-                self.textures_ids.insert(name.to_string(), self.next_texture.inc_post());
-            },
-            Err(e) => {
-                println!("{:?}", e);
+    }
+
+    pub fn pack_textures(&mut self, info: &mut Info){
+        for (path, ttype, name) in std::mem::take(&mut self.indexed_textures){
+            let tex = if ttype == TexType::Vector3c8bpc { TraceTex::vector_tex(&path) }
+            else { TraceTex::scalar_tex(&path) };
+            match tex{
+                Ok(x) => {
+                    info.textures.push((name, x.pixels.len() as u64));
+                    self.textures.push(x);
+                },
+                Err(e) => {
+                    println!("Error: could not create texture \"{}\": {:?}", name, e);
+                }
             }
         }
-        true
+        info.set_time_point("Loading textures");
     }
 
-    pub fn get_texture(&mut self, name: &str, info: &mut Info) -> i32{
-        if !self.actually_load_texture(name, info) { return 0; }
-
-        if let Some(x) = self.textures_ids.get(name){
-            return x + 1;
-        }
-        0
-    }
-
-    pub fn set_skybox(&mut self, name: &str, info: &mut Info){
-        if name.is_empty() || !self.actually_load_texture(name, info){
-            self.skybox = 0;
-        } else if let Some(x) = self.textures_ids.get(name){
-            self.skybox = x + 1;
-        }
+    pub fn set_skybox(&mut self, name: &str){
+        self.skybox = self.get_texture(name);
     }
 
     pub fn add_light(&mut self, l: Light){ self.lights.push(l); }

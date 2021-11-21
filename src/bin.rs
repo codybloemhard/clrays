@@ -37,15 +37,15 @@ pub fn main() -> Result<(), String>{
     scene.add_texture("solar-rou", "assets/textures/solar-rough.png", TexType::Scalar8b);
     scene.add_texture("solar-met", "assets/textures/solar-metal.png", TexType::Scalar8b);
     scene.add_texture("sky", "assets/textures/sky0.jpg", TexType::Vector3c8bpc);
-    scene.set_skybox("sky", &mut info);
+    scene.set_skybox("sky");
 
     Plane{
         pos: Vec3::new(0.0, -1.0, 0.0),
         nor: Vec3::up(),
         mat: Material::basic()
-            .with_texture(scene.get_texture("stone-alb", &mut info))
-            .with_normal_map(scene.get_texture("stone-nor", &mut info))
-            .with_roughness_map(scene.get_texture("stone-rou", &mut info))
+            .with_texture(scene.get_texture("stone-alb"))
+            .with_normal_map(scene.get_texture("stone-nor"))
+            .with_roughness_map(scene.get_texture("stone-rou"))
             .with_tex_scale(4.0),
     }.add(&mut scene);
 
@@ -53,9 +53,9 @@ pub fn main() -> Result<(), String>{
         pos: Vec3::new(2.0, 0.0, -5.0),
         rad: 1.0,
         mat: Material::basic()
-            .with_texture(scene.get_texture("tiles-alb", &mut info))
-            .with_normal_map(scene.get_texture("tiles-nor", &mut info))
-            .with_roughness_map(scene.get_texture("tiles-rou", &mut info)),
+            .with_texture(scene.get_texture("tiles-alb"))
+            .with_normal_map(scene.get_texture("tiles-nor"))
+            .with_roughness_map(scene.get_texture("tiles-rou")),
     }.add(&mut scene);
 
     Sphere{
@@ -63,20 +63,20 @@ pub fn main() -> Result<(), String>{
         rad: 1.0,
         mat: Material::basic()
             .with_reflectivity(0.3)
-            .with_texture(scene.get_texture("solar-alb", &mut info))
-            .with_normal_map(scene.get_texture("solar-nor", &mut info))
-            .with_roughness_map(scene.get_texture("solar-rou", &mut info))
-            .with_metalic_map(scene.get_texture("solar-met", &mut info)),
+            .with_texture(scene.get_texture("solar-alb"))
+            .with_normal_map(scene.get_texture("solar-nor"))
+            .with_roughness_map(scene.get_texture("solar-rou"))
+            .with_metalic_map(scene.get_texture("solar-met")),
     }.add(&mut scene);
 
     Sphere{
         pos: Vec3::new(-2.0, 0.0, -5.0),
         rad: 1.0,
         mat: Material::basic()
-            .with_texture(scene.get_texture("scifi-alb", &mut info))
-            .with_normal_map(scene.get_texture("scifi-nor", &mut info))
-            .with_roughness_map(scene.get_texture("scifi-rou", &mut info))
-            .with_metalic_map(scene.get_texture("scifi-met", &mut info))
+            .with_texture(scene.get_texture("scifi-alb"))
+            .with_normal_map(scene.get_texture("scifi-nor"))
+            .with_roughness_map(scene.get_texture("scifi-rou"))
+            .with_metalic_map(scene.get_texture("scifi-met"))
             .with_reflectivity(0.5),
     }.add(&mut scene);
 
@@ -86,6 +86,9 @@ pub fn main() -> Result<(), String>{
         col: Vec3::one(),
     }.add(&mut scene);
 
+    info.set_time_point("Setting up scene");
+    scene.pack_textures(&mut info);
+
     //let (w,h) = (960u32,540u32);
     //let (w,h) = (1600u32,900u32);
     let (w,h) = (1920u32,1080u32);
@@ -94,7 +97,6 @@ pub fn main() -> Result<(), String>{
 
     info.stop_time();
     info.print_info();
-    //return Ok(());
 
     let mut window = window::Window::<state::StdState>::new("ClRays", w, h, tracer);
     window.run(window::std_input_handler);
