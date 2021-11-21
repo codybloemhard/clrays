@@ -60,7 +60,7 @@ macro_rules! unpackdb {
         match $x{
             Ok(z) => z,
             Err(e) => return Err(format!("{}: {}", $msg, e)),
-        };
+        }
     }
 }
 

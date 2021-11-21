@@ -15,7 +15,7 @@ pub struct TraceTex{
 impl TraceTex{
     pub fn vector_tex(path: &str) -> Result<Self, String>{
         let img = unpackdb!(image::open(path), format!("Could not open image {}!", path));
-        let buff = img.to_rgb();
+        let buff = img.into_rgb8();
 
         Result::Ok(Self{
             pixels: buff.to_vec(),
@@ -26,7 +26,7 @@ impl TraceTex{
 
     pub fn scalar_tex(path: &str) -> Result<Self, String>{
         let img = unpackdb!(image::open(path), format!("Could not open image {}!", path));
-        let buff = img.to_rgb();
+        let buff = img.into_rgb8();
         let w = buff.width() as i32;
         let h = buff.height() as i32;
         let buff = buff.to_vec();

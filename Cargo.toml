@@ -15,8 +15,8 @@ name = "testbin"
 path = "src/bin.rs"
 
 [dependencies]
-sdl2 = "0.32.2"
+sdl2 = "0.35.1"
 ocl = "0.19.3"
-image = "0.22.3"
+image = "0.23.14"
 stopwatch = "0.0.7"
 gl = "0.14.0"
