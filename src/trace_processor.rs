@@ -6,58 +6,78 @@ use crate::misc::{ load_source };
 
 use ocl::{ Queue };
 
-pub enum TraceProcessor{
-    RealTracer(Box<TraceKernelReal>, Queue),
-    AaTracer(Box<TraceKernelAa>, Box<ClearKernel>, Box<ImageKernel>, Queue)
+pub trait TraceProcessor{
+    fn update(&mut self);
+    fn render(&mut self) -> &[i32];
 }
 
-impl TraceProcessor{
-    pub fn new_real((width, height): (u32, u32), scene: &mut Scene, info: &mut Info) -> Result<Self, String>{
-        let src = unpackdb!(load_source("assets/kernels/raytrace.clt"), "Could not load raytrace kernel!");
-        info.set_time_point("Loading source file");
-        let (_, _, _, program, queue) = unpackdb!(create_five(&src), "Could not init program and queue!");
-        info.set_time_point("Creating OpenCL objects");
-        let kernel = unpackdb!(TraceKernelReal::new("raytracing", (width, height), &program, &queue, scene, info), "Could not create TraceKernelReal!");
-        info.set_time_point("Last time stamp");
-        Ok(TraceProcessor::RealTracer(Box::new(kernel), queue))
-    }
+pub struct RealTracer{
+    kernel: Box<TraceKernelReal>,
+    queue: Queue,
+}
 
-    pub fn new_aa((width, height): (u32, u32), aa: u32, scene: &mut Scene, info: &mut Info) -> Result<Self, String>{
-        let src = unpackdb!(load_source("assets/kernels/raytrace.cl"), "Could not load raytrace kernel!");
+impl RealTracer{
+    pub fn new((width, height): (u32, u32), scene: &mut Scene, info: &mut Info) -> Result<Self, String>{
+        let src = unpackdb!(load_source("assets/kernels/raytrace.cl"), "Could not load RealTracer's kernel!");
         info.set_time_point("Loading source file");
-        let (_, _, _, program, queue) = unpackdb!(create_five(&src), "Could not init program and queue!");
+        let (_, _, _, program, queue) = unpackdb!(create_five(&src), "Could not init RealTracer's program and queue!");
         info.set_time_point("Creating OpenCL objects");
-        let kernel = unpackdb!(TraceKernelAa::new("raytracingAA", (width,height), aa, &program, &queue, scene, info), "Could not create TraceKernelAa!");
-        let clear_kernel = unpackdb!(ClearKernel::new("clear", (width,height), &program, &queue, kernel.get_buffer_rc()), "Could not create ClearKernel!");
-        let img_kernel = unpackdb!(ImageKernel::new("image_from_floatmap", (width,height), &program, &queue, kernel.get_buffer()), "Could not create ImageKernel!");
+        let kernel = unpackdb!(TraceKernelReal::new("raytracing", (width, height), &program, &queue, scene, info), "Could not create RealTracer!");
         info.set_time_point("Last time stamp");
-        Ok(TraceProcessor::AaTracer(
-            Box::new(kernel),
-            Box::new(clear_kernel),
-            Box::new(img_kernel),
+        Ok(RealTracer{
+            kernel: Box::new(kernel),
             queue,
-        ))
+        })
+    }
+}
+
+impl TraceProcessor for RealTracer{
+    fn update(&mut self){
+        self.kernel.update(&self.queue).expect("Could not update RealTracer's kernel!");
     }
 
-    pub fn update(&mut self) -> Result<(), ocl::Error>{
-        match self{
-            TraceProcessor::RealTracer(kernel, queue) => kernel.update(queue),
-            TraceProcessor::AaTracer(kernel, _, _, queue) => kernel.update(queue),
-        }
+    fn render(&mut self) -> &[i32]{
+        self.kernel.execute(&self.queue).expect("Could not execute RealTracer's kernel!");
+        self.kernel.get_result(&self.queue).expect("Could not get result of RealTracer!")
+    }
+}
+
+pub struct AaTracer{
+    trace_kernel: Box<TraceKernelAa>,
+    clear_kernel: Box<ClearKernel>,
+    image_kernel: Box<ImageKernel>,
+    queue: Queue,
+}
+
+impl AaTracer{
+    pub fn new((width, height): (u32, u32), aa: u32, scene: &mut Scene, info: &mut Info) -> Result<Self, String>{
+        let src = unpackdb!(load_source("assets/kernels/raytrace.cl"), "Could not load AaTracer's kernel!");
+        info.set_time_point("Loading source file");
+        let (_, _, _, program, queue) = unpackdb!(create_five(&src), "Could not init AaTracer's program and queue!");
+        info.set_time_point("Creating OpenCL objects");
+        let trace_kernel = unpackdb!(TraceKernelAa::new("raytracingAA", (width,height), aa, &program, &queue, scene, info), "Could not create AaTracer's trace kernel!");
+        let clear_kernel = unpackdb!(ClearKernel::new("clear", (width,height), &program, &queue, trace_kernel.get_buffer_rc()), "Could not create AaTracer's clear kernel!");
+        let image_kernel = unpackdb!(ImageKernel::new("image_from_floatmap", (width, height), &program, &queue, trace_kernel.get_buffer()), "Could not create AaTracer's image kernel!");
+        info.set_time_point("Last time stamp");
+        Ok(AaTracer{
+            trace_kernel: Box::new(trace_kernel),
+            clear_kernel: Box::new(clear_kernel),
+            image_kernel: Box::new(image_kernel),
+            queue,
+        })
     }
 
-    pub fn render(&mut self) -> Result<&[i32], ocl::Error>{
-        match self{
-            TraceProcessor::RealTracer(kernel, queue) =>{
-                kernel.execute(queue)?;
-                kernel.get_result(queue)
-            },
-            TraceProcessor::AaTracer(kernel, clear_kernel, img_kernel, queue) =>{
-                clear_kernel.execute(queue)?;
-                kernel.execute(queue)?;
-                img_kernel.execute(queue)?;
-                img_kernel.get_result(queue)
-            },
-        }
+}
+
+impl TraceProcessor for AaTracer{
+    fn update(&mut self){
+        self.trace_kernel.update(&self.queue).expect("Could not update AaTracer's trace kernel!");
+    }
+
+    fn render(&mut self) -> &[i32]{
+        self.clear_kernel.execute(&self.queue).expect("Could not execute AaTracer's clear kernel!");
+        self.trace_kernel.execute(&self.queue).expect("Could not execute AaTracer's trace kernel!");
+        self.image_kernel.execute(&self.queue).expect("Could not execute AaTracer's image kernel!");
+        self.image_kernel.get_result(&self.queue).expect("Could not get result of AaTracer's image kernel!")
     }
 }

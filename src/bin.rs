@@ -3,12 +3,11 @@ extern crate clrays_rs;
 
 use clrays_rs as clr;
 use clr::window;
-use clr::state;
 use clr::scene::{ Scene, SceneItem, Material, Plane, Sphere, Light };
 use clr::vec3::{ Vec3, BasicColour };
 use clr::info::{ Info };
 use clr::trace_tex::{ TexType };
-use clr::trace_processor::{ TraceProcessor };
+use clr::state::{ State, StdState };
 
 pub fn main() -> Result<(), String>{
     // clr::test(clr::test_platform::PlatformTest::OpenCl2);
@@ -89,16 +88,19 @@ pub fn main() -> Result<(), String>{
     info.set_time_point("Setting up scene");
     scene.pack_textures(&mut info);
 
+    let mut state = StdState::new();
+
     //let (w,h) = (960u32,540u32);
     //let (w,h) = (1600u32,900u32);
     let (w,h) = (1920u32,1080u32);
-    //let tracer = unpackdb!(TraceProcessor::new_real((w, h), &mut scene, &mut info), "Could not create TraceProcessor");
-    let tracer = unpackdb!(TraceProcessor::new_aa((w, h), 2, &mut scene, &mut info), "Could not create TraceProssor");
+
+    let mut tracer = unpackdb!(clr::trace_processor::RealTracer::new((w, h), &mut scene, &mut info), "Could not create RealTracer!");
+    // let mut tracer = unpackdb!(clr::trace_processor::AaTracer::new((w, h), 2, &mut scene, &mut info), "Could not create AaTracer!");
 
     info.stop_time();
     info.print_info();
 
-    let mut window = window::Window::<state::StdState>::new("ClRays", w, h, tracer);
-    window.run(window::std_input_handler);
+    let mut window = window::Window::new("ClRays", w, h);
+    window.run(&mut state, &mut tracer);
     Ok(())
 }
