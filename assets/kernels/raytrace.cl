@@ -17,6 +17,7 @@ struct Material{
     float texscale;
     uchar uvtype;
 };
+
 //extract material from array, off is index of first byte of material we want
 struct Material ExtractMaterial(uint off, global float *arr){
     struct Material mat;
@@ -42,6 +43,7 @@ struct RayHit{
     float t;
     struct Material *mat;
 };
+
 //hit nothing
 struct RayHit NullRayHit(){
     struct RayHit hit;
@@ -53,6 +55,7 @@ struct Ray{
     float3 pos;
     float3 dir;
 };
+
 //indices for types
 #define SC_LIGHT 0
 #define SC_SPHERE 1
@@ -68,38 +71,44 @@ struct Scene{
     float3 skycol;
     float skyintens;
 };
+
 //first byte in array where this type starts
 global uint ScGetStart(uint type, struct Scene *scene){
     return scene->params[type * 3 + 2];
 }
+
 //number of items of this type(not bytes!)
 global uint ScGetCount(uint type, struct Scene *scene){
     return scene->params[type * 3 + 1];
 }
+
 //size of an item of this type
 global uint ScGetStride(uint type, struct Scene *scene){
     return scene->params[type * 3 + 0];
 }
+
 //first byte of texture
 global uint TxGetStart(uint tex, struct Scene *scene){
     return scene->tex_params[tex * 3 + 0];
 }
+
 global uint TxGetWidth(uint tex, struct Scene *scene){
     return scene->tex_params[tex * 3 + 1];
 }
+
 global uint TxGetHeight(uint tex, struct Scene *scene){
     return scene->tex_params[tex * 3 + 2];
 }
+
 //get sample
-#define TEX_COL_SWIZZLE xyz //rust version of clrays
-//#define TEX_COL_SWIZZLE zyx //C# version of clrays
 global float3 TxGetSample(uint tex, struct Scene *scene, uint x, uint y, uint w){
     uint offset = TxGetStart(tex, scene) + (y * w + x) * 3;
     float3 col = (float3)(scene->textures[offset + 0],
                             scene->textures[offset + 1],
                             scene->textures[offset + 2]);
-    return col.TEX_COL_SWIZZLE / 255.0f;
+    return col / 255.0f;
 }
+
 //shared logic
 #define UV_TO_XY \
     float dummy;\
@@ -116,11 +125,13 @@ global float3 GetTexCol(uint tex, float2 uv, struct Scene *scene){
     UV_TO_XY;
     return pow(TxGetSample(tex, scene, x, y, w), GAMMA);
 }
+
 //get value to range 0..1 (no gamma)
 global float3 GetTexVal(uint tex, float2 uv, struct Scene *scene){
     UV_TO_XY;
     return TxGetSample(tex, scene, x, y, w);
 }
+
 //get value 0..1 from scalar map
 global float GetTexScalar(uint tex, float2 uv, struct Scene *scene){
     UV_TO_XY;
@@ -128,6 +139,7 @@ global float GetTexScalar(uint tex, float2 uv, struct Scene *scene){
     float scalar = (float)scene->textures[offset];
     return scalar / 255.0f;
 }
+
 //Copy a float3 out the array, off(offset) is the first byte of the float3 we want
 float3 ExtractFloat3(uint off, global float *arr){
     return (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
@@ -139,10 +151,6 @@ float3 ExtractFloat3FromInts(global uint *arr, uint index){
     res.y = as_float(arr[index + 1]);
     res.z = as_float(arr[index + 2]);
     return res;
-}
-
-float dist2(float3 a, float3 b){
-    return (a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y) + (a.z - b.z)*(a.z - b.z);
 }
 
 float3 reflect(float3 vec, float3 nor){
@@ -166,6 +174,7 @@ struct RayHit InterSphere(struct Ray* r, float3 spos, float srad){
     hit.nor = (hit.pos - spos) / srad;
     return hit;
 }
+
 //ray-plane intersection
 struct RayHit InterPlane(struct Ray* r, float3 ppos, float3 pnor){
     float divisor = dot(r->dir, pnor);
@@ -179,6 +188,7 @@ struct RayHit InterPlane(struct Ray* r, float3 ppos, float3 pnor){
     hit.nor = pnor;
     return hit;
 }
+
 //ray-box intersection
 //https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms
 //https://stackoverflow.com/questions/16875946/ray-box-intersection-normal#16876601
@@ -223,27 +233,31 @@ struct RayHit InterBox(struct Ray* r, float3 bmin, float3 bmax){
     struct RayHit hit;
     hit.t = tmin;
     hit.pos = hitp;
-    hit.nor = normalize(normal);
+    hit.nor = fast_normalize(normal);
     return hit;
 }
+
 //plane uv
 float2 PlaneUV(float3 pos, float3 nor){
     float3 u = (float3)(nor.y, nor.z, -nor.x);
-    float3 v = normalize(cross(u, nor));
+    float3 v = fast_normalize(cross(u, nor));
     return (float2)(dot(pos,u),dot(pos,v));
 }
+
 //sphere uv
 float2 SphereUV(float3 nor){
     float u = 0.5f + (atan2(-nor.z, -nor.x) / (2*M_PI));
     float v = 0.5f - asinpi(-nor.y);
     return (float2)(u,v);
 }
+
 //sphere skybox uv(just sphere uv with inverted normal)
 float2 SkySphereUV(float3 nor){
     float u = 0.5f + (atan2(nor.z, nor.x) / (2*M_PI));
     float v = 0.5f - asinpi(nor.y);
     return (float2)(u,v);
 }
+
 //macros for primitive intersections
 #define START_PRIM() \
     (struct RayHit *closest, struct Ray *ray, global float *arr, const uint count, const uint start, const uint stride){\
@@ -260,6 +274,7 @@ float2 SkySphereUV(float3 nor){
         }\
     }\
 }
+
 //actual functions
 void InterSpheres START_PRIM()
     float3 spos = ExtractFloat3(off + 0, arr);
@@ -278,6 +293,7 @@ void InterBoxes START_PRIM()
     float3 bmax = ExtractFloat3(off + 3, arr);
     struct RayHit hit = InterBox(ray, bmin, bmax);
     END_PRIM(6, uvBOX)
+
 //intersect whole scene
 struct RayHit InterScene(struct Ray *ray, struct Scene *scene){
     struct RayHit closest = NullRayHit();
@@ -286,6 +302,7 @@ struct RayHit InterScene(struct Ray *ray, struct Scene *scene){
     InterBoxes(&closest, ray, scene->items, ScGetCount(SC_BOX, scene), ScGetStart(SC_BOX, scene), ScGetStride(SC_BOX, scene));
     return closest;
 }
+
 //get sky colour
 float3 SkyCol(float3 nor, struct Scene *scene){
     if(scene->skybox == 0)
@@ -293,10 +310,11 @@ float3 SkyCol(float3 nor, struct Scene *scene){
     float2 uv = SkySphereUV(nor);
     return GetTexCol(scene->skybox - 1, uv, scene);
 }
+
 //get diffuse light strength for hit for a light
 float2 BlinnSingle(float3 lpos, float lpow, float3 viewdir, struct RayHit *hit, struct Scene *scene){
     float3 toL = lpos - hit->pos;
-    float dist = length(toL);
+    float dist = fast_length(toL);
     toL /= dist + EPSILON;
     //diffuse
     float3 nor = hit->nor;
@@ -315,11 +333,12 @@ float2 BlinnSingle(float3 lpos, float lpow, float3 viewdir, struct RayHit *hit, 
     if(lhit.t <= dist)
         return (float2)(0.0f);
     //specular
-    float3 halfdir = normalize(toL + -viewdir);
+    float3 halfdir = fast_normalize(toL + -viewdir);
     float specangle = max(dot(halfdir,nor),0.0f);
     float spec = pow(specangle,16.0f / hit->mat->roughness);
     return power * (float2)(angle,spec);
 }
+
 //get diffuse light incl colour of hit with all lights
 void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 *out_diff, float3 *out_spec){
     float3 col = (float3)(0.0f);
@@ -349,13 +368,16 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 *out_
     *out_diff = col * hit->mat->col;
     *out_spec = spec * (1.0f - hit->mat->roughness);
 }
+
 //Recursion only works with one function
 float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
     if(depth == 0) return SkyCol(ray->dir, scene);
+
     //hit
     struct RayHit hit = InterScene(ray, scene);
     if(hit.t >= MAX_RENDER_DIST)
         return SkyCol(ray->dir, scene);
+
     //texture
     float2 uv;
     float3 texcol = (float3)(1.0f);
@@ -370,16 +392,17 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
         uv *= hit.mat->texscale;
         texcol = GetTexCol(hit.mat->texture - 1, uv, scene);
     }
+
     //normalmap
     if(hit.mat->normalmap > 0){
         float3 rawnor = GetTexVal(hit.mat->normalmap - 1, uv, scene);
-        float3 t = normalize(cross(hit.nor, (float3)(0.0f,1.0f,0.0f)));
-        if(length(t) < EPSILON)
-            t = normalize(cross(hit.nor, (float3)(0.0f,0.0f,1.0f)));
-        t = normalize(t);
-        float3 b = normalize(cross(hit.nor, t));
+        float3 t = fast_normalize(cross(hit.nor, (float3)(0.0f,1.0f,0.0f)));
+        if(fast_length(t) < EPSILON)
+            t = fast_normalize(cross(hit.nor, (float3)(0.0f,0.0f,1.0f)));
+        t = fast_normalize(t);
+        float3 b = fast_normalize(cross(hit.nor, t));
         rawnor = rawnor * 2 - 1;
-        rawnor = normalize(rawnor);
+        rawnor = fast_normalize(rawnor);
         float3 newnor;
         float3 row = (float3)(t.x, b.x, hit.nor.x);
         newnor.x = dot(row, rawnor);
@@ -387,28 +410,33 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
         newnor.y = dot(row, rawnor);
         row = (float3)(t.z, b.z, hit.nor.z);
         newnor.z = dot(row, rawnor);
-        hit.nor = normalize(newnor);
+        hit.nor = fast_normalize(newnor);
     }
+
     //roughnessmap
     if(hit.mat->roughnessmap > 0){
         float value = GetTexScalar(hit.mat->roughnessmap - 1, uv, scene);
         hit.mat->roughness = value * hit.mat->roughness;
     }
+
     //metalicmap
     if(hit.mat->metalicmap > 0){
         float value = GetTexScalar(hit.mat->metalicmap - 1, uv, scene);
         hit.mat->reflectivity *= value;
     }
+
     //diffuse, specular
     float3 diff, spec;
     Blinn(&hit, scene, ray->dir, &diff, &spec);
     diff *= texcol;
+
     //reflection
-    float3 newdir = normalize(reflect(ray->dir, hit.nor));
+    float3 newdir = fast_normalize(reflect(ray->dir, hit.nor));
     struct Ray nray;
     nray.pos = hit.pos + newdir * EPSILON;
     nray.dir = newdir;
     struct RayHit nhit = InterScene(&nray, scene);
+
     //Does not get corrupted to version inside recursive call if not pointer
     float refl_mul = hit.mat->reflectivity;
     float3 refl = RayTrace(&nray, scene, depth - 1);
@@ -430,16 +458,16 @@ __global uint *tx_params, __global uchar *tx_items){
     scene.skyintens = as_float(sc_params[3*SC_SCENE + 4]);
     struct Ray ray;
     ray.pos = ExtractFloat3FromInts(sc_params, 3*SC_SCENE + 5);
-    float3 cd = normalize(ExtractFloat3FromInts(sc_params, 3*SC_SCENE + 8));
-    float3 hor = normalize(cross(cd,(float3)(0.0f,1.0f,0.0f)));
-    float3 ver = normalize(cross(hor,cd));
+    float3 cd = fast_normalize(ExtractFloat3FromInts(sc_params, 3*SC_SCENE + 8));
+    float3 hor = fast_normalize(cross(cd,(float3)(0.0f,1.0f,0.0f)));
+    float3 ver = fast_normalize(cross(hor,cd));
     float2 uv = (float2)((float)x / (w * AA), (float)y / (h * AA));
     uv -= 0.5f;
     uv *= (float2)((float)w/h, -1.0f);
     float3 to = ray.pos + cd;
     to += uv.x * hor;
     to += uv.y * ver;
-    ray.dir = normalize(to - ray.pos);
+    ray.dir = fast_normalize(to - ray.pos);
 
     float3 col = RayTrace(&ray, &scene, MAX_RENDER_DEPTH);
     col = pow(col, (float3)(1.0f/GAMMA));
@@ -498,6 +526,7 @@ __kernel void raytracing(
     uint res = ((uint)col.x << 16) + ((uint)col.y << 8) + (uint)col.z;
     intmap[pixid] = res;
 }
+
 //takes same input as raytracing, outputs a gradient
 __kernel void raytracing_format_gradient_test(
     __global uint *intmap,
@@ -516,6 +545,7 @@ __kernel void raytracing_format_gradient_test(
     uint res = ((uint)col.x << 16) + ((uint)col.y << 8) + (uint)col.z;
     intmap[pixid] = res;
 }
+
 //takes same input as raytracing, outputs the first texture
 __kernel void raytracing_format_texture_test(
     __global uint *intmap,

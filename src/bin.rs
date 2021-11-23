@@ -94,8 +94,8 @@ pub fn main() -> Result<(), String>{
     //let (w,h) = (1600u32,900u32);
     let (w,h) = (1920u32,1080u32);
 
-    let mut tracer = unpackdb!(clr::trace_processor::RealTracer::new((w, h), &mut scene, &mut info), "Could not create RealTracer!");
-    // let mut tracer = unpackdb!(clr::trace_processor::AaTracer::new((w, h), 2, &mut scene, &mut info), "Could not create AaTracer!");
+    // let mut tracer = unpackdb!(clr::trace_processor::RealTracer::new((w, h), &mut scene, &mut info), "Could not create RealTracer!");
+    let mut tracer = unpackdb!(clr::trace_processor::AaTracer::new((w, h), 2, &mut scene, &mut info), "Could not create AaTracer!");
 
     info.stop_time();
     info.print_info();

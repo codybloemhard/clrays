@@ -27,5 +27,6 @@
 - export
 - denoising
 - optimize pow: gamma correct images before upload and gamma correct after AA
+- optimize vector loading: use vload3 and allign the buffer for it
 - preprocess kernel: optimize branches away, insert constants
 - sRGB now, use aces, linear colours
