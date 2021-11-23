@@ -20,32 +20,23 @@ impl Window
             &mut self,
             state: &mut impl state::State,
             tracer: &mut impl TraceProcessor
-        ) -> Option<String>
+        ) -> Result<(), String>
     {
         let watch = Stopwatch::start_new();
-        let contex = match sdl2::init(){
-            Result::Ok(x) => x,
-            Result::Err(e) => return Some(e),
-        };
-        let video_subsystem = match contex.video(){
-            Result::Ok(x) => x,
-            Result::Err(e) => return Some(e),
-        };
-        let window = match video_subsystem.window(&self.title, self.width, self.height)
+
+        let contex = unpackdb!(sdl2::init(), "Could not init sdl2!");
+        let video_subsystem = unpackdb!(contex.video(), "Could not get sdl video subsystem!");
+        let window = unpackdb!(video_subsystem.window(&self.title, self.width, self.height)
             .position_centered()
             .opengl()
-            .build(){
-            Result::Ok(x) => x,
-            Result::Err(e) => return Some(window_build_error_to_string(e)),
-        };
+            .build(),
+            "Could not create window!");
         let _gl_contex = window.gl_create_context().unwrap(); // needs to exist
         #[allow(dead_code)]
         let _gl = gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void);
 
-        let mut event_pump = match contex.event_pump(){
-            Result::Ok(x) => x,
-            Result::Err(e) => return Some(e),
-        };
+        let mut event_pump = unpackdb!(contex.event_pump(), "Could not get sdl event pump!");
+
         let mut elapsed = watch.elapsed_ms();
         let mut texture = 0u32;
         let mut fbo = 0u32;
@@ -81,23 +72,7 @@ impl Window
             println!("Frame: {} in {} ms.", frame.inc_post(), e - elapsed);
             elapsed = e;
         }
-        None
-    }
-}
-
-pub fn window_build_error_to_string(wbe: sdl2::video::WindowBuildError) -> String{
-    match wbe{
-        sdl2::video::WindowBuildError::WidthOverflows(x) => format!("sdl2: WindowBuildError: WidthOverflows: {}", x),
-        sdl2::video::WindowBuildError::HeightOverflows(x) => format!("sdl2: WindowBuildError: HeightOverflows: {}", x),
-        sdl2::video::WindowBuildError::InvalidTitle(ne) => format!("sdl2: WindowBuildError: InvalidTitle: NulError: nul_position: {}", ne.nul_position()),
-        sdl2::video::WindowBuildError::SdlError(sdle) => format!("sdl12: WindowBuildError: SdlError: {}", sdle),
-    }
-}
-
-pub fn integer_ord_sdl_error_to_string(iose: sdl2::IntegerOrSdlError) -> String{
-    match iose{
-        sdl2::IntegerOrSdlError::SdlError(sdle) => format!("sdl2: IntegerOrSdlError: SdlError: {}", sdle),
-        sdl2::IntegerOrSdlError::IntegerOverflows(s,u) => format!("sdl2: IntegerOrSdlError: IntegerOverflows: string = {}, value = {}", s, u),
+        Ok(())
     }
 }
 

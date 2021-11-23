@@ -17,8 +17,8 @@ pub fn main() -> Result<(), String>{
     let mut scene = Scene::new();
     scene.sky_col = Vec3::soft_colour(BasicColour::Blue, 0.9, 0.2).normalized();
     scene.sky_intensity = 0.0;
-    scene.cam_pos = Vec3::zero();
-    scene.cam_dir = Vec3::backward();
+    scene.cam_pos = Vec3::ZERO;
+    scene.cam_dir = Vec3::BACKWARD;
     scene.add_texture("wood", "assets/textures/wood.png", TexType::Vector3c8bpc);
     scene.add_texture("sphere", "assets/textures/spheremap.jpg", TexType::Vector3c8bpc);
     scene.add_texture("stone-alb", "assets/textures/stone-albedo.png", TexType::Vector3c8bpc);
@@ -40,7 +40,7 @@ pub fn main() -> Result<(), String>{
 
     Plane{
         pos: Vec3::new(0.0, -1.0, 0.0),
-        nor: Vec3::up(),
+        nor: Vec3::UP,
         mat: Material::basic()
             .with_texture(scene.get_texture("stone-alb"))
             .with_normal_map(scene.get_texture("stone-nor"))
@@ -82,7 +82,7 @@ pub fn main() -> Result<(), String>{
     Light{
         pos: Vec3::new(0.0, 2.0, -3.0),
         intensity: 100.0,
-        col: Vec3::one(),
+        col: Vec3::ONE,
     }.add(&mut scene);
 
     info.set_time_point("Setting up scene");
@@ -101,6 +101,5 @@ pub fn main() -> Result<(), String>{
     info.print_info();
 
     let mut window = window::Window::new("ClRays", w, h);
-    window.run(&mut state, &mut tracer);
-    Ok(())
+    window.run(&mut state, &mut tracer)
 }

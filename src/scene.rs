@@ -27,7 +27,7 @@ impl Material{
 
     pub fn basic() -> Self{
         Self{
-            col: Vec3::one(),
+            col: Vec3::ONE,
             reflectivity: 0.0,
             roughness: 1.0,
             texture: 0,
@@ -236,10 +236,10 @@ impl Scene{
             indexed_textures: Vec::new(),
             textures: Vec::new(),
             skybox: 0,
-            sky_col: Vec3::one(),
+            sky_col: Vec3::ONE,
             sky_intensity: 0.0,
-            cam_pos: Vec3::zero(),
-            cam_dir: Vec3::backward(),
+            cam_pos: Vec3::ZERO,
+            cam_dir: Vec3::BACKWARD,
         }
     }
 

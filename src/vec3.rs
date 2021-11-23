@@ -5,63 +5,37 @@ pub struct Vec3{
     pub z: f32,
 }
 
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum BasicColour{
     Red,
     Green,
     Blue,
     Black,
-    White
+    White,
 }
 
 impl Vec3{
+
+    pub const ZERO: Vec3 =      Self { x:  0.0, y:  0.0, z:  0.0 };
+    pub const ONE: Vec3 =       Self { x:  1.0, y:  1.0, z:  1.0 };
+    pub const LEFT: Vec3 =      Self { x:  1.0, y:  0.0, z:  0.0 };
+    pub const RIGHT: Vec3 =     Self { x: -1.0, y:  0.0, z:  0.0 };
+    pub const UP: Vec3 =        Self { x:  0.0, y:  1.0, z:  0.0 };
+    pub const DOWN: Vec3 =      Self { x:  0.0, y: -1.0, z:  0.0 };
+    pub const FORWARD: Vec3 =   Self { x:  0.0, y:  0.0, z:  1.0 };
+    pub const BACKWARD: Vec3 =  Self { x:  0.0, y:  0.0, z: -1.0 };
+    pub const RED: Vec3 =       Self { x:  1.0, y:  0.0, z:  0.0 };
+    pub const GREEN: Vec3 =     Self { x:  0.0, y:  1.0, z:  0.0 };
+    pub const BLUE: Vec3 =      Self { x:  0.0, y:  0.0, z:  1.0 };
+    pub const BLACK: Vec3 =     Self { x:  0.0, y:  0.0, z:  0.0 };
+    pub const WHITE: Vec3 =     Self { x:  1.0, y:  1.0, z:  1.0 };
+
+    #[inline]
     pub fn new(x: f32, y: f32, z: f32) -> Self{
-        Self {x, y, z}
+        Self { x, y, z }
     }
 
-    pub fn zero() -> Self{
-        Self {x: 0.0, y: 0.0, z: 0.0}
-    }
-
-    pub fn one() -> Self{
-        Self {x: 1.0, y: 1.0, z: 1.0}
-    }
-
-    pub fn right() -> Self{
-        Self {x: 1.0, y: 0.0, z: 0.0}
-    }
-
-    pub fn left() -> Self{
-        Self {x: -1.0, y: 0.0, z: 0.0}
-    }
-
-    pub fn up() -> Self{
-        Self {x: 0.0, y: 1.0, z: 0.0}
-    }
-
-    pub fn down() -> Self{
-        Self {x: 0.0, y: -1.0, z: 0.0}
-    }
-
-    pub fn forward() -> Self{
-        Self {x: 0.0, y: 0.0, z: 1.0}
-    }
-
-    pub fn backward() -> Self{
-        Self {x: 0.0, y: 0.0, z: -1.0}
-    }
-
-    pub fn red() -> Self{
-        Self {x: 1.0, y: 0.0, z: 0.0}
-    }
-
-    pub fn green() -> Self{
-        Self {x: 0.0, y: 1.0, z: 0.0}
-    }
-
-    pub fn blue() -> Self{
-        Self {x: 0.0, y: 0.0, z: 1.0}
-    }
-
+    #[inline]
     pub fn soft_colour(col: BasicColour, on_strength: f32, off_strength: f32) -> Self{
         let of = off_strength;
         let on = on_strength;
@@ -74,29 +48,35 @@ impl Vec3{
         }
     }
 
+    #[inline]
     pub fn std_colour(col: BasicColour) -> Self{
         Vec3::soft_colour(col, 0.9, 0.1)
     }
 
+    #[inline]
     pub fn neg(&mut self){
         self.x = -self.x;
         self.y = -self.y;
         self.z = -self.z;
     }
 
+    #[inline]
     pub fn neged(mut self) -> Self{
         self.neg();
         self
     }
 
+    #[inline]
     pub fn len(&self) -> f32{
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 
+    #[inline]
     pub fn dot(&self, o: &Self) -> f32{
         self.x * o.x + self.y * o.y + self.z * o.z
     }
 
+    #[inline]
     pub fn normalize_unsafe(&mut self){
         let l = self.len();
         self.x /= l;
@@ -104,6 +84,7 @@ impl Vec3{
         self.z /= l;
     }
 
+    #[inline]
     pub fn normalize(&mut self){
         let l = self.len();
         if l == 0.0 { return; }
@@ -112,51 +93,60 @@ impl Vec3{
         self.z /= l;
     }
 
+    #[inline]
     pub fn normalized_unsafe(mut self) -> Self{
         self.normalize_unsafe();
         self
     }
 
+    #[inline]
     pub fn normalized(mut self) -> Self{
         self.normalize();
         self
     }
 
+    #[inline]
     pub fn scale(&mut self, s: f32){
         self.x *= s;
         self.y *= s;
         self.z *= s;
     }
 
+    #[inline]
     pub fn scaled(mut self, s: f32) -> Self{
         self.scale(s);
         self
     }
 
+    #[inline]
     pub fn add(&mut self, o: &Self){
         self.x += o.x;
         self.y += o.y;
         self.z += o.z;
     }
 
+    #[inline]
     pub fn sub(&mut self, o: &Self){
         self.x -= o.x;
         self.y -= o.y;
         self.z -= o.z;
     }
 
+    #[inline]
     pub fn mul(&mut self, o: &Self){
         self.x *= o.x;
         self.y *= o.y;
         self.z *= o.z;
     }
 
+    #[inline]
     pub fn div_unsafe(&mut self, o: &Self){
         self.x /= o.x;
         self.y /= o.y;
         self.z /= o.z;
     }
 
+    #[inline]
     pub fn div(&mut self, o: &Self){
         if o.x != 0.0 { self.x /= o.x; }
         else { self.x = std::f32::MAX; }
@@ -166,31 +156,37 @@ impl Vec3{
         else { self.z = std::f32::MAX; }
     }
 
+    #[inline]
     pub fn added(mut self, o: &Self) -> Self{
         self.add(o);
         self
     }
 
+    #[inline]
     pub fn subed(mut self, o: &Self) -> Self{
         self.sub(o);
         self
     }
 
+    #[inline]
     pub fn muled(mut self, o: &Self) -> Self{
         self.mul(o);
         self
     }
 
+    #[inline]
     pub fn dived_unsafe(mut self, o: &Self) -> Self{
         self.div_unsafe(o);
         self
     }
 
+    #[inline]
     pub fn dived(mut self, o: &Self) -> Self{
         self.div(o);
         self
     }
 
+    #[inline]
     pub fn cross(&mut self, o: &Self){
         let xx = self.y * o.z - self.z * o.y;
         let yy = self.z * o.x - self.x * o.z;
@@ -200,6 +196,7 @@ impl Vec3{
         self.z = zz;
     }
 
+    #[inline]
     pub fn crossed(self, o: &Self) -> Self{
         let x = self.y * o.z - self.z * o.y;
         let y = self.z * o.x - self.x * o.z;
