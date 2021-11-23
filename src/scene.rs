@@ -9,10 +9,10 @@ pub struct Material{
     pub col: Vec3,
     pub reflectivity: f32,
     pub roughness: f32,
-    pub texture: i32,
-    pub normal_map: i32,
-    pub roughness_map: i32,
-    pub metalic_map: i32,
+    pub texture: u32,
+    pub normal_map: u32,
+    pub roughness_map: u32,
+    pub metalic_map: u32,
     tex_scale: f32,
 }
 
@@ -53,22 +53,22 @@ impl Material{
         self
     }
 
-    pub fn with_texture(mut self, tex: i32) -> Self{
+    pub fn with_texture(mut self, tex: u32) -> Self{
         self.texture = tex;
         self
     }
 
-    pub fn with_normal_map(mut self, norm: i32) -> Self{
+    pub fn with_normal_map(mut self, norm: u32) -> Self{
         self.normal_map = norm;
         self
     }
 
-    pub fn with_roughness_map(mut self, roughm: i32) -> Self{
+    pub fn with_roughness_map(mut self, roughm: u32) -> Self{
         self.roughness_map = roughm;
         self
     }
 
-    pub fn with_metalic_map(mut self, metalm: i32) -> Self{
+    pub fn with_metalic_map(mut self, metalm: u32) -> Self{
         self.metalic_map = metalm;
         self
     }
@@ -195,13 +195,13 @@ pub struct Scene{
     pub planes: Vec<Plane>,
     pub boxes: Vec<Box>,
     pub lights: Vec<Light>,
-    scene_params: [i32; Self::SCENE_PARAM_SIZE],
-    next_texture: i32,
+    scene_params: [u32; Self::SCENE_PARAM_SIZE],
+    next_texture: u32,
     ghost_textures: HashMap<String, (String, TexType)>,
-    textures_ids: HashMap<String, i32>,
+    textures_ids: HashMap<String, u32>,
     indexed_textures: Vec<(String, TexType, String)>,
     textures: Vec<TraceTex>,
-    skybox: i32,
+    skybox: u32,
     pub sky_col: Vec3,
     pub sky_intensity: f32,
     pub cam_pos: Vec3,
@@ -215,13 +215,13 @@ impl Default for Scene {
 }
 
 impl Scene{
-    const SCENE_SIZE: i32 = 11;
+    const SCENE_SIZE: u32 = 11;
     const SCENE_PARAM_SIZE: usize = 4 * 3 + Self::SCENE_SIZE as usize;
-    const MATERIAL_SIZE: i32 = 10;
-    const LIGHT_SIZE: i32 = 7;
-    const SPHERE_SIZE: i32 = 4 + Self::MATERIAL_SIZE;
-    const PLANE_SIZE: i32 = 6 + Self::MATERIAL_SIZE;
-    const BOX_SIZE: i32 = 6 + Self::MATERIAL_SIZE;
+    const MATERIAL_SIZE: u32 = 10;
+    const LIGHT_SIZE: u32 = 7;
+    const SPHERE_SIZE: u32 = 4 + Self::MATERIAL_SIZE;
+    const PLANE_SIZE: u32 = 6 + Self::MATERIAL_SIZE;
+    const BOX_SIZE: u32 = 6 + Self::MATERIAL_SIZE;
 
     pub fn new() -> Self{
         Self{
@@ -258,33 +258,33 @@ impl Scene{
         res
     }
 
-    pub fn get_params_buffer(&mut self) -> Vec<i32>{
+    pub fn get_params_buffer(&mut self) -> Vec<u32>{
         let mut i = 0;
         self.scene_params[0] = Self::LIGHT_SIZE;
-        self.scene_params[1] = self.lights.len() as i32;
-        self.scene_params[2] = i; i += self.lights.len() as i32 * Self::LIGHT_SIZE;
+        self.scene_params[1] = self.lights.len() as u32;
+        self.scene_params[2] = i; i += self.lights.len() as u32 * Self::LIGHT_SIZE;
         self.scene_params[3] = Self::SPHERE_SIZE;
-        self.scene_params[4] = self.spheres.len() as i32;
-        self.scene_params[5] = i; i += self.spheres.len() as i32 * Self::SPHERE_SIZE;
+        self.scene_params[4] = self.spheres.len() as u32;
+        self.scene_params[5] = i; i += self.spheres.len() as u32 * Self::SPHERE_SIZE;
         self.scene_params[6] = Self::PLANE_SIZE;
-        self.scene_params[7] = self.planes.len() as i32;
-        self.scene_params[8] = i; i += self.planes.len() as i32 * Self::PLANE_SIZE;
+        self.scene_params[7] = self.planes.len() as u32;
+        self.scene_params[8] = i; i += self.planes.len() as u32 * Self::PLANE_SIZE;
         self.scene_params[9] = Self::BOX_SIZE;
-        self.scene_params[10] = self.boxes.len() as i32;
-        self.scene_params[11] = i; //i += self.boxes.len() as i32 * Self::BOX_SIZE;
+        self.scene_params[10] = self.boxes.len() as u32;
+        self.scene_params[11] = i; //i += self.boxes.len() as u32 * Self::BOX_SIZE;
         //scene
         self.scene_params[12] = self.skybox;
         self.put_in_scene_params(13, self.sky_col);
-        self.scene_params[16] = self.sky_intensity.to_bits() as i32;
+        self.scene_params[16] = self.sky_intensity.to_bits() as u32;
         self.put_in_scene_params(17, self.cam_pos);
         self.put_in_scene_params(20, self.cam_dir);
         self.scene_params.to_vec()
     }
 
     fn put_in_scene_params(&mut self, i: usize, v: Vec3){
-        self.scene_params[i    ] = v.x.to_bits() as i32;
-        self.scene_params[i + 1] = v.y.to_bits() as i32;
-        self.scene_params[i + 2] = v.z.to_bits() as i32;
+        self.scene_params[i    ] = v.x.to_bits() as u32;
+        self.scene_params[i + 1] = v.y.to_bits() as u32;
+        self.scene_params[i + 2] = v.z.to_bits() as u32;
     }
 
     pub fn get_textures_buffer(&self) -> Vec<u8>{
@@ -336,7 +336,7 @@ impl Scene{
         self.ghost_textures.insert(name.to_string(), (path.to_string(), ttype));
     }
 
-    pub fn get_texture(&mut self, name: &str) -> i32{
+    pub fn get_texture(&mut self, name: &str) -> u32{
         if let Some((path, ttype)) = self.ghost_textures.get(name){
             let id = self.next_texture.inc_post();
             self.textures_ids.insert(name.to_string(), id);

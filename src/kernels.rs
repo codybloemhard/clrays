@@ -49,14 +49,14 @@ impl VoidKernel<f32> for ClearKernel{
 
 pub struct ImageKernel{
     kernel: Kernel,
-    buffer: ClBuffer<i32>,
+    buffer: ClBuffer<u32>,
     dirty: bool,
 }
 
 impl ImageKernel{
     pub fn new(name: &str, (w, h): (u32, u32), program: &Program, queue: &Queue, input: &ClBuffer<f32>) -> Result<Self, ocl::Error>{
         let dirty = false;
-        let buffer = ClBuffer::<i32>::new(queue, w as usize * h as usize, 0)?;
+        let buffer = ClBuffer::<u32>::new(queue, w as usize * h as usize, 0)?;
         let kernel = Kernel::builder()
             .program(program)
             .name(name)
@@ -71,20 +71,20 @@ impl ImageKernel{
     }
 }
 
-impl VoidKernel<i32> for ImageKernel{
+impl VoidKernel<u32> for ImageKernel{
     fn execute(&mut self, queue: &Queue) -> Result<(), ocl::Error>{
         unsafe {
             self.kernel.cmd().queue(queue).enq().map(|_| self.dirty = true)
         }
     }
 
-    fn get_buffer(&self) -> &ClBuffer<i32>{
+    fn get_buffer(&self) -> &ClBuffer<u32>{
         &self.buffer
     }
 }
 
-impl ResultKernel<i32> for ImageKernel{
-    fn get_result(&mut self, queue: &Queue) -> Result<&[i32], ocl::Error>{
+impl ResultKernel<u32> for ImageKernel{
+    fn get_result(&mut self, queue: &Queue) -> Result<&[u32], ocl::Error>{
         if self.dirty {
             self.buffer.download(queue)?;
         }
@@ -96,8 +96,8 @@ impl ResultKernel<i32> for ImageKernel{
 pub struct TraceKernelReal{
     kernel: Kernel,
     dirty: bool,
-    buffer: ClBuffer<i32>,
-    scene_params: ClBuffer<i32>,
+    buffer: ClBuffer<u32>,
+    scene_params: ClBuffer<u32>,
     res: (u32, u32),
 }
 
@@ -105,7 +105,7 @@ impl TraceKernelReal{
     pub fn new(name: &str, (w, h): (u32, u32), program: &Program, queue: &Queue, scene: &mut Scene, info: &mut Info) -> Result<Self, ocl::Error>{
         info.set_time_point("Start constructing kernel");
         let dirty = false;
-        let buffer = ClBuffer::<i32>::new(queue, w as usize * h as usize, 0)?;
+        let buffer = ClBuffer::<u32>::new(queue, w as usize * h as usize, 0)?;
         info.int_buffer_size = w as u64 * h as u64;
         info.set_time_point("Build int frame buffer");
         let scene_params_raw = scene.get_params_buffer();
@@ -142,7 +142,7 @@ impl TraceKernelReal{
         Or: store ClBuffer's in the struct so they still live.
         They will be uploaded automatically then.
         I choose to upload here and let them go, as i don't need them later on and i can time the uploading.
-        Except tehe scene_params. It is small and used to change camera etc. */
+        Except the scene_params. It is small and used to change camera etc. */
         scene_params.upload(queue)?;
         info.set_time_point("Upload scene_params");
         scene_items.upload(queue)?;
@@ -164,20 +164,20 @@ impl TraceKernelReal{
     }
 }
 
-impl VoidKernel<i32> for TraceKernelReal{
+impl VoidKernel<u32> for TraceKernelReal{
     fn execute(&mut self, queue: &Queue) -> Result<(), ocl::Error>{
         unsafe {
             self.kernel.cmd().queue(queue).enq().map(|_| self.dirty = true)
         }
     }
 
-    fn get_buffer(&self) -> &ClBuffer<i32>{
+    fn get_buffer(&self) -> &ClBuffer<u32>{
         &self.buffer
     }
 }
 
-impl ResultKernel<i32> for TraceKernelReal{
-    fn get_result(&mut self, queue: &Queue) -> Result<&[i32], ocl::Error>{
+impl ResultKernel<u32> for TraceKernelReal{
+    fn get_result(&mut self, queue: &Queue) -> Result<&[u32], ocl::Error>{
         if self.dirty {
             self.buffer.download(queue)?;
         }
@@ -190,7 +190,7 @@ pub struct TraceKernelAa{
     kernel: Kernel,
     dirty: bool,
     buffer: Rc<ClBuffer<f32>>,
-    scene_params: ClBuffer<i32>,
+    scene_params: ClBuffer<u32>,
     res: (u32, u32),
 }
 

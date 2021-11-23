@@ -53,16 +53,16 @@ impl Window
             gl::FramebufferTexture(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, texture, 0);
         }
         println!("SDL+OpenGl setup time: {} ms", elapsed);
-        let mut frame = 0;
+        let mut frame = 0u32;
         loop {
             state.handle_input(&mut event_pump);
             if state.should_close() { break; }
             state.update(0.0);
             if state.should_close() { break; }
             tracer.update();
-            let mut int_tex = tracer.render().to_vec();
+            let int_tex = tracer.render();
             unsafe{
-                gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as i32, glw, glh, 0, gl::BGRA, gl::UNSIGNED_BYTE, int_tex.as_mut_ptr() as *mut std::ffi::c_void);
+                gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as i32, glw, glh, 0, gl::BGRA, gl::UNSIGNED_BYTE, int_tex.as_ptr() as *mut std::ffi::c_void);
                 gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
                 gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
                 gl::BlitFramebuffer(0, 0, glw, glh, 0, glh, glw, 0, gl::COLOR_BUFFER_BIT, gl::NEAREST);

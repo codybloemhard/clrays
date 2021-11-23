@@ -3,7 +3,7 @@ pub trait Incrementable{
     fn inc_post(&mut self) -> Self;
 }
 
-impl Incrementable for i32{
+impl Incrementable for u32{
     fn inc_pre(&mut self) -> Self{
         *self += 1;
         *self

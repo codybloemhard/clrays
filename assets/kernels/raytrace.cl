@@ -10,23 +10,23 @@ struct Material{
     float3 col;
     float reflectivity;
     float roughness;
-    int texture;
-    int normalmap;
-    int roughnessmap;
-    int metalicmap;
+    uint texture;
+    uint normalmap;
+    uint roughnessmap;
+    uint metalicmap;
     float texscale;
     uchar uvtype;
 };
 //extract material from array, off is index of first byte of material we want
-struct Material ExtractMaterial(int off, global float *arr){
+struct Material ExtractMaterial(uint off, global float *arr){
     struct Material mat;
     mat.col = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
     mat.reflectivity = arr[off + 3];
     mat.roughness = arr[off + 4] + EPSILON;
-    mat.texture = (int)arr[off + 5];
-    mat.normalmap = (int)arr[off + 6];
-    mat.roughnessmap = (int)arr[off + 7];
-    mat.metalicmap  = (int)arr[off + 8];
+    mat.texture = (uint)arr[off + 5];
+    mat.normalmap = (uint)arr[off + 6];
+    mat.roughnessmap = (uint)arr[off + 7];
+    mat.metalicmap  = (uint)arr[off + 8];
     mat.texscale = arr[off + 9];
     mat.uvtype = 0;
     return mat;
@@ -61,40 +61,40 @@ struct Ray{
 #define SC_SCENE 4
 
 struct Scene{
-    global int *params, *tex_params;
+    global uint *params, *tex_params;
     global float *items;
     global uchar *textures;
-    int skybox;
+    uint skybox;
     float3 skycol;
     float skyintens;
 };
 //first byte in array where this type starts
-global int ScGetStart(int type, struct Scene *scene){
+global uint ScGetStart(uint type, struct Scene *scene){
     return scene->params[type * 3 + 2];
 }
 //number of items of this type(not bytes!)
-global int ScGetCount(int type, struct Scene *scene){
+global uint ScGetCount(uint type, struct Scene *scene){
     return scene->params[type * 3 + 1];
 }
 //size of an item of this type
-global int ScGetStride(int type, struct Scene *scene){
+global uint ScGetStride(uint type, struct Scene *scene){
     return scene->params[type * 3 + 0];
 }
 //first byte of texture
-global int TxGetStart(int tex, struct Scene *scene){
+global uint TxGetStart(uint tex, struct Scene *scene){
     return scene->tex_params[tex * 3 + 0];
 }
-global int TxGetWidth(int tex, struct Scene *scene){
+global uint TxGetWidth(uint tex, struct Scene *scene){
     return scene->tex_params[tex * 3 + 1];
 }
-global int TxGetHeight(int tex, struct Scene *scene){
+global uint TxGetHeight(uint tex, struct Scene *scene){
     return scene->tex_params[tex * 3 + 2];
 }
 //get sample
 #define TEX_COL_SWIZZLE xyz //rust version of clrays
 //#define TEX_COL_SWIZZLE zyx //C# version of clrays
-global float3 TxGetSample(int tex, struct Scene *scene, int x, int y, int w){
-    int offset = TxGetStart(tex, scene) + (y * w + x) * 3;
+global float3 TxGetSample(uint tex, struct Scene *scene, uint x, uint y, uint w){
+    uint offset = TxGetStart(tex, scene) + (y * w + x) * 3;
     float3 col = (float3)(scene->textures[offset + 0],
                             scene->textures[offset + 1],
                             scene->textures[offset + 2]);
@@ -107,33 +107,33 @@ global float3 TxGetSample(int tex, struct Scene *scene, int x, int y, int w){
     uv.y = fract(uv.y, &dummy);\
     if(uv.x < 0.0f) uv.x += 1.0f;\
     if(uv.y < 0.0f) uv.y += 1.0f;\
-    int w = TxGetWidth(tex,scene);\
-    int x = (int)(w * uv.x);\
-    int y = (int)(TxGetHeight(tex,scene) * uv.y);\
+    uint w = TxGetWidth(tex,scene);\
+    uint x = (uint)(w * uv.x);\
+    uint y = (uint)(TxGetHeight(tex,scene) * uv.y);\
 
 //get colour from texture and uv
-global float3 GetTexCol(int tex, float2 uv, struct Scene *scene){
+global float3 GetTexCol(uint tex, float2 uv, struct Scene *scene){
     UV_TO_XY;
     return pow(TxGetSample(tex, scene, x, y, w), GAMMA);
 }
 //get value to range 0..1 (no gamma)
-global float3 GetTexVal(int tex, float2 uv, struct Scene *scene){
+global float3 GetTexVal(uint tex, float2 uv, struct Scene *scene){
     UV_TO_XY;
     return TxGetSample(tex, scene, x, y, w);
 }
 //get value 0..1 from scalar map
-global float GetTexScalar(int tex, float2 uv, struct Scene *scene){
+global float GetTexScalar(uint tex, float2 uv, struct Scene *scene){
     UV_TO_XY;
-    int offset = TxGetStart(tex, scene) + (y * w + x);
+    uint offset = TxGetStart(tex, scene) + (y * w + x);
     float scalar = (float)scene->textures[offset];
     return scalar / 255.0f;
 }
 //Copy a float3 out the array, off(offset) is the first byte of the float3 we want
-float3 ExtractFloat3(int off, global float *arr){
+float3 ExtractFloat3(uint off, global float *arr){
     return (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
 }
 
-float3 ExtractFloat3FromInts(global int *arr, int index){
+float3 ExtractFloat3FromInts(global uint *arr, uint index){
     float3 res;
     res.x = as_float(arr[index + 0]);
     res.y = as_float(arr[index + 1]);
@@ -214,8 +214,8 @@ struct RayHit InterBox(struct Ray* r, float3 bmin, float3 bmax){
         normal *= sign(localPoint.y);
     }
     distance = fabs(size.z - fabs(localPoint.z));
-    if (distance < min) { 
-        min = distance; 
+    if (distance < min) {
+        min = distance;
         normal = (float3)(0.0f,0.0f,1.0f);
         normal *= sign(localPoint.z);
     }
@@ -246,9 +246,9 @@ float2 SkySphereUV(float3 nor){
 }
 //macros for primitive intersections
 #define START_PRIM() \
-    (struct RayHit *closest, struct Ray *ray, global float *arr, const int count, const int start, const int stride){\
-    for(int i = 0; i < count; i++){\
-        int off = start + i * stride;\
+    (struct RayHit *closest, struct Ray *ray, global float *arr, const uint count, const uint start, const uint stride){\
+    for(uint i = 0; i < count; i++){\
+        uint off = start + i * stride;\
 
 #define END_PRIM(offset,uvtyp) {\
             if(closest->t > hit.t){\
@@ -325,11 +325,11 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 *out_
     float3 col = (float3)(0.0f);
     float3 spec = (float3)(0.0f);
     global float* arr = scene->items;
-    int count = ScGetCount(SC_LIGHT, scene);
-    int stride = ScGetStride(SC_LIGHT, scene);
-    int start = ScGetStart(SC_LIGHT, scene);
-    for(int i = 0; i < count; i++){
-        int off = start + i * stride;
+    uint count = ScGetCount(SC_LIGHT, scene);
+    uint stride = ScGetStride(SC_LIGHT, scene);
+    uint start = ScGetStart(SC_LIGHT, scene);
+    for(uint i = 0; i < count; i++){
+        uint off = start + i * stride;
         float3 lpos = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
         float lpow = arr[off + 3];
         float3 lcol = (float3)(arr[off + 4], arr[off + 5], arr[off + 6]);
@@ -350,7 +350,7 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 *out_
     *out_spec = spec * (1.0f - hit->mat->roughness);
 }
 //Recursion only works with one function
-float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
+float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
     if(depth == 0) return SkyCol(ray->dir, scene);
     //hit
     struct RayHit hit = InterScene(ray, scene);
@@ -415,10 +415,10 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, int depth){
     return (diff * (1.0f - refl_mul)) + (refl * refl_mul) + spec;
 }
 
-float3 RayTracing(const uint w, const uint h, 
-const int x, const int y, const uint AA,
-__global int *sc_params, __global float *sc_items,
-__global int *tx_params, __global uchar *tx_items){
+float3 RayTracing(const uint w, const uint h,
+const uint x, const uint y, const uint AA,
+__global uint *sc_params, __global float *sc_items,
+__global uint *tx_params, __global uchar *tx_items){
     //Scene
     struct Scene scene;
     scene.params = sc_params;
@@ -443,7 +443,7 @@ __global int *tx_params, __global uchar *tx_items){
 
     float3 col = RayTrace(&ray, &scene, MAX_RENDER_DEPTH);
     col = pow(col, (float3)(1.0f/GAMMA));
-    if(AA == 1) 
+    if(AA == 1)
         col = clamp(col,0.0f,1.0f);
     col /= (float)(AA*AA);
     return col;
@@ -451,13 +451,13 @@ __global int *tx_params, __global uchar *tx_items){
 
 //https://simpleopencl.blogspot.com/2013/05/atomic-operations-and-floats-in-opencl.html
 void AtomicFloatAdd(volatile global float *source, const float operand) {
-    union {unsigned int intVal;float floatVal;}newVal;
-    union{unsigned int intVal;float floatVal;}prevVal;
+    union { uint intVal; float floatVal; } newVal;
+    union { uint intVal; float floatVal; } prevVal;
     do{
         prevVal.floatVal = *source;
         newVal.floatVal = prevVal.floatVal + operand;
     }
-    while (atomic_cmpxchg((volatile global unsigned int *)source, prevVal.intVal, newVal.intVal) != prevVal.intVal);
+    while (atomic_cmpxchg((volatile global uint *)source, prevVal.intVal, newVal.intVal) != prevVal.intVal);
 }
 
 __kernel void raytracingAA(
@@ -465,13 +465,13 @@ __kernel void raytracingAA(
     const uint w,
     const uint h,
     const uint AA,
-    __global int *sc_params,
+    __global  int *sc_params,
     __global float *sc_items,
-    __global int *tx_params,
+    __global uint *tx_params,
     __global uchar *tx_items
 ){
-    int x = get_global_id(0);
-    int y = get_global_id(1);
+    uint x = get_global_id(0);
+    uint y = get_global_id(1);
     uint pixid = ((x/AA) + ((y/AA) * w)) * 3;
     float3 col = RayTracing(w, h, x, y, AA,
         sc_params, sc_items, tx_params, tx_items);
@@ -481,62 +481,62 @@ __kernel void raytracingAA(
 }
 
 __kernel void raytracing(
-    __global int *intmap,
+    __global uint *intmap,
     const uint w,
     const uint h,
-    __global int *sc_params,
+    __global uint *sc_params,
     __global float *sc_items,
-    __global int *tx_params,
+    __global uint *tx_params,
     __global uchar *tx_items
 ){
-    int x = get_global_id(0);
-    int y = get_global_id(1);
+    uint x = get_global_id(0);
+    uint y = get_global_id(1);
     uint pixid = x + y * w;
-    float3 col = RayTracing(w, h, x, y, 1, 
+    float3 col = RayTracing(w, h, x, y, 1,
         sc_params, sc_items, tx_params, tx_items);
     col *= 255;
-    int res = ((int)col.x << 16) + ((int)col.y << 8) + (int)col.z;
+    uint res = ((uint)col.x << 16) + ((uint)col.y << 8) + (uint)col.z;
     intmap[pixid] = res;
 }
 //takes same input as raytracing, outputs a gradient
 __kernel void raytracing_format_gradient_test(
-    __global int *intmap,
+    __global uint *intmap,
     const uint w,
     const uint h,
-    __global int *sc_params,
+    __global uint *sc_params,
     __global float *sc_items,
-    __global int *tx_params,
+    __global uint *tx_params,
     __global uchar *tx_items
 ){
-    int x = get_global_id(0);
-    int y = get_global_id(1);
+    uint x = get_global_id(0);
+    uint y = get_global_id(1);
     uint pixid = x + y * w;
     float3 col = (float3)((float)x / w,(float)y / h, 0.0);
     col *= 255.0f;
-    int res = ((int)col.x << 16) + ((int)col.y << 8) + (int)col.z;
+    uint res = ((uint)col.x << 16) + ((uint)col.y << 8) + (uint)col.z;
     intmap[pixid] = res;
 }
 //takes same input as raytracing, outputs the first texture
 __kernel void raytracing_format_texture_test(
-    __global int *intmap,
+    __global uint *intmap,
     const uint w,
     const uint h,
-    __global int *sc_params,
+    __global uint *sc_params,
     __global float *sc_items,
-    __global int *tx_params,
+    __global uint *tx_params,
     __global uchar *tx_items
 ){
-    int x = get_global_id(0);
-    int y = get_global_id(1);
+    uint x = get_global_id(0);
+    uint y = get_global_id(1);
     uint pixid = x + y * w;
-    int ww = tx_params[1];
-    int hh = tx_params[2];
-    int xx = (float)x / w * ww;
-    int yy = (float)y / h * hh;
+    uint ww = tx_params[1];
+    uint hh = tx_params[2];
+    uint xx = (float)x / w * ww;
+    uint yy = (float)y / h * hh;
     uchar rr = tx_items[(yy * ww + xx) * 3 + 0];
     uchar gg = tx_items[(yy * ww + xx) * 3 + 1];
     uchar bb = tx_items[(yy * ww + xx) * 3 + 2];
-    int res = ((int)rr << 16) + ((int)gg << 8) + (int)bb;
+    uint res = ((uint)rr << 16) + ((uint)gg << 8) + (uint)bb;
     intmap[pixid] = res;
 }
 
@@ -545,8 +545,8 @@ __kernel void clear(
     const uint w,
     const uint h
 ){
-    int x = get_global_id(0);
-    int y = get_global_id(1);
+    uint x = get_global_id(0);
+    uint y = get_global_id(1);
     uint pixid = (x + y * w) * 3;
     floatmap[pixid + 0] = 0.0f;
     floatmap[pixid + 1] = 0.0f;
@@ -555,16 +555,16 @@ __kernel void clear(
 
 __kernel void image_from_floatmap(
     __global float *floatmap,
-    __global int *imagemap,
+    __global uint *imagemap,
     const uint w,
     const uint h
 ){
-    int x = get_global_id(0);
-    int y = get_global_id(1);
+    uint x = get_global_id(0);
+    uint y = get_global_id(1);
     uint pix_int = (x + y * w);
     uint pix_float = pix_int * 3;
     float r = clamp(floatmap[pix_float + 0], 0.0f, 1.0f) * 255.0f;
     float g = clamp(floatmap[pix_float + 1], 0.0f, 1.0f) * 255.0f;
     float b = clamp(floatmap[pix_float + 2], 0.0f, 1.0f) * 255.0f;
-    imagemap[pix_int] = ((int)((uchar)r) << 16) + ((int)((uchar)g) << 8) + (int)((uchar)b);
+    imagemap[pix_int] = ((uint)((uchar)r) << 16) + ((uint)((uchar)g) << 8) + (uint)((uchar)b);
 }
