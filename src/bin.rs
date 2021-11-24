@@ -4,7 +4,7 @@ extern crate clrays_rs;
 use clrays_rs as clr;
 use clr::window;
 use clr::scene::{ Scene, SceneItem, Material, Plane, Sphere, Light };
-use clr::vec3::{ Vec3, BasicColour };
+use clr::vec3::{ Vec3 };
 use clr::info::{ Info };
 use clr::trace_tex::{ TexType };
 use clr::state::{ State, StdState };
@@ -15,8 +15,7 @@ pub fn main() -> Result<(), String>{
     info.start_time();
 
     let mut scene = Scene::new();
-    scene.sky_col = Vec3::soft_colour(BasicColour::Blue, 0.9, 0.2).normalized();
-    scene.sky_intensity = 0.0;
+    scene.sky_col = Vec3::BLUE.unhardened(0.1);
     scene.cam_pos = Vec3::ZERO;
     scene.cam_dir = Vec3::BACKWARD;
     scene.add_texture("wood", "assets/textures/wood.png", TexType::Vector3c8bpc);
@@ -94,8 +93,8 @@ pub fn main() -> Result<(), String>{
     //let (w,h) = (1600u32,900u32);
     let (w,h) = (1920u32,1080u32);
 
-    // let mut tracer = unpackdb!(clr::trace_processor::RealTracer::new((w, h), &mut scene, &mut info), "Could not create RealTracer!");
-    let mut tracer = unpackdb!(clr::trace_processor::AaTracer::new((w, h), 2, &mut scene, &mut info), "Could not create AaTracer!");
+    let mut tracer = unpackdb!(clr::trace_processor::RealTracer::new((w, h), &mut scene, &mut info), "Could not create RealTracer!");
+    // let mut tracer = unpackdb!(clr::trace_processor::AaTracer::new((w, h), 2, &mut scene, &mut info), "Could not create AaTracer!");
 
     info.stop_time();
     info.print_info();

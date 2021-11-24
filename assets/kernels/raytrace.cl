@@ -2,7 +2,7 @@
 #define MAX_RENDER_DEPTH 4
 #define EPSILON 0.001f
 #define PI4 12.5663f
-#define AMBIENT 0.001f
+#define AMBIENT 0.05f
 #define GAMMA 2.2f
 
 #define MAT_SIZE 8
@@ -341,7 +341,7 @@ float2 BlinnSingle(float3 lpos, float lpow, float3 viewdir, struct RayHit *hit, 
 
 //get diffuse light incl colour of hit with all lights
 void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 *out_diff, float3 *out_spec){
-    float3 col = (float3)(0.0f);
+    float3 col = (float3)(AMBIENT);
     float3 spec = (float3)(0.0f);
     global float* arr = scene->items;
     uint count = ScGetCount(SC_LIGHT, scene);
@@ -355,15 +355,6 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 *out_
         float2 res = BlinnSingle(lpos, lpow, viewdir, hit, scene);
         col += res.x * lcol;
         spec += res.y * lcol;
-    }
-    //ambient
-    if(scene->skyintens > EPSILON){
-        struct Ray nray;
-        nray.pos = hit->pos + hit->nor * EPSILON;
-        nray.dir = hit->nor;
-        struct RayHit nhit = InterScene(&nray, scene);
-        if(nhit.t >= MAX_RENDER_DIST)
-            col += SkyCol(hit->nor, scene) * scene->skyintens;
     }
     *out_diff = col * hit->mat->col;
     *out_spec = spec * (1.0f - hit->mat->roughness);

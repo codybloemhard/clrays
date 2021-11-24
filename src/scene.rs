@@ -27,7 +27,7 @@ impl Material{
 
     pub fn basic() -> Self{
         Self{
-            col: Vec3::ONE,
+            col: Vec3::ONE.unhardened(0.05),
             reflectivity: 0.0,
             roughness: 1.0,
             texture: 0,
@@ -80,7 +80,6 @@ impl Material{
 }
 
 pub trait SceneItem{
-    fn get_pos(&self) -> Vec3;
     fn get_data(&self) -> Vec<f32>;
     fn add(self, scene: &mut Scene);
 }
@@ -92,10 +91,6 @@ pub struct Plane{
 }
 
 impl SceneItem for Plane{
-    fn get_pos(&self) -> Vec3{
-        self.pos
-    }
-
     fn get_data(&self) -> Vec<f32>{
         vec![
             self.pos.x, self.pos.y, self.pos.z,
@@ -120,10 +115,6 @@ pub struct Sphere{
 }
 
 impl SceneItem for Sphere{
-    fn get_pos(&self) -> Vec3{
-        self.pos
-    }
-
     fn get_data(&self) -> Vec<f32>{
         vec![
             self.pos.x, self.pos.y, self.pos.z, self.rad,
@@ -147,10 +138,6 @@ pub struct Box{
 }
 
 impl SceneItem for Box{
-    fn get_pos(&self) -> Vec3{
-        self.pos
-    }
-
     fn get_data(&self) -> Vec<f32>{
         let hs = self.size.scaled(0.5);
         vec![
@@ -174,10 +161,6 @@ pub struct Light{
 }
 
 impl SceneItem for Light{
-    fn get_pos(&self) -> Vec3{
-        self.pos
-    }
-
     fn get_data(&self) -> Vec<f32>{
         vec![
             self.pos.x, self.pos.y, self.pos.z,
