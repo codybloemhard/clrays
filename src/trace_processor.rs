@@ -1,8 +1,9 @@
 use crate::kernels::*;
-use crate::scene::{ Scene };
-use crate::info::{ Info };
-use crate::cl_helpers::{ create_five };
-use crate::misc::{ load_source };
+use crate::scene::Scene;
+use crate::info::Info;
+use crate::cl_helpers::create_five;
+use crate::misc::load_source;
+use crate::cpu::whitted;
 
 use ocl::{ Queue };
 
@@ -83,23 +84,38 @@ impl TraceProcessor for AaTracer{
 }
 
 pub struct CpuWhitted<'a>{
+    width: usize,
+    height: usize,
     scene: &'a mut Scene,
+    screen_buffer: Vec<u32>,
+    texture_params: Vec<u32>,
+    textures: Vec<u8>,
 }
 
 impl<'a> CpuWhitted<'a>{
-    pub fn new(scene: &'a mut Scene) -> Self{
+    pub fn new(width: usize, height: usize, scene: &'a mut Scene, info: &mut Info) -> Self{
+        let texture_params = scene.get_texture_params_buffer();
+        info.set_time_point("Getting texture parameters");
+        let textures = scene.get_textures_buffer();
+        info.set_time_point("Getting texture buffer");
+        let screen_buffer = vec![0; width * height];
+        info.set_time_point("Creating screen buffer");
         Self{
+            width,
+            height,
             scene,
+            screen_buffer,
+            texture_params,
+            textures,
         }
     }
 }
 
 impl TraceProcessor for CpuWhitted<'_>{
-    fn update(&mut self){
-
-    }
+    fn update(&mut self){  }
 
     fn render(&mut self) -> &[u32]{
-        &[]
+        whitted(self.width, self.height, self.scene, &mut self.screen_buffer, &self.texture_params, &self.textures);
+        &self.screen_buffer
     }
 }

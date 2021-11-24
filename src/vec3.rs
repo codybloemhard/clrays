@@ -1,4 +1,4 @@
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Copy, Debug, Default)]
 pub struct Vec3{
     pub x: f32,
     pub y: f32,
@@ -6,7 +6,6 @@ pub struct Vec3{
 }
 
 impl Vec3{
-
     pub const ZERO: Vec3 =      Self { x:  0.0, y:  0.0, z:  0.0 };
     pub const ONE: Vec3 =       Self { x:  1.0, y:  1.0, z:  1.0 };
     pub const LEFT: Vec3 =      Self { x:  1.0, y:  0.0, z:  0.0 };
@@ -63,17 +62,21 @@ impl Vec3{
     }
 
     #[inline]
-    pub fn len(&self) -> f32{
-        (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
-    }
-
-    #[inline]
-    pub fn dot(&self, o: &Self) -> f32{
+    pub fn dot(self, o: Self) -> f32{
         self.x * o.x + self.y * o.y + self.z * o.z
     }
 
     #[inline]
-    pub fn normalize_unsafe(&mut self){
+    pub fn len(self) -> f32{
+        (self.dot(self)).sqrt()
+    }
+
+    pub fn dist(self, o: Self) -> f32{
+        self.subed(o).len()
+    }
+
+    #[inline]
+    pub fn normalize_fast(&mut self){
         let l = self.len();
         self.x /= l;
         self.y /= l;
@@ -90,8 +93,8 @@ impl Vec3{
     }
 
     #[inline]
-    pub fn normalized_unsafe(mut self) -> Self{
-        self.normalize_unsafe();
+    pub fn normalized_fast(mut self) -> Self{
+        self.normalize_fast();
         self
     }
 
@@ -115,59 +118,72 @@ impl Vec3{
     }
 
     #[inline]
-    pub fn add(&mut self, o: &Self){
+    pub fn add_scalar(&mut self, s: f32){
+        self.x += s;
+        self.y += s;
+        self.z += s;
+    }
+
+    #[inline]
+    pub fn added_scalar(mut self, s: f32) -> Self{
+        self.add_scalar(s);
+        self
+    }
+
+    #[inline]
+    pub fn add(&mut self, o: Self){
         self.x += o.x;
         self.y += o.y;
         self.z += o.z;
     }
 
     #[inline]
-    pub fn added(mut self, o: &Self) -> Self{
+    pub fn added(mut self, o: Self) -> Self{
         self.add(o);
         self
     }
 
     #[inline]
-    pub fn sub(&mut self, o: &Self){
+    pub fn sub(&mut self, o: Self){
         self.x -= o.x;
         self.y -= o.y;
         self.z -= o.z;
     }
 
     #[inline]
-    pub fn subed(mut self, o: &Self) -> Self{
+    pub fn subed(mut self, o: Self) -> Self{
         self.sub(o);
         self
     }
 
     #[inline]
-    pub fn mul(&mut self, o: &Self){
+    pub fn mul(&mut self, o: Self){
         self.x *= o.x;
         self.y *= o.y;
         self.z *= o.z;
     }
 
     #[inline]
-    pub fn muled(mut self, o: &Self) -> Self{
+    pub fn muled(mut self, o: Self) -> Self{
         self.mul(o);
         self
     }
 
     #[inline]
-    pub fn div_unsafe(&mut self, o: &Self){
+    pub fn div_fast(&mut self, o: Self){
         self.x /= o.x;
         self.y /= o.y;
         self.z /= o.z;
     }
 
     #[inline]
-    pub fn dived_unsafe(mut self, o: &Self) -> Self{
-        self.div_unsafe(o);
+    pub fn dived_fast(mut self, o: Self) -> Self{
+        self.div_fast(o);
         self
     }
 
     #[inline]
-    pub fn div(&mut self, o: &Self){
+    pub fn div(&mut self, o: Self){
         if o.x != 0.0 { self.x /= o.x; }
         else { self.x = std::f32::MAX; }
         if o.y != 0.0 { self.y /= o.y; }
@@ -177,13 +193,39 @@ impl Vec3{
     }
 
     #[inline]
-    pub fn dived(mut self, o: &Self) -> Self{
+    pub fn dived(mut self, o: Self) -> Self{
         self.div(o);
         self
     }
 
     #[inline]
-    pub fn cross(&mut self, o: &Self){
+    pub fn div_scalar_fast(&mut self, s: f32){
+        self.x /= s;
+        self.y /= s;
+        self.z /= s;
+    }
+
+    #[inline]
+    pub fn dived_scalar_fast(mut self, s: f32) -> Self{
+        self.div_scalar_fast(s);
+        self
+    }
+
+    #[inline]
+    pub fn pow_scalar(&mut self, s: f32){
+        self.x = self.x.powf(s);
+        self.y = self.y.powf(s);
+        self.z = self.z.powf(s);
+    }
+
+    #[inline]
+    pub fn powed_scalar(mut self, s: f32) -> Self{
+        self.pow_scalar(s);
+        self
+    }
+
+    #[inline]
+    pub fn cross(&mut self, o: Self){
         let xx = self.y * o.z - self.z * o.y;
         let yy = self.z * o.x - self.x * o.z;
         let zz = self.x * o.y - self.y * o.x;
@@ -193,7 +235,7 @@ impl Vec3{
     }
 
     #[inline]
-    pub fn crossed(self, o: &Self) -> Self{
+    pub fn crossed(self, o: Self) -> Self{
         let x = self.y * o.z - self.z * o.y;
         let y = self.z * o.x - self.x * o.z;
         let z = self.x * o.y - self.y * o.x;
@@ -239,70 +281,70 @@ mod test{
     }
     #[test]
     fn test_dot_zero(){
-        assert_eq!(Vec3::ZERO.dot(&Vec3::ZERO), 0.0);
+        assert_eq!(Vec3::ZERO.dot(Vec3::ZERO), 0.0);
     }
     #[test]
     fn test_dot_far(){
-        assert_eq!(Vec3::RIGHT.dot(&Vec3::UP), 0.0);
+        assert_eq!(Vec3::RIGHT.dot(Vec3::UP), 0.0);
     }
     #[test]
     fn test_dot_close(){
-        assert_eq!(Vec3::RIGHT.dot(&Vec3::RIGHT), 1.0);
+        assert_eq!(Vec3::RIGHT.dot(Vec3::RIGHT), 1.0);
     }
     #[test]
     fn test_normalize(){
         assert_eq!((Vec3::ZERO.normalized().len()).abs() < 0.001, true);
     }
     #[test]
-    fn test_normalize_unsafe(){
-        assert_eq!((Vec3::ONE.normalized_unsafe().len() - 1.0).abs() < 0.001, true);
+    fn test_normalize_fast(){
+        assert_eq!((Vec3::ONE.normalized_fast().len() - 1.0).abs() < 0.001, true);
     }
     #[test]
     fn test_scale(){
-        assert_eq!((Vec3::ONE.normalized_unsafe().scaled(5.0).len() - 5.0).abs() < 0.001, true);
+        assert_eq!((Vec3::ONE.normalized_fast().scaled(5.0).len() - 5.0).abs() < 0.001, true);
     }
     #[test]
     fn test_added_0(){
-        assert_eq!(Vec3::ZERO.added(&Vec3::ONE), Vec3::ONE);
+        assert_eq!(Vec3::ZERO.added(Vec3::ONE), Vec3::ONE);
     }
     #[test]
     fn test_added_1(){
-        assert_eq!(Vec3::ONE.added(&Vec3::ZERO), Vec3::ONE);
+        assert_eq!(Vec3::ONE.added(Vec3::ZERO), Vec3::ONE);
     }
     #[test]
     fn test_added_2(){
-        assert_eq!(Vec3::new(1.0, 2.0, 3.0).added(&Vec3::new(3.0, 2.0, 1.0)), Vec3::new(4.0, 4.0, 4.0));
+        assert_eq!(Vec3::new(1.0, 2.0, 3.0).added(Vec3::new(3.0, 2.0, 1.0)), Vec3::new(4.0, 4.0, 4.0));
     }
     #[test]
     fn test_subed_0(){
-        assert_eq!(Vec3::ONE.subed(&Vec3::ZERO), Vec3::ONE);
+        assert_eq!(Vec3::ONE.subed(Vec3::ZERO), Vec3::ONE);
     }
     #[test]
     fn test_subed_1(){
-        assert_eq!(Vec3::ONE.subed(&Vec3::ONE), Vec3::ZERO);
+        assert_eq!(Vec3::ONE.subed(Vec3::ONE), Vec3::ZERO);
     }
     #[test]
     fn test_subed_2(){
-        assert_eq!(Vec3::new(1.0, 2.0, 3.0).subed(&Vec3::new(4.0, 5.0, 6.0)), Vec3::new(-3.0,-3.0,-3.0));
+        assert_eq!(Vec3::new(1.0, 2.0, 3.0).subed(Vec3::new(4.0, 5.0, 6.0)), Vec3::new(-3.0,-3.0,-3.0));
     }
     #[test]
     fn test_muled_0(){
-        assert_eq!(Vec3::new(1.0, 2.0, 3.0).muled(&Vec3::new(4.0, 5.0, 6.0)), Vec3::new(4.0, 10.0, 18.0));
+        assert_eq!(Vec3::new(1.0, 2.0, 3.0).muled(Vec3::new(4.0, 5.0, 6.0)), Vec3::new(4.0, 10.0, 18.0));
     }
     #[test]
     fn test_muled_1(){
-        assert_eq!(Vec3::new(1.0, 2.0, 3.0).muled(&Vec3::ONE), Vec3::new(1.0, 2.0, 3.0));
+        assert_eq!(Vec3::new(1.0, 2.0, 3.0).muled(Vec3::ONE), Vec3::new(1.0, 2.0, 3.0));
     }
     #[test]
     fn test_dived_unsafe(){
-        assert_eq!(Vec3::new(1.0, 2.0, 3.0).dived_unsafe(&Vec3::new(1.0, 2.0, 3.0)), Vec3::ONE);
+        assert_eq!(Vec3::new(1.0, 2.0, 3.0).dived_fast(Vec3::new(1.0, 2.0, 3.0)), Vec3::ONE);
     }
     #[test]
     fn test_dived(){
-        assert_eq!(Vec3::new(1.0, 2.0, 3.0).dived(&Vec3::new(1.0, 2.0, 0.0)), Vec3::new(1.0, 1.0, std::f32::MAX));
+        assert_eq!(Vec3::new(1.0, 2.0, 3.0).dived(Vec3::new(1.0, 2.0, 0.0)), Vec3::new(1.0, 1.0, std::f32::MAX));
     }
     #[test]
     fn test_crossed(){
-        assert_eq!(Vec3::RIGHT.crossed(&Vec3::UP), Vec3::BACKWARD);
+        assert_eq!(Vec3::RIGHT.crossed(Vec3::UP), Vec3::BACKWARD);
     }
 }

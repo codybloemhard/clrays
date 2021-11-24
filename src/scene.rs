@@ -187,6 +187,7 @@ pub struct Scene{
     skybox: u32,
     pub sky_col: Vec3,
     pub sky_intensity: f32,
+    pub sky_box: u32,
     pub cam_pos: Vec3,
     pub cam_dir: Vec3,
 }
@@ -221,6 +222,7 @@ impl Scene{
             skybox: 0,
             sky_col: Vec3::ONE,
             sky_intensity: 0.0,
+            sky_box: 0,
             cam_pos: Vec3::ZERO,
             cam_dir: Vec3::BACKWARD,
         }
@@ -287,13 +289,13 @@ impl Scene{
         res
     }
 
-    pub fn get_texture_params_buffer(&self) -> Vec<i32>{
+    pub fn get_texture_params_buffer(&self) -> Vec<u32>{
         let mut res = build_vec(self.textures.len() * 3);
         let mut start = 0;
         for (i, tex) in self.textures.iter().enumerate(){
-            res[i * 3    ] = start as i32;
-            res[i * 3 + 1] = tex.width;
-            res[i * 3 + 2] = tex.height;
+            res[i * 3    ] = start as u32;
+            res[i * 3 + 1] = tex.width as u32;
+            res[i * 3 + 2] = tex.height as u32;
             start += tex.pixels.len();
         }
         make_nonzero_len(&mut res);
@@ -352,6 +354,7 @@ impl Scene{
 
     pub fn set_skybox(&mut self, name: &str){
         self.skybox = self.get_texture(name);
+        self.sky_box = self.skybox;
     }
 
     pub fn add_light(&mut self, l: Light){ self.lights.push(l); }
