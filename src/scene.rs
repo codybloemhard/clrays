@@ -13,7 +13,7 @@ pub struct Material{
     pub normal_map: u32,
     pub roughness_map: u32,
     pub metalic_map: u32,
-    tex_scale: f32,
+    pub tex_scale: f32,
 }
 
 impl Material{

@@ -90,15 +90,15 @@ pub fn main() -> Result<(), String>{
 
     let mut state = StdState::new();
 
-    // let (w, h) = (960u32, 540u32);
-    // let (w, h) = (1600u32, 900u32);
-    // let (w, h) = (1920u32, 1080u32);
+    // let (w, h) = (320, 180);
+    // let (w, h) = (640, 360);
+    // let (w, h) = (960, 540u);
+    // let (w, h) = (1600, 900);
+    let (w, h) = (1920, 1080);
 
     // let mut tracer = unpackdb!(trace_processor::RealTracer::new((w, h), &mut scene, &mut info), "Could not create RealTracer!");
     // let mut tracer = unpackdb!(trace_processor::AaTracer::new((w, h), 2, &mut scene, &mut info), "Could not create AaTracer!");
 
-    // let (w, h) = (320, 180);
-    let (w, h) = (640, 360);
     let mut tracer = trace_processor::CpuWhitted::new(w as usize, h as usize, &mut scene, &mut info);
 
     info.stop_time();
