@@ -321,13 +321,13 @@ float2 BlinnSingle(float3 lpos, float lpow, float3 viewdir, struct RayHit *hit, 
     float angle = dot(nor, toL);
     if(angle <= EPSILON)
         return (float2)(0.0f);
-    angle = max(0.0f,angle);
+    angle = max(0.0f, angle);
     float power = lpow / (PI4 * dist * dist);
     if(power < 0.01f)
         return (float2)(0.0f);
     //exposed to light or not
     struct Ray lray;
-    lray.pos = hit->pos + toL * EPSILON;
+    lray.pos = hit->pos + hit->nor * EPSILON;
     lray.dir = toL;
     struct RayHit lhit = InterScene(&lray, scene);
     if(lhit.t <= dist)
@@ -387,9 +387,9 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
     //normalmap
     if(hit.mat->normalmap > 0){
         float3 rawnor = GetTexVal(hit.mat->normalmap - 1, uv, scene);
-        float3 t = fast_normalize(cross(hit.nor, (float3)(0.0f,1.0f,0.0f)));
+        float3 t = cross(hit.nor, (float3)(0.0f,1.0f,0.0f));
         if(fast_length(t) < EPSILON)
-            t = fast_normalize(cross(hit.nor, (float3)(0.0f,0.0f,1.0f)));
+            t = cross(hit.nor, (float3)(0.0f,0.0f,1.0f));
         t = fast_normalize(t);
         float3 b = fast_normalize(cross(hit.nor, t));
         rawnor = rawnor * 2 - 1;
@@ -424,11 +424,12 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
     //reflection
     float3 newdir = fast_normalize(reflect(ray->dir, hit.nor));
     struct Ray nray;
+    // using hit.nor instead of newdir slows down by 5ms???
     nray.pos = hit.pos + newdir * EPSILON;
     nray.dir = newdir;
     struct RayHit nhit = InterScene(&nray, scene);
 
-    //Does not get corrupted to version inside recursive call if not pointer
+    // Does not get corrupted to version inside recursive call if not pointer
     float refl_mul = hit.mat->reflectivity;
     float3 refl = RayTrace(&nray, scene, depth - 1);
     return (diff * (1.0f - refl_mul)) + (refl * refl_mul) + spec;

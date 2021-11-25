@@ -241,6 +241,11 @@ impl Vec3{
         let z = self.x * o.y - self.y * o.x;
         Self { x, y, z }
     }
+
+    #[inline]
+    pub fn reflected(self, nor: Vec3) -> Self{
+        Self::subed(self, nor.scaled(2.0 * Self::dot(self, nor)))
+    }
 }
 
 #[cfg(test)]
