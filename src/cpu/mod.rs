@@ -6,7 +6,7 @@ const MAX_RENDER_DEPTH: u8 = 3;
 const GAMMA: f32 = 2.2;
 const PI: f32 = std::f32::consts::PI;
 const MAX_RENDER_DIST: f32 = 1000000.0;
-const EPSILON:f32 = 0.001;
+const EPSILON: f32 = 0.001;
 const AMBIENT: f32 = 0.05;
 
 pub fn test(w: usize, h: usize, screen: &mut Vec<u32>){
@@ -22,16 +22,18 @@ pub fn test(w: usize, h: usize, screen: &mut Vec<u32>){
 }
 
 pub fn whitted(w: usize, h: usize, scene: &Scene, screen: &mut Vec<u32>, tex_params: &[u32], textures: &[u8]){
+    let pos = scene.cam_pos;
+    let cd = scene.cam_dir.normalized_fast();
+    let aspect = w as f32 / h as f32;
+    let uv_dist = (aspect / 2.0) / (scene.cam_fov / 2.0 * 0.01745329).tan();
     for x in 0..w{
     for y in 0..h{
-        let pos = scene.cam_pos;
-        let cd = scene.cam_dir.normalized_fast();
         let hor = cd.crossed(Vec3::UP).normalized_fast();
         let ver = hor.crossed(cd).normalized_fast();
         let mut uv = Vec3::new(x as f32 / (w as f32 * AA), y as f32 / (h as f32 * AA), 0.0);
         uv.add_scalar(-0.5);
-        uv.mul(Vec3::new(w as f32 / h as f32, -1.0, 0.0));
-        let mut to = pos.added(cd);
+        uv.mul(Vec3::new(aspect, -1.0, 0.0));
+        let mut to = pos.added(cd.scaled(uv_dist));
         to.add(hor.scaled(uv.x));
         to.add(ver.scaled(uv.y));
         let ray = Ray{ pos, dir: to.subed(pos).normalized_fast() };

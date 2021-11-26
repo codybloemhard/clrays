@@ -19,6 +19,7 @@ pub fn main() -> Result<(), String>{
     scene.sky_col = Vec3::BLUE.unhardened(0.1);
     scene.cam_pos = Vec3::ZERO;
     scene.cam_dir = Vec3::BACKWARD;
+    scene.cam_fov = 80.0;
     scene.add_texture("wood", "assets/textures/wood.png", TexType::Vector3c8bpc);
     scene.add_texture("sphere", "assets/textures/spheremap.jpg", TexType::Vector3c8bpc);
     scene.add_texture("stone-alb", "assets/textures/stone-albedo.png", TexType::Vector3c8bpc);
@@ -76,7 +77,7 @@ pub fn main() -> Result<(), String>{
             .with_normal_map(scene.get_texture("scifi-nor"))
             .with_roughness_map(scene.get_texture("scifi-rou"))
             .with_metalic_map(scene.get_texture("scifi-met"))
-            .with_reflectivity(0.5),
+            .with_reflectivity(0.9),
     }.add(&mut scene);
 
     Light{
@@ -96,10 +97,10 @@ pub fn main() -> Result<(), String>{
     // let (w, h) = (1600, 900);
     let (w, h) = (1920, 1080);
 
-    let mut tracer = unpackdb!(trace_processor::RealTracer::new((w, h), &mut scene, &mut info), "Could not create RealTracer!");
+    // let mut tracer = unpackdb!(trace_processor::RealTracer::new((w, h), &mut scene, &mut info), "Could not create RealTracer!");
     // let mut tracer = unpackdb!(trace_processor::AaTracer::new((w, h), 2, &mut scene, &mut info), "Could not create AaTracer!");
 
-    // let mut tracer = trace_processor::CpuWhitted::new(w as usize, h as usize, &mut scene, &mut info);
+    let mut tracer = trace_processor::CpuWhitted::new(w as usize, h as usize, &mut scene, &mut info);
 
     info.stop_time();
     info.print_info();

@@ -190,6 +190,7 @@ pub struct Scene{
     pub sky_box: u32,
     pub cam_pos: Vec3,
     pub cam_dir: Vec3,
+    pub cam_fov: f32,
 }
 
 impl Default for Scene {
@@ -225,6 +226,7 @@ impl Scene{
             sky_box: 0,
             cam_pos: Vec3::ZERO,
             cam_dir: Vec3::BACKWARD,
+            cam_fov: 90.0,
         }
     }
 

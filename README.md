@@ -30,3 +30,20 @@
 - optimize vector loading: use vload3 and allign the buffer for it
 - preprocess kernel: optimize branches away, insert constants
 - sRGB now, use aces, linear colours
+
+## P1 Checklist
+- [x] architecture
+- [x] cam: pos, dir, fov, aspect
+- [ ] cam: controls
+- [x] planes n spheres
+- [x] material
+- [x] scene
+- [x] blinn shading
+- [x] reflection
+- [ ] refraction
+- [ ] absorption
+- [ ] multithread 4x
+- [ ] post: gamma, vignetting, chromatic aberration
+- [ ] aa
+- [x] textures
+- [ ] mesh
