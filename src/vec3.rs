@@ -43,6 +43,7 @@ impl Vec3{
         self.clamp(s, 1.0 - s);
     }
 
+    #[inline]
     pub fn unhardened(mut self, s: f32) -> Self{
         self.unharden(s);
         self
@@ -245,6 +246,20 @@ impl Vec3{
     #[inline]
     pub fn reflected(self, nor: Vec3) -> Self{
         Self::subed(self, nor.scaled(2.0 * Self::dot(self, nor)))
+    }
+
+    pub fn mix(&mut self, o: Self, t: f32){
+        fn lerp(a: f32, b: f32, t: f32) -> f32{
+            a + t * (b - a)
+        }
+        self.x = lerp(self.x, o.x, t);
+        self.y = lerp(self.y, o.y, t);
+        self.z = lerp(self.z, o.z, t);
+    }
+
+    pub fn mixed(mut self, o: Self, t: f32) -> Self{
+        self.mix(o, t);
+        self
     }
 }
 

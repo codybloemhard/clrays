@@ -4,7 +4,7 @@ extern crate clrays_rs;
 use clrays_rs as clr;
 use clr::window;
 use clr::trace_processor;
-use clr::scene::{ Scene, SceneItem, Material, Plane, Sphere, Light };
+use clr::scene::{ Scene, Camera, SceneItem, Material, Plane, Sphere, Light };
 use clr::vec3::{ Vec3 };
 use clr::info::{ Info };
 use clr::trace_tex::{ TexType };
@@ -16,10 +16,15 @@ pub fn main() -> Result<(), String>{
     info.start_time();
 
     let mut scene = Scene::new();
+    scene.cam = Camera{
+        pos: Vec3::ZERO,
+        dir: Vec3::BACKWARD,
+        fov: 80.0,
+        chromatic_aberration_shift: 2,
+        chromatic_aberration_strength: 0.2,
+        vignette_strength: 0.1,
+    };
     scene.sky_col = Vec3::BLUE.unhardened(0.1);
-    scene.cam_pos = Vec3::ZERO;
-    scene.cam_dir = Vec3::BACKWARD;
-    scene.cam_fov = 80.0;
     scene.add_texture("wood", "assets/textures/wood.png", TexType::Vector3c8bpc);
     scene.add_texture("sphere", "assets/textures/spheremap.jpg", TexType::Vector3c8bpc);
     scene.add_texture("stone-alb", "assets/textures/stone-albedo.png", TexType::Vector3c8bpc);
@@ -100,7 +105,7 @@ pub fn main() -> Result<(), String>{
     // let mut tracer = unpackdb!(trace_processor::RealTracer::new((w, h), &mut scene, &mut info), "Could not create RealTracer!");
     // let mut tracer = unpackdb!(trace_processor::AaTracer::new((w, h), 2, &mut scene, &mut info), "Could not create AaTracer!");
 
-    let mut tracer = trace_processor::CpuWhitted::new(w as usize, h as usize, 2, &mut scene, &mut info);
+    let mut tracer = trace_processor::CpuWhitted::new(w as usize, h as usize, 1, &mut scene, &mut info);
 
     info.stop_time();
     info.print_info();

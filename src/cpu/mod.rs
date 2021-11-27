@@ -27,10 +27,10 @@ pub fn whitted(
     screen: &mut Vec<u32>, acc: &mut Vec<Vec3>,
 ){
     acc.iter_mut().for_each(|v| *v = Vec3::ZERO);
-    let pos = scene.cam_pos;
-    let cd = scene.cam_dir.normalized_fast();
+    let pos = scene.cam.pos;
+    let cd = scene.cam.dir.normalized_fast();
     let aspect = w as f32 / h as f32;
-    let uv_dist = (aspect / 2.0) / (scene.cam_fov / 2.0 * 0.01745329).tan();
+    let uv_dist = (aspect / 2.0) / (scene.cam.fov / 2.0 * 0.01745329).tan();
     for x in 0..w * aa{
     for y in 0..h * aa{
         let hor = cd.crossed(Vec3::UP).normalized_fast();
@@ -48,9 +48,23 @@ pub fn whitted(
         acc[x / aa + y / aa * w].add(col);
     }
     }
+    let ash = scene.cam.chromatic_aberration_shift;
+    let ast = scene.cam.chromatic_aberration_strength;
+    let vst = scene.cam.vignette_strength;
     for x in 0..w{
     for y in 0..h{
+        let mut uv = Vec3::new(x as f32 / w as f32, y as f32 / h as f32, 0.0);
+        uv.x *= 1.0 - uv.x;
+        uv.y *= 1.0 - uv.y;
         let mut col = acc[x + y * w];
+        if ash > 0 && ast > 0.01{
+            let r = acc[(x.max(ash) - ash + (y.max(ash) - ash) * w)].x;
+            let b = acc[(x.min(w - ash - 1) + ash + (y.min(h - ash - 1) + ash) * w)].z;
+            let abr_str = (uv.x * uv.y * 4.0).powf(ast).min(1.0).max(0.0);
+            col.mix(Vec3::new(r, col.y, b), 1.0 - abr_str);
+        }
+        let vignette = (uv.x * uv.y * 4.0).powf(vst).min(1.0).max(0.0);
+        col.scale(vignette);
         col.div_scalar_fast(aa as f32 * aa as f32);
         col.clamp(0.0, 1.0);
         col.scale(255.0);

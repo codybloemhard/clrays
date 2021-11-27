@@ -43,7 +43,7 @@
 - [ ] refraction
 - [ ] absorption
 - [ ] multithread 4x
-- [ ] post: gamma, vignetting, chromatic aberration
-- [ ] aa
+- [x] post: gamma, vignetting, chromatic aberration
+- [x] aa
 - [x] textures
 - [ ] mesh

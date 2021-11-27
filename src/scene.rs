@@ -173,6 +173,16 @@ impl SceneItem for Light{
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct Camera{
+    pub pos: Vec3,
+    pub dir: Vec3,
+    pub fov: f32,
+    pub chromatic_aberration_shift: usize,
+    pub chromatic_aberration_strength: f32,
+    pub vignette_strength: f32,
+}
+
 pub struct Scene{
     pub spheres: Vec<Sphere>,
     pub planes: Vec<Plane>,
@@ -188,9 +198,7 @@ pub struct Scene{
     pub sky_col: Vec3,
     pub sky_intensity: f32,
     pub sky_box: u32,
-    pub cam_pos: Vec3,
-    pub cam_dir: Vec3,
-    pub cam_fov: f32,
+    pub cam: Camera,
 }
 
 impl Default for Scene {
@@ -224,9 +232,14 @@ impl Scene{
             sky_col: Vec3::ONE,
             sky_intensity: 0.0,
             sky_box: 0,
-            cam_pos: Vec3::ZERO,
-            cam_dir: Vec3::BACKWARD,
-            cam_fov: 90.0,
+            cam: Camera{
+                pos: Vec3::ZERO,
+                dir: Vec3::BACKWARD,
+                fov: 90.0,
+                chromatic_aberration_shift: 2,
+                chromatic_aberration_strength: 0.2,
+                vignette_strength: 0.1,
+            }
         }
     }
 
@@ -263,8 +276,8 @@ impl Scene{
         self.scene_params[12] = self.skybox;
         self.put_in_scene_params(13, self.sky_col);
         self.scene_params[16] = self.sky_intensity.to_bits() as u32;
-        self.put_in_scene_params(17, self.cam_pos);
-        self.put_in_scene_params(20, self.cam_dir);
+        self.put_in_scene_params(17, self.cam.pos);
+        self.put_in_scene_params(20, self.cam.dir);
         self.scene_params.to_vec()
     }
 
