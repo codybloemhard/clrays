@@ -1,7 +1,6 @@
 use crate::scene::{ Scene, Material, Sphere, Plane };
 use crate::vec3::Vec3;
 
-const AA: f32 = 1.0;
 const MAX_RENDER_DEPTH: u8 = 3;
 const GAMMA: f32 = 2.2;
 const PI: f32 = std::f32::consts::PI;
@@ -21,16 +20,22 @@ pub fn test(w: usize, h: usize, screen: &mut Vec<u32>){
     }
 }
 
-pub fn whitted(w: usize, h: usize, scene: &Scene, screen: &mut Vec<u32>, tex_params: &[u32], textures: &[u8]){
+#[allow(clippy::too_many_arguments)]
+pub fn whitted(
+    w: usize, h: usize, aa: usize,
+    scene: &Scene, tex_params: &[u32], textures: &[u8],
+    screen: &mut Vec<u32>, acc: &mut Vec<Vec3>,
+){
+    acc.iter_mut().for_each(|v| *v = Vec3::ZERO);
     let pos = scene.cam_pos;
     let cd = scene.cam_dir.normalized_fast();
     let aspect = w as f32 / h as f32;
     let uv_dist = (aspect / 2.0) / (scene.cam_fov / 2.0 * 0.01745329).tan();
-    for x in 0..w{
-    for y in 0..h{
+    for x in 0..w * aa{
+    for y in 0..h * aa{
         let hor = cd.crossed(Vec3::UP).normalized_fast();
         let ver = hor.crossed(cd).normalized_fast();
-        let mut uv = Vec3::new(x as f32 / (w as f32 * AA), y as f32 / (h as f32 * AA), 0.0);
+        let mut uv = Vec3::new(x as f32 / (w as f32 * aa as f32), y as f32 / (h as f32 * aa as f32), 0.0);
         uv.add_scalar(-0.5);
         uv.mul(Vec3::new(aspect, -1.0, 0.0));
         let mut to = pos.added(cd.scaled(uv_dist));
@@ -40,13 +45,17 @@ pub fn whitted(w: usize, h: usize, scene: &Scene, screen: &mut Vec<u32>, tex_par
 
         let mut col = whitted_trace(ray, scene, tex_params, textures, MAX_RENDER_DEPTH);
         col.pow_scalar(1.0 / GAMMA);
-        if AA == 1.0{
-            col.clamp(0.0, 1.0);
-        }
-        col.div_scalar_fast(AA * AA);
-        screen[x + y * w] = (((col.x * 255.0) as u32) << 16) + (((col.y * 255.0) as u32) << 8) + (col.z * 255.0) as u32;
+        acc[x / aa + y / aa * w].add(col);
     }
     }
+    for x in 0..w{
+    for y in 0..h{
+        let mut col = acc[x + y * w];
+        col.div_scalar_fast(aa as f32 * aa as f32);
+        col.clamp(0.0, 1.0);
+        col.scale(255.0);
+        screen[x + y * w] = ((col.x as u32) << 16) + ((col.y as u32) << 8) + (col.z) as u32;
+    }}
 }
 
 fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> Vec3{
