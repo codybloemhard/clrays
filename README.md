@@ -31,7 +31,7 @@
 - preprocess kernel: optimize branches away, insert constants
 - sRGB now, use aces, linear colours
 
-## P1 Checklist
+## P1 Checklist: Whitted CPU
 - [x] architecture
 - [x] cam: pos, dir, fov, aspect
 - [ ] cam: controls
