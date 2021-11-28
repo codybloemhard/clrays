@@ -337,13 +337,13 @@ impl Scene{
     }
 
     pub fn get_texture(&mut self, name: &str) -> u32{
-        if let Some((path, ttype)) = self.ghost_textures.get(name){
+        if let Some(x) = self.textures_ids.get(name){
+            x + 1
+        } else if let Some((path, ttype)) = self.ghost_textures.get(name){
             let id = self.next_texture.inc_post();
             self.textures_ids.insert(name.to_string(), id);
             self.indexed_textures.push((path.clone(), *ttype, name.to_string()));
             id + 1
-        } else if let Some(x) = self.textures_ids.get(name){
-            x + 1
         } else {
             println!("Warning: could not look up texture \"{}\"", name);
             0
