@@ -9,7 +9,6 @@ use clr::vec3::{ Vec3 };
 use clr::info::{ Info };
 use clr::trace_tex::{ TexType };
 use clr::state::{ State, StdState };
-use clr::cpu::find_thread_block_conf;
 
 pub fn main() -> Result<(), String>{
     // clr::test(clr::test_platform::PlatformTest::OpenCl2);
@@ -106,8 +105,7 @@ pub fn main() -> Result<(), String>{
     // let mut tracer = unpackdb!(trace_processor::RealTracer::new((w, h), &mut scene, &mut info), "Could not create RealTracer!");
     // let mut tracer = unpackdb!(trace_processor::AaTracer::new((w, h), 2, &mut scene, &mut info), "Could not create AaTracer!");
 
-    let tbc = find_thread_block_conf(w, h, 64).expect("Could not find thread block configuration!");
-    let mut tracer = trace_processor::CpuWhitted::new(w as usize, h as usize, 1, tbc, &mut scene, &mut info);
+    let mut tracer = trace_processor::CpuWhitted::new(w as usize, h as usize, 1, 64, &mut scene, &mut info);
 
     info.stop_time();
     info.print_info();

@@ -1,8 +1,6 @@
 use crate::scene::{ Scene, Material, Sphere, Plane };
 use crate::vec3::Vec3;
 
-use std::sync::{ Arc, Mutex };
-
 const MAX_RENDER_DEPTH: u8 = 3;
 const GAMMA: f32 = 2.2;
 const PI: f32 = std::f32::consts::PI;
@@ -10,47 +8,9 @@ const MAX_RENDER_DIST: f32 = 1000000.0;
 const EPSILON: f32 = 0.001;
 const AMBIENT: f32 = 0.05;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct ThreadBlockConf{
-    pub block_size: usize,
-    pub xs: usize,
-    pub ys: usize,
-}
-
-impl std::fmt::Display for ThreadBlockConf{
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result{
-        write!(f, "size of {}: {}px, {} x {} = {} blocks",
-               self.block_size, self.block_size * self.block_size,
-               self.xs, self.ys, self.xs * self.ys)
-    }
-}
-
-pub fn find_thread_block_conf(w: usize, h: usize, min_blocks: usize) -> Option<ThreadBlockConf>{
-    let mut res = None;
-    for i in 1..w.min(h){
-        if w % i == 0 && h % i == 0{
-            let xs = w / i;
-            let ys = h / i;
-            let conf = ThreadBlockConf{
-                block_size: i,
-                xs,
-                ys,
-            };
-            println!("{}", conf);
-            if xs * ys > min_blocks{
-                res = Some(conf);
-            }
-        }
-    }
-    if let Some(conf) = res{
-        println!("Picked thread block config: {}", conf);
-    }
-    res
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn whitted(
-    w: usize, h: usize, aa: usize, tbc: ThreadBlockConf,
+    w: usize, h: usize, aa: usize, threads: usize,
     scene: &Scene, tex_params: &[u32], textures: &[u8],
     screen: &mut Vec<u32>, acc: &mut Vec<Vec3>,
 ){
@@ -60,22 +20,19 @@ pub fn whitted(
     let cd = scene.cam.dir.normalized_fast();
     let aspect = w as f32 / h as f32;
     let uv_dist = (aspect / 2.0) / (scene.cam.fov / 2.0 * 0.01745329).tan();
-    let acc_mut = Arc::new(Mutex::new(acc));
-    let acc_mut_clone = Arc::new(&acc_mut);
+
+    let target_strip_l = ((h / threads) + 1) * w;
+    let strips: Vec<&mut[Vec3]> = acc.chunks_mut(target_strip_l).collect();
+    let aaa = aa * aa;
 
     crossbeam_utils::thread::scope(|s|{
         let mut handlers = Vec::new();
-
-        for bx in 0..tbc.xs{
-        for by in 0..tbc.ys{
-            let fx = bx * tbc.block_size * aa;
-            let tx = (bx + 1) * tbc.block_size * aa;
-            let fy = by * tbc.block_size * aa;
-            let ty = (by + 1) * tbc.block_size * aa;
-            let acc_mut_local = Arc::clone(&acc_mut_clone);
+        for (t, strip) in strips.into_iter().enumerate(){
             let handler = s.spawn(move |_|{
-                for x in fx..tx{
-                for y in fy..ty{
+                for i in 0..strip.len() * aaa{
+                    let j = i + t * target_strip_l;
+                    let x = j % (w * aa);
+                    let y = j / (w * aa);
                     let hor = cd.crossed(Vec3::UP).normalized_fast();
                     let ver = hor.crossed(cd).normalized_fast();
                     let mut uv = Vec3::new(x as f32 / (w as f32 * aa as f32), y as f32 / (h as f32 * aa as f32), 0.0);
@@ -88,18 +45,15 @@ pub fn whitted(
 
                     let mut col = whitted_trace(ray, scene, tex_params, textures, MAX_RENDER_DEPTH);
                     col.pow_scalar(1.0 / GAMMA);
-                    let mut acc_free = acc_mut_local.lock().expect("Could not lock accumulator!");
-                    acc_free[x / aa + y / aa * w].add(col);
-                }
+                    strip[i / aaa].add(col);
                 }
             });
             handlers.push(handler);
         }
-        }
         handlers.into_iter().for_each(|h| h.join().expect("Could not join whitted cpu thread!"));
-    }).expect("Could not create thread scope!");
+    }).expect("Could not create crossbeam threadscope!");
 
-    let acc = acc_mut.lock().expect("tsdnt");
+
     let ash = scene.cam.chromatic_aberration_shift;
     let ast = scene.cam.chromatic_aberration_strength;
     let vst = scene.cam.vignette_strength;
