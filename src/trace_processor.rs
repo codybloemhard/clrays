@@ -3,7 +3,7 @@ use crate::scene::Scene;
 use crate::info::Info;
 use crate::cl_helpers::create_five;
 use crate::misc::load_source;
-use crate::cpu::{ whitted, ThreadBlockConf };
+use crate::cpu::{ whitted };
 use crate::vec3::Vec3;
 
 use ocl::{ Queue };
@@ -88,7 +88,7 @@ pub struct CpuWhitted<'a>{
     width: usize,
     height: usize,
     aa: usize,
-    tbc: ThreadBlockConf,
+    threads: usize,
     scene: &'a mut Scene,
     screen_buffer: Vec<u32>,
     float_buffer: Vec<Vec3>,
@@ -97,7 +97,7 @@ pub struct CpuWhitted<'a>{
 }
 
 impl<'a> CpuWhitted<'a>{
-    pub fn new(width: usize, height: usize, aa: usize, tbc: ThreadBlockConf, scene: &'a mut Scene, info: &mut Info) -> Self{
+    pub fn new(width: usize, height: usize, aa: usize, threads: usize, scene: &'a mut Scene, info: &mut Info) -> Self{
         let texture_params = scene.get_texture_params_buffer();
         info.set_time_point("Getting texture parameters");
         let textures = scene.get_textures_buffer();
@@ -109,7 +109,7 @@ impl<'a> CpuWhitted<'a>{
             width,
             height,
             aa: aa.max(1),
-            tbc,
+            threads,
             scene,
             screen_buffer,
             float_buffer,
@@ -124,7 +124,7 @@ impl TraceProcessor for CpuWhitted<'_>{
 
     fn render(&mut self) -> &[u32]{
         whitted(
-            self.width, self.height, self.aa, self.tbc,
+            self.width, self.height, self.aa, self.threads,
             self.scene, &self.texture_params, &self.textures,
             &mut self.screen_buffer, &mut self.float_buffer,
         );
