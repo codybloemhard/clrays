@@ -21,18 +21,20 @@ pub fn whitted(
     let aspect = w as f32 / h as f32;
     let uv_dist = (aspect / 2.0) / (scene.cam.fov / 2.0 * 0.01745329).tan();
 
-    let target_strip_l = ((h / threads) + 1) * w;
+    let target_strip_h = (h / threads) + 1;
+    let target_strip_l = target_strip_h * w;
     let strips: Vec<&mut[Vec3]> = acc.chunks_mut(target_strip_l).collect();
-    let aaa = aa * aa;
 
     crossbeam_utils::thread::scope(|s|{
         let mut handlers = Vec::new();
         for (t, strip) in strips.into_iter().enumerate(){
+            let strip_h = strip.len() / w;
+            let offset = t * target_strip_h * aa;
             let handler = s.spawn(move |_|{
-                for i in 0..strip.len() * aaa{
-                    let j = i + t * target_strip_l;
-                    let x = j % (w * aa);
-                    let y = j / (w * aa);
+                for xx in 0..w * aa{
+                for yy in 0..strip_h * aa{
+                    let x = xx;
+                    let y = yy + offset;
                     let hor = cd.crossed(Vec3::UP).normalized_fast();
                     let ver = hor.crossed(cd).normalized_fast();
                     let mut uv = Vec3::new(x as f32 / (w as f32 * aa as f32), y as f32 / (h as f32 * aa as f32), 0.0);
@@ -45,7 +47,8 @@ pub fn whitted(
 
                     let mut col = whitted_trace(ray, scene, tex_params, textures, MAX_RENDER_DEPTH);
                     col.pow_scalar(1.0 / GAMMA);
-                    strip[i / aaa].add(col);
+                    strip[xx / aa + yy / aa * w].add(col);
+                }
                 }
             });
             handlers.push(handler);
@@ -57,6 +60,7 @@ pub fn whitted(
     let ash = scene.cam.chromatic_aberration_shift;
     let ast = scene.cam.chromatic_aberration_strength;
     let vst = scene.cam.vignette_strength;
+
     for x in 0..w{
     for y in 0..h{
         let mut uv = Vec3::new(x as f32 / w as f32, y as f32 / h as f32, 0.0);
@@ -66,10 +70,10 @@ pub fn whitted(
         if ash > 0 && ast > 0.01{
             let r = acc[(x.max(ash) - ash + (y.max(ash) - ash) * w)].x;
             let b = acc[(x.min(w - ash - 1) + ash + (y.min(h - ash - 1) + ash) * w)].z;
-            let abr_str = (uv.x * uv.y * 4.0).powf(ast).min(1.0).max(0.0);
+            let abr_str = (uv.x * uv.y * 8.0).powf(ast).min(1.0).max(0.0);
             col.mix(Vec3::new(r, col.y, b), 1.0 - abr_str);
         }
-        let vignette = (uv.x * uv.y * 4.0).powf(vst).min(1.0).max(0.0);
+        let vignette = (uv.x * uv.y * 32.0).powf(vst).min(1.0).max(0.0);
         col.scale(vignette);
         col.div_scalar_fast(aa as f32 * aa as f32);
         col.clamp(0.0, 1.0);
