@@ -177,6 +177,9 @@ impl SceneItem for Light{
 pub struct Camera{
     pub pos: Vec3,
     pub dir: Vec3,
+    pub ori: Vec<f32>,
+    pub move_sensitivity: f32,
+    pub look_sensitivity: f32,
     pub fov: f32,
     pub chromatic_aberration_shift: usize,
     pub chromatic_aberration_strength: f32,
@@ -235,6 +238,9 @@ impl Scene{
             cam: Camera{
                 pos: Vec3::ZERO,
                 dir: Vec3::BACKWARD,
+                ori: vec![0.0,0.0],
+                move_sensitivity: 0.1,
+                look_sensitivity: 0.05,
                 fov: 90.0,
                 chromatic_aberration_shift: 2,
                 chromatic_aberration_strength: 0.2,
