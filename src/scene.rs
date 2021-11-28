@@ -14,6 +14,7 @@ pub struct Material{
     pub roughness_map: u32,
     pub metalic_map: u32,
     pub tex_scale: f32,
+    pub is_checkerboard: bool
 }
 
 impl Material{
@@ -35,6 +36,7 @@ impl Material{
             roughness_map: 0,
             metalic_map: 0,
             tex_scale: 1.0,
+            is_checkerboard: false
         }
     }
 
@@ -55,6 +57,11 @@ impl Material{
 
     pub fn with_texture(mut self, tex: u32) -> Self{
         self.texture = tex;
+        self
+    }
+
+    pub fn as_checkerboard(mut self) -> Self{
+        self.is_checkerboard = true;
         self
     }
 
