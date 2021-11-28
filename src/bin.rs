@@ -21,7 +21,7 @@ pub fn main() -> Result<(), String>{
         dir: Vec3::BACKWARD,
         fov: 80.0,
         chromatic_aberration_shift: 2,
-        chromatic_aberration_strength: 0.2,
+        chromatic_aberration_strength: 0.3,
         vignette_strength: 0.1,
     };
     scene.sky_col = Vec3::BLUE.unhardened(0.1);
@@ -105,7 +105,7 @@ pub fn main() -> Result<(), String>{
     // let mut tracer = unpackdb!(trace_processor::RealTracer::new((w, h), &mut scene, &mut info), "Could not create RealTracer!");
     // let mut tracer = unpackdb!(trace_processor::AaTracer::new((w, h), 2, &mut scene, &mut info), "Could not create AaTracer!");
 
-    let mut tracer = trace_processor::CpuWhitted::new(w as usize, h as usize, 1, 64, &mut scene, &mut info);
+    let mut tracer = trace_processor::CpuWhitted::new(w as usize, h as usize, 1, 32, &mut scene, &mut info);
 
     info.stop_time();
     info.print_info();
