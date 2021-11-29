@@ -67,7 +67,7 @@ impl Window
             if update_fn(0.0) == LoopRequest::Stop { break; };
 
             tracer.update();
-            let int_tex = tracer.render(scene);
+            let int_tex = tracer.render(scene, state);
             unsafe{
                 gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as i32, glw, glh, 0, gl::BGRA, gl::UNSIGNED_BYTE, int_tex.as_ptr() as *mut std::ffi::c_void);
                 gl::BindFramebuffer(gl::FRAMEBUFFER, 0);

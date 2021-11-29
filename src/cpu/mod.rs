@@ -1,5 +1,6 @@
 use crate::scene::{ Scene, Material, Sphere, Plane };
 use crate::vec3::Vec3;
+use crate::state::RenderMode;
 
 const MAX_RENDER_DEPTH: u8 = 3;
 const GAMMA: f32 = 2.2;
@@ -11,35 +12,43 @@ const AMBIENT: f32 = 0.05;
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::many_single_char_names)]
 pub fn whitted(
-    w: usize, h: usize, aa: usize, threads: usize,
+    w: usize, h: usize, aa: usize, threads: usize, render_mode: RenderMode,
     scene: &Scene, tex_params: &[u32], textures: &[u8],
     screen: &mut Vec<u32>, acc: &mut Vec<Vec3>,
 ){
-    acc.iter_mut().for_each(|v| *v = Vec3::ZERO);
+    let (reduce, aa) = match render_mode{
+        RenderMode::None => return,
+        RenderMode::Reduced => (4, 1),
+        RenderMode::Full => (1, aa),
+    };
+
+    let rw = w / reduce;
+    let rh = h / reduce;
+    acc.iter_mut().take(rw * rh).for_each(|v| *v = Vec3::ZERO);
 
     let threads = threads.max(1);
-    let target_strip_h = (h / threads) + 1;
-    let target_strip_l = target_strip_h * w;
-    let strips: Vec<&mut[Vec3]> = acc.chunks_mut(target_strip_l).collect();
+    let target_strip_h = (rh / threads) + 1;
+    let target_strip_l = target_strip_h * rw;
+    let strips: Vec<&mut[Vec3]> = acc.chunks_mut(target_strip_l).take(threads).collect();
 
     crossbeam_utils::thread::scope(|s|{
         let mut handlers = Vec::new();
         for (t, strip) in strips.into_iter().enumerate(){
-            let strip_h = strip.len() / w;
+            let strip_h = strip.len() / rw;
             let offset = t * target_strip_h * aa;
             let handler = s.spawn(move |_|{
                 let pos = scene.cam.pos;
                 let cd = scene.cam.dir.normalized_fast();
-                let aspect = w as f32 / h as f32;
+                let aspect = rw as f32 / rh as f32;
                 let uv_dist = (aspect / 2.0) / (scene.cam.fov / 2.0 * 0.01745329).tan();
 
-                for xx in 0..w * aa{
+                for xx in 0..rw * aa{
                 for yy in 0..strip_h * aa{
                     let x = xx;
                     let y = yy + offset;
                     let hor = cd.crossed(Vec3::UP).normalized_fast();
                     let ver = hor.crossed(cd).normalized_fast();
-                    let mut uv = Vec3::new(x as f32 / (w as f32 * aa as f32), y as f32 / (h as f32 * aa as f32), 0.0);
+                    let mut uv = Vec3::new(x as f32 / (rw as f32 * aa as f32), y as f32 / (rh as f32 * aa as f32), 0.0);
                     uv.add_scalar(-0.5);
                     uv.mul(Vec3::new(aspect, -1.0, 0.0));
                     let mut to = pos.added(cd.scaled(uv_dist));
@@ -48,7 +57,7 @@ pub fn whitted(
                     let ray = Ray{ pos, dir: to.subed(pos).normalized_fast() };
 
                     let col = whitted_trace(ray, scene, tex_params, textures, MAX_RENDER_DEPTH);
-                    strip[xx / aa + yy / aa * w].add(col);
+                    strip[xx / aa + yy / aa * rw].add(col);
                 }
                 }
             });
@@ -79,10 +88,10 @@ pub fn whitted(
                     let mut uv = Vec3::new(x as f32 / w as f32, y as f32 / h as f32, 0.0);
                     uv.x *= 1.0 - uv.x;
                     uv.y *= 1.0 - uv.y;
-                    let mut col = acc[x + y * w];
+                    let mut col = acc[x / reduce + y / reduce * w / reduce];
                     if ash > 0 && ast > 0.01{
-                        let r = acc[(x.max(ash) - ash + (y.max(ash) - ash) * w)].x;
-                        let b = acc[(x.min(w - ash - 1) + ash + (y.min(h - ash - 1) + ash) * w)].z;
+                        let r = acc[((x.max(ash) - ash) / reduce + (y.max(ash) - ash) / reduce * w / reduce)].x;
+                        let b = acc[((x.min(w - ash - 1) + ash) / reduce + (y.min(h - ash - 1) + ash) / reduce * w / reduce)].z;
                         let abr_str = (uv.x * uv.y * 8.0).powf(ast).min(1.0).max(0.0);
                         col.mix(Vec3::new(r, col.y, b), 1.0 - abr_str);
                     }
@@ -92,7 +101,8 @@ pub fn whitted(
                     col.div_scalar_fast(aa as f32 * aa as f32);
                     col.clamp(0.0, 1.0);
                     col.scale(255.0);
-                    strip[xx + yy * w] = ((col.x as u32) << 16) + ((col.y as u32) << 8) + col.z as u32;
+                    let int = ((col.x as u32) << 16) + ((col.y as u32) << 8) + col.z as u32;
+                    strip[xx + yy * w] = int;
                 }
                 }
             });

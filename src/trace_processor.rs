@@ -5,12 +5,13 @@ use crate::cl_helpers::create_five;
 use crate::misc::load_source;
 use crate::cpu::{ whitted };
 use crate::vec3::Vec3;
+use crate::state::{ State };
 
 use ocl::{ Queue };
 
 pub trait TraceProcessor{
     fn update(&mut self);
-    fn render(&mut self, scene: &mut Scene) -> &[u32];
+    fn render(&mut self, scene: &mut Scene, state: &mut State) -> &[u32];
 }
 
 pub struct RealTracer{
@@ -38,7 +39,7 @@ impl TraceProcessor for RealTracer{
         self.kernel.update(&self.queue).expect("Could not update RealTracer's kernel!");
     }
 
-    fn render(&mut self, _: &mut Scene) -> &[u32]{
+    fn render(&mut self, _: &mut Scene, _: &mut State) -> &[u32]{
         self.kernel.execute(&self.queue).expect("Could not execute RealTracer's kernel!");
         self.kernel.get_result(&self.queue).expect("Could not get result of RealTracer!")
     }
@@ -76,7 +77,7 @@ impl TraceProcessor for AaTracer{
         self.trace_kernel.update(&self.queue).expect("Could not update AaTracer's trace kernel!");
     }
 
-    fn render(&mut self, _: &mut Scene) -> &[u32]{
+    fn render(&mut self, _: &mut Scene, _: &mut State) -> &[u32]{
         self.clear_kernel.execute(&self.queue).expect("Could not execute AaTracer's clear kernel!");
         self.trace_kernel.execute(&self.queue).expect("Could not execute AaTracer's trace kernel!");
         self.image_kernel.execute(&self.queue).expect("Could not execute AaTracer's image kernel!");
@@ -120,9 +121,9 @@ impl CpuWhitted{
 impl TraceProcessor for CpuWhitted{
     fn update(&mut self){  }
 
-    fn render(&mut self, scene: &mut Scene) -> &[u32]{
+    fn render(&mut self, scene: &mut Scene, state: &mut State) -> &[u32]{
         whitted(
-            self.width, self.height, self.aa, self.threads,
+            self.width, self.height, self.aa, self.threads, state.render_mode,
             scene, &self.texture_params, &self.textures,
             &mut self.screen_buffer, &mut self.float_buffer,
         );

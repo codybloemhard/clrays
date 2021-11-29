@@ -12,25 +12,37 @@ pub enum LoopRequest{
     Stop,
 }
 
-pub type Keymap = [Keycode; 8];
+pub type Keymap = [Keycode; 10];
 
 #[macro_export]
 macro_rules! build_keymap{
-    ($mfo:ident,$mba:ident,$mle:ident,$mri:ident,$lup:ident,$ldo:ident,$lle:ident,$lri:ident) =>{
-        [Keycode::$mfo, Keycode::$mba, Keycode::$mle, Keycode::$mri,
+    ($mfo:ident,$mba:ident,$mle:ident,$mri:ident,$mup:ident,$mdo:ident,
+     $lup:ident,$ldo:ident,$lle:ident,$lri:ident) => {
+        [Keycode::$mfo, Keycode::$mba, Keycode::$mle, Keycode::$mri, Keycode::$mup, Keycode::$mdo,
          Keycode::$lup, Keycode::$ldo, Keycode::$lle, Keycode::$lri]
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum RenderMode{
+    Full,
+    Reduced,
+    None,
 }
 
 #[derive(Clone, Debug)]
 pub struct State{
     pub key_map: Keymap,
+    keys: [bool; 10],
+    pub render_mode: RenderMode,
 }
 
 impl State{
     pub fn new(key_map: Keymap) -> Self{
         Self{
             key_map,
+            keys: [false; 10],
+            render_mode: RenderMode::Reduced,
         }
     }
 }
@@ -61,56 +73,76 @@ pub fn fps_input_fn(events: &[Event], scene: &mut Scene, state: &mut State) -> L
     }
 
     let cam = &mut scene.cam;
+    let old_pos = cam.pos;
+    let old_dir = cam.dir;
+    let keys = &mut state.keys;
+
     for event in events.iter() {
         match event {
             Event::Quit {..} |
             Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                 return LoopRequest::Stop;
             },
-            Event::KeyDown { keycode: Some(x), .. } if *x == state.key_map[0] => {
-                // Move Forward; Move into camera direction
-                let s = cam.move_sensitivity;
-                cam.pos.add(cam.dir.scaled(s));
+            Event::KeyDown { keycode: Some(x), repeat: false, .. } => {
+                for (i, binding) in state.key_map.iter().enumerate(){
+                    if x == binding{
+                        keys[i] = true;
+                    }
+                }
+            },
+            Event::KeyUp { keycode: Some(x), repeat: false, .. } => {
+                for (i, binding) in state.key_map.iter().enumerate(){
+                    if x == binding{
+                        keys[i] = false;
+                    }
+                }
+            },
+            _ => {},
+        }
+    }
+    let ms = cam.move_sensitivity;
+    let ls = cam.look_sensitivity;
+    for (i, active) in keys.iter().enumerate(){
+        if !active { continue; }
+        match i {
+            0 => { // Move Forward; Move into camera direction
+                cam.pos.add(cam.dir.scaled(ms));
                 break;
             },
-            Event::KeyDown { keycode: Some(x), .. } if *x == state.key_map[1] => {
-                // Move Backward; Move opposite camera direction
-                let s = cam.move_sensitivity;
-                cam.pos.add(cam.dir.neged().scaled(s));
+            1 => { // Move Backward; Move opposite camera direction
+                cam.pos.add(cam.dir.neged().scaled(ms));
                 break;
             },
-            Event::KeyDown { keycode: Some(x), .. } if *x == state.key_map[2] => {
-                // Move Left; Move camera direction crossed z-axis, negated
-                let s = cam.move_sensitivity;
-                cam.pos.add(cam.dir.crossed(Vec3::UP).neged().scaled(s));
+            2 => { // Move Left; Move camera direction crossed z-axis, negated
+                cam.pos.add(cam.dir.crossed(Vec3::UP).neged().scaled(ms));
                 break;
             },
-            Event::KeyDown { keycode: Some(x), .. } if *x == state.key_map[3] => {
-                // Move Right; Move camera direction crossed z-axis
-                let s = cam.move_sensitivity;
-                cam.pos.add(cam.dir.crossed(Vec3::UP).scaled(s));
+            3 => { // Move Right; Move camera direction crossed z-axis
+                cam.pos.add(cam.dir.crossed(Vec3::UP).scaled(ms));
                 break;
             },
-            Event::KeyDown { keycode: Some(x), .. } if *x == state.key_map[4] => {
-                // Look Up;
-                let s = cam.look_sensitivity;
-                cam.ori[1] = (cam.ori[1] + s).min(FRAC_PI_2).max(-FRAC_PI_2);
+            4 => { // Move Up; Move camera direction crossed x-axis
+                cam.pos.add(cam.dir.crossed(Vec3::RIGHT).scaled(ms));
+                break;
+            },
+            5 => { // Move Down; Move camera direction crossed x-axis
+                cam.pos.add(cam.dir.crossed(Vec3::RIGHT).neged().scaled(ms));
+                break;
+            },
+            6 => { // Look Up;
+                cam.ori[1] = (cam.ori[1] + ls).min(FRAC_PI_2).max(-FRAC_PI_2);
                 let yaw = cam.ori[0]; // Up/Down
                 let roll = cam.ori[1]; // Left/Right
                 cam.dir = yaw_roll(yaw, roll);
             },
-            Event::KeyDown { keycode: Some(x), .. } if *x == state.key_map[5] => {
-                // Look Down;
-                let s = cam.look_sensitivity;
-                cam.ori[1] = (cam.ori[1] - s).min(FRAC_PI_2).max(-FRAC_PI_2);
+            7 => { // Look Down;
+                cam.ori[1] = (cam.ori[1] - ls).min(FRAC_PI_2).max(-FRAC_PI_2);
                 let yaw = cam.ori[0]; // Up/Down
                 let roll = cam.ori[1]; // Left/Right
                 cam.dir = yaw_roll(yaw, roll);
             },
-            Event::KeyDown { keycode: Some(x), .. } if *x == state.key_map[6] => {
-                // Look Left;
-                let s = cam.look_sensitivity;
-                cam.ori[0] -= s;
+            8 => { // Look Left;
+                cam.ori[0] -= ls;
                 if cam.ori[0] < -PI {
                     cam.ori[0] += 2.0 * PI;
                 }
@@ -118,10 +150,8 @@ pub fn fps_input_fn(events: &[Event], scene: &mut Scene, state: &mut State) -> L
                 let roll = cam.ori[1]; // Left/Right
                 cam.dir = yaw_roll(yaw, roll);
             },
-            Event::KeyDown { keycode: Some(x), .. } if *x == state.key_map[7] => {
-                // Look Right;
-                let s = cam.look_sensitivity;
-                cam.ori[0] += s;
+            9 => { // Look Right;
+                cam.ori[0] += ls;
                 if cam.ori[0] > PI {
                     cam.ori[0] -= 2.0 * PI;
                 }
@@ -129,8 +159,14 @@ pub fn fps_input_fn(events: &[Event], scene: &mut Scene, state: &mut State) -> L
                 let roll = cam.ori[1]; // Left/Right
                 cam.dir = yaw_roll(yaw, roll);
             },
-            _ => {}
+            _ => {},
         }
     }
+    let moved = old_pos != cam.pos || old_dir != cam.dir;
+    state.render_mode = match (moved, state.render_mode){
+        (true, _) => RenderMode::Reduced,
+        (false, RenderMode::Reduced) => RenderMode::Full,
+        _ => RenderMode::None,
+    };
     LoopRequest::Continue
 }

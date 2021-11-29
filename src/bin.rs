@@ -53,11 +53,11 @@ pub fn main() -> Result<(), String>{
         pos: Vec3::new(0.0, -1.0, 0.0),
         nor: Vec3::UP,
         mat: Material::basic()
-            .as_checkerboard()
+            //.as_checkerboard()
             .with_texture(scene.get_texture("stone-alb"))
-            // .with_normal_map(scene.get_texture("stone-nor"))
+            .with_normal_map(scene.get_texture("stone-nor"))
             .with_roughness_map(scene.get_texture("stone-rou"))
-            // .with_tex_scale(4.0),
+            .with_tex_scale(4.0),
     }.add(&mut scene);
 
     Sphere{
@@ -100,8 +100,8 @@ pub fn main() -> Result<(), String>{
     info.set_time_point("Setting up scene");
     scene.pack_textures(&mut info);
 
-    // let mut state = State::new(build_keymap!(W, S, A, D, I, K, J, L));
-    let mut state = State::new(build_keymap!(M, T, S, N, U, E, A, O));
+    // let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L));
+    let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O));
 
     // let (w, h) = (960, 540);
     // let (w, h) = (1600, 900);
