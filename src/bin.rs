@@ -19,7 +19,7 @@ pub fn main() -> Result<(), String>{
     scene.cam = Camera{
         pos: Vec3::ZERO,
         dir: Vec3::BACKWARD,
-        ori: vec![0.0,0.0],
+        ori: [0.0, 0.0],
         move_sensitivity: 0.1,
         look_sensitivity: 0.05,
         fov: 80.0,

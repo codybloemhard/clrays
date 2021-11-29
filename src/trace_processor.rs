@@ -13,7 +13,7 @@ use ocl::{ Queue };
 use std::f32::consts::{PI, FRAC_PI_2};
 
 pub trait TraceProcessor{
-    fn update(&mut self, events: &Vec<Event>);
+    fn update(&mut self, events: &[Event]);
     fn render(&mut self) -> &[u32];
 }
 
@@ -38,7 +38,7 @@ impl RealTracer{
 }
 
 impl TraceProcessor for RealTracer{
-    fn update(&mut self, events: &Vec<Event>){
+    fn update(&mut self, _events: &[Event]){
         self.kernel.update(&self.queue).expect("Could not update RealTracer's kernel!");
     }
 
@@ -76,7 +76,7 @@ impl AaTracer{
 }
 
 impl TraceProcessor for AaTracer{
-    fn update(&mut self, events: &Vec<Event>){
+    fn update(&mut self, _events: &[Event]){
         self.trace_kernel.update(&self.queue).expect("Could not update AaTracer's trace kernel!");
     }
 
@@ -130,66 +130,71 @@ fn yaw_roll(yaw: f32, roll: f32) -> Vec3 {
 }
 
 impl TraceProcessor for CpuWhitted<'_>{
-    fn update(&mut self, events: &Vec<Event>){
-        for event in events.into_iter() {
+    fn update(&mut self, events: &[Event]){
+        let cam = &mut self.scene.cam;
+        for event in events.iter() {
             match event {
                 Event::KeyDown { keycode: Some(Keycode::W), .. } => {
                     // Move Forward; Move into camera direction
-                    let s = self.scene.cam.move_sensitivity;
-                    self.scene.cam.pos.add(self.scene.cam.dir.scaled(s)); break;
+                    let s = cam.move_sensitivity;
+                    cam.pos.add(cam.dir.scaled(s));
+                    break;
                 },
                 Event::KeyDown { keycode: Some(Keycode::S), .. } => {
                     // Move Backward; Move opposite camera direction
-                    let s = self.scene.cam.move_sensitivity;
-                    self.scene.cam.pos.add(self.scene.cam.dir.neged().scaled(s)); break;
+                    let s = cam.move_sensitivity;
+                    cam.pos.add(cam.dir.neged().scaled(s));
+                    break;
                 },
                 Event::KeyDown { keycode: Some(Keycode::D), .. } => {
                     // Move Right; Move camera direction crossed z-axis
-                    let s = self.scene.cam.move_sensitivity;
-                    self.scene.cam.pos.add(self.scene.cam.dir.crossed(Vec3::UP).scaled(s)); break;
+                    let s = cam.move_sensitivity;
+                    cam.pos.add(cam.dir.crossed(Vec3::UP).scaled(s));
+                    break;
                 },
                 Event::KeyDown { keycode: Some(Keycode::A), .. } => {
                     // Move Left; Move camera direction crossed z-axis, negated
-                    let s = self.scene.cam.move_sensitivity;
-                    self.scene.cam.pos.add(self.scene.cam.dir.crossed(Vec3::UP).neged().scaled(s)); break;
+                    let s = cam.move_sensitivity;
+                    cam.pos.add(cam.dir.crossed(Vec3::UP).neged().scaled(s));
+                    break;
                 },
                 Event::KeyDown { keycode: Some(Keycode::I), .. } => {
                     // Look Up;
-                    let s = self.scene.cam.look_sensitivity;
-                    self.scene.cam.ori[1] = (self.scene.cam.ori[1] + s).min(FRAC_PI_2).max(-FRAC_PI_2);
-                    let yaw = self.scene.cam.ori[0]; // Up/Down
-                    let roll = self.scene.cam.ori[1]; // Left/Right
-                    self.scene.cam.dir = yaw_roll(yaw, roll);
+                    let s = cam.look_sensitivity;
+                    cam.ori[1] = (cam.ori[1] + s).min(FRAC_PI_2).max(-FRAC_PI_2);
+                    let yaw = cam.ori[0]; // Up/Down
+                    let roll = cam.ori[1]; // Left/Right
+                    cam.dir = yaw_roll(yaw, roll);
                 },
                 Event::KeyDown { keycode: Some(Keycode::K), .. } => {
                     // Look Down;
-                    let s = self.scene.cam.look_sensitivity;
-                    self.scene.cam.ori[1] = (self.scene.cam.ori[1] - s).min(FRAC_PI_2).max(-FRAC_PI_2);
-                    let yaw = self.scene.cam.ori[0]; // Up/Down
-                    let roll = self.scene.cam.ori[1]; // Left/Right
-                    self.scene.cam.dir = yaw_roll(yaw, roll);
+                    let s = cam.look_sensitivity;
+                    cam.ori[1] = (cam.ori[1] - s).min(FRAC_PI_2).max(-FRAC_PI_2);
+                    let yaw = cam.ori[0]; // Up/Down
+                    let roll = cam.ori[1]; // Left/Right
+                    cam.dir = yaw_roll(yaw, roll);
                 },
                 Event::KeyDown { keycode: Some(Keycode::L), .. } => {
                     // Look Right;
-                    let s = self.scene.cam.look_sensitivity;
-                    self.scene.cam.ori[0] = (self.scene.cam.ori[0] + s);
-                    if self.scene.cam.ori[0] > PI {
-                        self.scene.cam.ori[0] = -2.0*PI + self.scene.cam.ori[0];
+                    let s = cam.look_sensitivity;
+                    cam.ori[0] += s;
+                    if cam.ori[0] > PI {
+                        cam.ori[0] -= 2.0 * PI;
                     }
-                    let yaw = self.scene.cam.ori[0]; // Up/Down
-                    let roll = self.scene.cam.ori[1]; // Left/Right
-                    self.scene.cam.dir = yaw_roll(yaw, roll);
+                    let yaw = cam.ori[0]; // Up/Down
+                    let roll = cam.ori[1]; // Left/Right
+                    cam.dir = yaw_roll(yaw, roll);
                 },
                 Event::KeyDown { keycode: Some(Keycode::J), .. } => {
                     // Look Left;
-                    let s = self.scene.cam.look_sensitivity;
-                    self.scene.cam.ori[0] = (self.scene.cam.ori[0] - s);
-                    if self.scene.cam.ori[0] < -PI {
-                        self.scene.cam.ori[0] = 2.0*PI + self.scene.cam.ori[0];
+                    let s = cam.look_sensitivity;
+                    cam.ori[0] -= s;
+                    if cam.ori[0] < -PI {
+                        cam.ori[0] += 2.0 * PI;
                     }
-                    let yaw = self.scene.cam.ori[0]; // Up/Down
-                    let roll = self.scene.cam.ori[1]; // Left/Right
-                    self.scene.cam.dir = yaw_roll(yaw, roll);
+                    let yaw = cam.ori[0]; // Up/Down
+                    let roll = cam.ori[1]; // Left/Right
+                    cam.dir = yaw_roll(yaw, roll);
                 },
                 _ => {}
             }
