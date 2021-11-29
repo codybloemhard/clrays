@@ -120,7 +120,8 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> 
         mat.texture > 0 ||
         mat.normal_map > 0 ||
         mat.roughness_map > 0 ||
-        mat.metalic_map > 0
+        mat.metalic_map > 0 ||
+        mat.is_checkerboard
     {
         let uvtype = hit.uvtype;
         let uv = if uvtype == UV_SPHERE{
@@ -133,7 +134,9 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> 
         (0.0, 0.0)
     };
 
-    if mat.texture > 0{
+    if mat.is_checkerboard{
+        texcol = if ((uv.0.floor()*3.0) as i32 + (uv.1.floor()*3.0) as i32) % 2 == 0 { Vec3::BLACK } else { Vec3::WHITE }
+    } else if mat.texture > 0{
         texcol = get_tex_col(mat.texture - 1, uv, tps, ts);
     }
 
