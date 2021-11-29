@@ -34,7 +34,7 @@
 ## P1 Checklist: Whitted CPU
 - [x] architecture
 - [x] cam: pos, dir, fov, aspect
-- [ ] cam: controls
+- [x] cam: controls
 - [x] planes n spheres
 - [x] material
 - [x] scene

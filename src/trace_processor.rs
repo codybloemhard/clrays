@@ -6,15 +6,11 @@ use crate::misc::load_source;
 use crate::cpu::{ whitted };
 use crate::vec3::Vec3;
 
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
-
 use ocl::{ Queue };
-use std::f32::consts::{PI, FRAC_PI_2};
 
 pub trait TraceProcessor{
-    fn update(&mut self, events: &[Event]);
-    fn render(&mut self) -> &[u32];
+    fn update(&mut self);
+    fn render(&mut self, scene: &mut Scene) -> &[u32];
 }
 
 pub struct RealTracer{
@@ -38,11 +34,11 @@ impl RealTracer{
 }
 
 impl TraceProcessor for RealTracer{
-    fn update(&mut self, _events: &[Event]){
+    fn update(&mut self){
         self.kernel.update(&self.queue).expect("Could not update RealTracer's kernel!");
     }
 
-    fn render(&mut self) -> &[u32]{
+    fn render(&mut self, _: &mut Scene) -> &[u32]{
         self.kernel.execute(&self.queue).expect("Could not execute RealTracer's kernel!");
         self.kernel.get_result(&self.queue).expect("Could not get result of RealTracer!")
     }
@@ -76,11 +72,11 @@ impl AaTracer{
 }
 
 impl TraceProcessor for AaTracer{
-    fn update(&mut self, _events: &[Event]){
+    fn update(&mut self){
         self.trace_kernel.update(&self.queue).expect("Could not update AaTracer's trace kernel!");
     }
 
-    fn render(&mut self) -> &[u32]{
+    fn render(&mut self, _: &mut Scene) -> &[u32]{
         self.clear_kernel.execute(&self.queue).expect("Could not execute AaTracer's clear kernel!");
         self.trace_kernel.execute(&self.queue).expect("Could not execute AaTracer's trace kernel!");
         self.image_kernel.execute(&self.queue).expect("Could not execute AaTracer's image kernel!");
@@ -88,20 +84,19 @@ impl TraceProcessor for AaTracer{
     }
 }
 
-pub struct CpuWhitted<'a>{
+pub struct CpuWhitted{
     width: usize,
     height: usize,
     aa: usize,
     threads: usize,
-    scene: &'a mut Scene,
     screen_buffer: Vec<u32>,
     float_buffer: Vec<Vec3>,
     texture_params: Vec<u32>,
     textures: Vec<u8>,
 }
 
-impl<'a> CpuWhitted<'a>{
-    pub fn new(width: usize, height: usize, aa: usize, threads: usize, scene: &'a mut Scene, info: &mut Info) -> Self{
+impl CpuWhitted{
+    pub fn new(width: usize, height: usize, aa: usize, threads: usize, scene: &mut Scene, info: &mut Info) -> Self{
         let texture_params = scene.get_texture_params_buffer();
         info.set_time_point("Getting texture parameters");
         let textures = scene.get_textures_buffer();
@@ -114,7 +109,6 @@ impl<'a> CpuWhitted<'a>{
             height,
             aa: aa.max(1),
             threads,
-            scene,
             screen_buffer,
             float_buffer,
             texture_params,
@@ -123,89 +117,13 @@ impl<'a> CpuWhitted<'a>{
     }
 }
 
-fn yaw_roll(yaw: f32, roll: f32) -> Vec3 {
-    let a = roll;  // Up/Down
-    let b = yaw;   // Left/Right
-    Vec3 { x: a.cos() * b.sin(), y: a.sin(), z: -a.cos() * b.cos() }
-}
+impl TraceProcessor for CpuWhitted{
+    fn update(&mut self){  }
 
-impl TraceProcessor for CpuWhitted<'_>{
-    fn update(&mut self, events: &[Event]){
-        let cam = &mut self.scene.cam;
-        for event in events.iter() {
-            match event {
-                Event::KeyDown { keycode: Some(Keycode::W), .. } => {
-                    // Move Forward; Move into camera direction
-                    let s = cam.move_sensitivity;
-                    cam.pos.add(cam.dir.scaled(s));
-                    break;
-                },
-                Event::KeyDown { keycode: Some(Keycode::S), .. } => {
-                    // Move Backward; Move opposite camera direction
-                    let s = cam.move_sensitivity;
-                    cam.pos.add(cam.dir.neged().scaled(s));
-                    break;
-                },
-                Event::KeyDown { keycode: Some(Keycode::D), .. } => {
-                    // Move Right; Move camera direction crossed z-axis
-                    let s = cam.move_sensitivity;
-                    cam.pos.add(cam.dir.crossed(Vec3::UP).scaled(s));
-                    break;
-                },
-                Event::KeyDown { keycode: Some(Keycode::A), .. } => {
-                    // Move Left; Move camera direction crossed z-axis, negated
-                    let s = cam.move_sensitivity;
-                    cam.pos.add(cam.dir.crossed(Vec3::UP).neged().scaled(s));
-                    break;
-                },
-                Event::KeyDown { keycode: Some(Keycode::I), .. } => {
-                    // Look Up;
-                    let s = cam.look_sensitivity;
-                    cam.ori[1] = (cam.ori[1] + s).min(FRAC_PI_2).max(-FRAC_PI_2);
-                    let yaw = cam.ori[0]; // Up/Down
-                    let roll = cam.ori[1]; // Left/Right
-                    cam.dir = yaw_roll(yaw, roll);
-                },
-                Event::KeyDown { keycode: Some(Keycode::K), .. } => {
-                    // Look Down;
-                    let s = cam.look_sensitivity;
-                    cam.ori[1] = (cam.ori[1] - s).min(FRAC_PI_2).max(-FRAC_PI_2);
-                    let yaw = cam.ori[0]; // Up/Down
-                    let roll = cam.ori[1]; // Left/Right
-                    cam.dir = yaw_roll(yaw, roll);
-                },
-                Event::KeyDown { keycode: Some(Keycode::L), .. } => {
-                    // Look Right;
-                    let s = cam.look_sensitivity;
-                    cam.ori[0] += s;
-                    if cam.ori[0] > PI {
-                        cam.ori[0] -= 2.0 * PI;
-                    }
-                    let yaw = cam.ori[0]; // Up/Down
-                    let roll = cam.ori[1]; // Left/Right
-                    cam.dir = yaw_roll(yaw, roll);
-                },
-                Event::KeyDown { keycode: Some(Keycode::J), .. } => {
-                    // Look Left;
-                    let s = cam.look_sensitivity;
-                    cam.ori[0] -= s;
-                    if cam.ori[0] < -PI {
-                        cam.ori[0] += 2.0 * PI;
-                    }
-                    let yaw = cam.ori[0]; // Up/Down
-                    let roll = cam.ori[1]; // Left/Right
-                    cam.dir = yaw_roll(yaw, roll);
-                },
-                _ => {}
-            }
-        }
-
-    }
-
-    fn render(&mut self) -> &[u32]{
+    fn render(&mut self, scene: &mut Scene) -> &[u32]{
         whitted(
             self.width, self.height, self.aa, self.threads,
-            self.scene, &self.texture_params, &self.textures,
+            scene, &self.texture_params, &self.textures,
             &mut self.screen_buffer, &mut self.float_buffer,
         );
         &self.screen_buffer

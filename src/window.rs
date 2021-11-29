@@ -1,9 +1,10 @@
-use sdl2::event::Event;
-use crate::state;
+use crate::state::{ LoopRequest, InputFn, UpdateFn };
 use crate::trace_processor::TraceProcessor;
 use crate::misc::Incrementable;
+use crate::scene::Scene;
 
 use stopwatch::Stopwatch;
+use sdl2::event::Event;
 
 pub struct Window{
     title: String,
@@ -19,8 +20,10 @@ impl Window
 
     pub fn run(
             &mut self,
-            state: &mut impl state::State,
-            tracer: &mut impl TraceProcessor
+            input_fn: InputFn,
+            update_fn: UpdateFn,
+            tracer: &mut impl TraceProcessor,
+            scene: &mut Scene,
         ) -> Result<(), String>
     {
         let watch = Stopwatch::start_new();
@@ -59,13 +62,11 @@ impl Window
             // Pump all sdl2 events into vector
             let events : Vec<Event>= event_pump.poll_iter().collect();
 
-            state.handle_input(&events);
-            if state.should_close() { break; }
-            state.update(0.0);
-            if state.should_close() { break; }
+            if input_fn(&events, scene) == LoopRequest::Stop { break; }
+            if update_fn(0.0) == LoopRequest::Stop { break; };
 
-            tracer.update(&events);
-            let int_tex = tracer.render();
+            tracer.update();
+            let int_tex = tracer.render(scene);
             unsafe{
                 gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as i32, glw, glh, 0, gl::BGRA, gl::UNSIGNED_BYTE, int_tex.as_ptr() as *mut std::ffi::c_void);
                 gl::BindFramebuffer(gl::FRAMEBUFFER, 0);

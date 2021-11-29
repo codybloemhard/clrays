@@ -8,7 +8,7 @@ use clr::scene::{ Scene, Camera, SceneItem, Material, Plane, Sphere, Light };
 use clr::vec3::{ Vec3 };
 use clr::info::{ Info };
 use clr::trace_tex::{ TexType };
-use clr::state::{ State, StdState };
+use clr::state::{ std_update_fn, fps_input_fn };
 
 pub fn main() -> Result<(), String>{
     // clr::test(clr::test_platform::PlatformTest::OpenCl2);
@@ -97,8 +97,6 @@ pub fn main() -> Result<(), String>{
     info.set_time_point("Setting up scene");
     scene.pack_textures(&mut info);
 
-    let mut state = StdState::new();
-
     // let (w, h) = (320, 180);
     // let (w, h) = (640, 360);
     // let (w, h) = (960, 540u);
@@ -114,5 +112,5 @@ pub fn main() -> Result<(), String>{
     info.print_info();
 
     let mut window = window::Window::new("ClRays", w as u32, h as u32);
-    window.run(&mut state, &mut tracer)
+    window.run(fps_input_fn, std_update_fn, &mut tracer, &mut scene)
 }
