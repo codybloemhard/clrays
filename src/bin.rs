@@ -8,7 +8,9 @@ use clr::scene::{ Scene, Camera, SceneItem, Material, Plane, Sphere, Light };
 use clr::vec3::{ Vec3 };
 use clr::info::{ Info };
 use clr::trace_tex::{ TexType };
-use clr::state::{ std_update_fn, fps_input_fn };
+use clr::state::{ State, std_update_fn, fps_input_fn };
+
+use sdl2::keyboard::Keycode;
 
 pub fn main() -> Result<(), String>{
     // clr::test(clr::test_platform::PlatformTest::OpenCl2);
@@ -97,9 +99,10 @@ pub fn main() -> Result<(), String>{
     info.set_time_point("Setting up scene");
     scene.pack_textures(&mut info);
 
-    // let (w, h) = (320, 180);
-    // let (w, h) = (640, 360);
-    // let (w, h) = (960, 540u);
+    // let mut state = State::new(build_keymap!(W, S, A, D, I, K, J, L));
+    let mut state = State::new(build_keymap!(M, T, S, N, U, E, A, O));
+
+    // let (w, h) = (960, 540);
     // let (w, h) = (1600, 900);
     let (w, h) = (1920, 1080);
 
@@ -112,5 +115,5 @@ pub fn main() -> Result<(), String>{
     info.print_info();
 
     let mut window = window::Window::new("ClRays", w as u32, h as u32);
-    window.run(fps_input_fn, std_update_fn, &mut tracer, &mut scene)
+    window.run(fps_input_fn, std_update_fn, &mut state, &mut tracer, &mut scene)
 }

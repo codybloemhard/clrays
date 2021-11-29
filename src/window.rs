@@ -1,4 +1,4 @@
-use crate::state::{ LoopRequest, InputFn, UpdateFn };
+use crate::state::{ State, LoopRequest, InputFn, UpdateFn };
 use crate::trace_processor::TraceProcessor;
 use crate::misc::Incrementable;
 use crate::scene::Scene;
@@ -22,6 +22,7 @@ impl Window
             &mut self,
             input_fn: InputFn,
             update_fn: UpdateFn,
+            state: &mut State,
             tracer: &mut impl TraceProcessor,
             scene: &mut Scene,
         ) -> Result<(), String>
@@ -62,7 +63,7 @@ impl Window
             // Pump all sdl2 events into vector
             let events : Vec<Event>= event_pump.poll_iter().collect();
 
-            if input_fn(&events, scene) == LoopRequest::Stop { break; }
+            if input_fn(&events, scene, state) == LoopRequest::Stop { break; }
             if update_fn(0.0) == LoopRequest::Stop { break; };
 
             tracer.update();
