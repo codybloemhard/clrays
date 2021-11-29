@@ -9,6 +9,7 @@ const EPSILON: f32 = 0.001;
 const AMBIENT: f32 = 0.05;
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::many_single_char_names)]
 pub fn whitted(
     w: usize, h: usize, aa: usize, threads: usize,
     scene: &Scene, tex_params: &[u32], textures: &[u8],
@@ -61,25 +62,44 @@ pub fn whitted(
     let ast = scene.cam.chromatic_aberration_strength;
     let vst = scene.cam.vignette_strength;
 
-    for x in 0..w{
-    for y in 0..h{
-        let mut uv = Vec3::new(x as f32 / w as f32, y as f32 / h as f32, 0.0);
-        uv.x *= 1.0 - uv.x;
-        uv.y *= 1.0 - uv.y;
-        let mut col = acc[x + y * w];
-        if ash > 0 && ast > 0.01{
-            let r = acc[(x.max(ash) - ash + (y.max(ash) - ash) * w)].x;
-            let b = acc[(x.min(w - ash - 1) + ash + (y.min(h - ash - 1) + ash) * w)].z;
-            let abr_str = (uv.x * uv.y * 8.0).powf(ast).min(1.0).max(0.0);
-            col.mix(Vec3::new(r, col.y, b), 1.0 - abr_str);
+    let target_strip_h = (h / threads) + 1;
+    let target_strip_l = target_strip_h * w;
+    let strips: Vec<&mut[u32]> = screen.chunks_mut(target_strip_l).collect();
+
+    let acc: &[Vec3] = acc.as_ref();
+    crossbeam_utils::thread::scope(|s|{
+        let mut handlers = Vec::new();
+        for (t, strip) in strips.into_iter().enumerate(){
+            let strip_h = strip.len() / w;
+            let offset = t * target_strip_h;
+            let handler = s.spawn(move |_|{
+                for xx in 0..w{
+                for yy in 0..strip_h{
+                    let x = xx;
+                    let y = yy + offset;
+                    let mut uv = Vec3::new(x as f32 / w as f32, y as f32 / h as f32, 0.0);
+                    uv.x *= 1.0 - uv.x;
+                    uv.y *= 1.0 - uv.y;
+                    let mut col = acc[x + y * w];
+                    if ash > 0 && ast > 0.01{
+                        let r = acc[(x.max(ash) - ash + (y.max(ash) - ash) * w)].x;
+                        let b = acc[(x.min(w - ash - 1) + ash + (y.min(h - ash - 1) + ash) * w)].z;
+                        let abr_str = (uv.x * uv.y * 8.0).powf(ast).min(1.0).max(0.0);
+                        col.mix(Vec3::new(r, col.y, b), 1.0 - abr_str);
+                    }
+                    let vignette = (uv.x * uv.y * 32.0).powf(vst).min(1.0).max(0.0);
+                    col.scale(vignette);
+                    col.div_scalar_fast(aa as f32 * aa as f32);
+                    col.clamp(0.0, 1.0);
+                    col.scale(255.0);
+                    strip[xx + yy * w] = ((col.x as u32) << 16) + ((col.y as u32) << 8) + col.z as u32;
+                }
+                }
+            });
+            handlers.push(handler);
         }
-        let vignette = (uv.x * uv.y * 32.0).powf(vst).min(1.0).max(0.0);
-        col.scale(vignette);
-        col.div_scalar_fast(aa as f32 * aa as f32);
-        col.clamp(0.0, 1.0);
-        col.scale(255.0);
-        screen[x + y * w] = ((col.x as u32) << 16) + ((col.y as u32) << 8) + (col.z) as u32;
-    }}
+        handlers.into_iter().for_each(|h| h.join().expect("Could not join whitted cpu thread!"));
+    }).expect("Could not create crossbeam threadscope!");
 }
 
 fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> Vec3{
