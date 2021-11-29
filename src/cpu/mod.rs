@@ -17,11 +17,7 @@ pub fn whitted(
 ){
     acc.iter_mut().for_each(|v| *v = Vec3::ZERO);
 
-    let pos = scene.cam.pos;
-    let cd = scene.cam.dir.normalized_fast();
-    let aspect = w as f32 / h as f32;
-    let uv_dist = (aspect / 2.0) / (scene.cam.fov / 2.0 * 0.01745329).tan();
-
+    let threads = threads.max(1);
     let target_strip_h = (h / threads) + 1;
     let target_strip_l = target_strip_h * w;
     let strips: Vec<&mut[Vec3]> = acc.chunks_mut(target_strip_l).collect();
@@ -32,6 +28,11 @@ pub fn whitted(
             let strip_h = strip.len() / w;
             let offset = t * target_strip_h * aa;
             let handler = s.spawn(move |_|{
+                let pos = scene.cam.pos;
+                let cd = scene.cam.dir.normalized_fast();
+                let aspect = w as f32 / h as f32;
+                let uv_dist = (aspect / 2.0) / (scene.cam.fov / 2.0 * 0.01745329).tan();
+
                 for xx in 0..w * aa{
                 for yy in 0..strip_h * aa{
                     let x = xx;
@@ -46,16 +47,15 @@ pub fn whitted(
                     to.add(ver.scaled(uv.y));
                     let ray = Ray{ pos, dir: to.subed(pos).normalized_fast() };
 
-                    let mut col = whitted_trace(ray, scene, tex_params, textures, MAX_RENDER_DEPTH);
-                    col.pow_scalar(1.0 / GAMMA);
+                    let col = whitted_trace(ray, scene, tex_params, textures, MAX_RENDER_DEPTH);
                     strip[xx / aa + yy / aa * w].add(col);
                 }
                 }
             });
             handlers.push(handler);
         }
-        handlers.into_iter().for_each(|h| h.join().expect("Could not join whitted cpu thread!"));
-    }).expect("Could not create crossbeam threadscope!");
+        handlers.into_iter().for_each(|h| h.join().expect("Could not join whitted cpu thread (tracing phase)!"));
+    }).expect("Could not create crossbeam threadscope (tracing phase)!");
 
 
     let ash = scene.cam.chromatic_aberration_shift;
@@ -88,6 +88,7 @@ pub fn whitted(
                         col.mix(Vec3::new(r, col.y, b), 1.0 - abr_str);
                     }
                     let vignette = (uv.x * uv.y * 32.0).powf(vst).min(1.0).max(0.0);
+                    col.pow_scalar(1.0 / GAMMA);
                     col.scale(vignette);
                     col.div_scalar_fast(aa as f32 * aa as f32);
                     col.clamp(0.0, 1.0);
@@ -98,8 +99,8 @@ pub fn whitted(
             });
             handlers.push(handler);
         }
-        handlers.into_iter().for_each(|h| h.join().expect("Could not join whitted cpu thread!"));
-    }).expect("Could not create crossbeam threadscope!");
+        handlers.into_iter().for_each(|h| h.join().expect("Could not join whitted cpu thread! (post phase)"));
+    }).expect("Could not create crossbeam threadscope! (post phase)");
 }
 
 fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> Vec3{

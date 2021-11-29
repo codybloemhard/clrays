@@ -105,7 +105,7 @@ pub fn main() -> Result<(), String>{
     // let mut tracer = unpackdb!(trace_processor::RealTracer::new((w, h), &mut scene, &mut info), "Could not create RealTracer!");
     // let mut tracer = unpackdb!(trace_processor::AaTracer::new((w, h), 2, &mut scene, &mut info), "Could not create AaTracer!");
 
-    let mut tracer = trace_processor::CpuWhitted::new(w as usize, h as usize, 2, 32, &mut scene, &mut info);
+    let mut tracer = trace_processor::CpuWhitted::new(w as usize, h as usize, 1, 32, &mut scene, &mut info);
 
     info.stop_time();
     info.print_info();

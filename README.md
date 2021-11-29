@@ -42,7 +42,7 @@
 - [x] reflection
 - [ ] refraction
 - [ ] absorption
-- [ ] multithread 4x
+- [x] multithread 4x
 - [x] post: gamma, vignetting, chromatic aberration
 - [x] aa
 - [x] textures
