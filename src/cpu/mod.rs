@@ -1,10 +1,10 @@
-use crate::scene::{ Scene, Material, Sphere, Plane };
+use crate::scene::{Scene, Material, Sphere, Plane, Dielectric};
 use crate::vec3::Vec3;
 use crate::state::{ RenderMode, State };
 
 use rand::prelude::*;
 
-const MAX_RENDER_DEPTH: u8 = 3;
+const MAX_RENDER_DEPTH: u8 = 4;
 const GAMMA: f32 = 2.2;
 const PI: f32 = std::f32::consts::PI;
 const MAX_RENDER_DIST: f32 = 1000000.0;
@@ -163,6 +163,47 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> 
     }
     let mat = hit.mat.unwrap();
 
+    // Absorption
+    if let Some(dielec) = &mat.dielectric {
+        if let Some(sphere) = hit.sphere {
+            // ray --(hits dielec)--> ray2 --(leaves dielec)--> ray3 --(whitted trace cont.)-->
+            let d2 = ray.dir;
+            let ray2 = Ray {
+                pos: hit.pos.added(hit.nor.neged().scaled(0.0001)),
+                dir: ray.dir
+            };
+
+            let mut hit2 = RayHit::NULL;
+            
+            inter_sphere(ray2, sphere, &mut hit2);
+
+            // Distance travelled through dielectric
+            let d = if hit2.is_null() {
+                0.0
+            } else {
+                hit2.pos.subed(hit.pos).len()
+            };
+
+            // Get color after passing through absorption.
+            let ray3 = Ray {
+                pos: hit2.pos.added(hit2.nor.scaled(0.0001)),
+                dir: ray.dir,
+            };
+
+            let mut color = whitted_trace(ray3, scene, tps, ts, depth - 1);
+
+            // Apply absorption
+            color = Vec3 {
+                x: color.x * (dielec.absorption.x.ln() * d).exp(),
+                y: color.y * (dielec.absorption.y.ln() * d).exp(),
+                z: color.z * (dielec.absorption.z.ln() * d).exp(),
+            };
+            return color;
+        } else {
+            eprintln!("Expect dielectric hit to be a sphere.")
+        }
+    }
+
     // texture
     let mut texcol = Vec3::ONE;
     let uv = if
@@ -232,8 +273,13 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> 
     let newdir = Vec3::normalized_fast(Vec3::reflected(ray.dir, hit.nor));
     let nray = Ray{ pos: hit.pos.added(hit.nor.scaled(EPSILON)), dir: newdir };
 
-    let refl = whitted_trace(nray, scene, tps, ts, depth - 1);
-    (diff.scaled(1.0 - reflectivity)).added(refl.scaled(reflectivity)).added(spec)
+    // neglect whitted trace ray if no reflect
+    if reflectivity > 0.01 {
+        let refl = whitted_trace(nray, scene, tps, ts, depth - 1);
+        (diff.scaled(1.0 - reflectivity)).added(refl.scaled(reflectivity)).added(spec)
+    } else {
+        (diff).added(spec)
+    }
 }
 
 // SHADING ------------------------------------------------------------
@@ -319,10 +365,18 @@ struct RayHit<'a>{
     pub t: f32,
     pub mat: Option<&'a Material>,
     pub uvtype: u8,
+    pub sphere: Option<&'a Sphere>,
 }
 
 impl RayHit<'_>{
-    pub const NULL: Self = RayHit{ pos: Vec3::ZERO, nor: Vec3::ZERO, t: MAX_RENDER_DIST, mat: None, uvtype: 255 };
+    pub const NULL: Self = RayHit{
+        pos: Vec3::ZERO,
+        nor: Vec3::ZERO,
+        t: MAX_RENDER_DIST,
+        mat: None,
+        uvtype: 255,
+        sphere: None,
+    };
 
     #[inline]
     pub fn is_null(&self) -> bool{
@@ -349,6 +403,7 @@ fn inter_sphere<'a>(ray: Ray, sphere: &'a Sphere, closest: &mut RayHit<'a>){
     closest.nor = Vec3::subed(closest.pos, sphere.pos).scaled(1.0 / sphere.rad);
     closest.mat = Some(&sphere.mat);
     closest.uvtype = UV_SPHERE;
+    closest.sphere = Some(sphere);
 }
 
 // ray-plane intersection
@@ -365,6 +420,7 @@ fn inter_plane<'a>(ray: Ray, plane: &'a Plane, closest: &mut RayHit<'a>){
     closest.nor = plane.nor;
     closest.mat = Some(&plane.mat);
     closest.uvtype = UV_PLANE;
+    closest.sphere = None;
 }
 
 // intersect whole scene

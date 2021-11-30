@@ -5,6 +5,11 @@ use crate::info::Info;
 
 use std::collections::HashMap;
 
+pub struct Dielectric{
+    pub refraction: f32,
+    pub absorption: Vec3,
+}
+
 pub struct Material{
     pub col: Vec3,
     pub reflectivity: f32,
@@ -14,7 +19,8 @@ pub struct Material{
     pub roughness_map: u32,
     pub metalic_map: u32,
     pub tex_scale: f32,
-    pub is_checkerboard: bool
+    pub is_checkerboard: bool,
+    pub dielectric: Option<Dielectric>
 }
 
 impl Material{
@@ -36,7 +42,8 @@ impl Material{
             roughness_map: 0,
             metalic_map: 0,
             tex_scale: 1.0,
-            is_checkerboard: false
+            is_checkerboard: false,
+            dielectric: None
         }
     }
 
@@ -62,6 +69,11 @@ impl Material{
 
     pub fn as_checkerboard(mut self) -> Self{
         self.is_checkerboard = true;
+        self
+    }
+
+    pub fn with_dielectic(mut self, d: Dielectric) -> Self{
+        self.dielectric = Some(d);
         self
     }
 
