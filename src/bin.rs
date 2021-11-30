@@ -61,7 +61,7 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     Sphere{
-        pos: Vec3::new(2.0, 0.0, -5.0),
+        pos: Vec3::new(2.0, 0.0, -10.0),
         rad: 1.0,
         mat: Material::basic()
             .with_texture(scene.get_texture("tiles-alb"))
@@ -70,7 +70,7 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     Sphere{
-        pos: Vec3::new(0.0, 0.0, -5.0),
+        pos: Vec3::new(0.0, 0.0, -10.0),
         rad: 1.0,
         mat: Material::basic()
             .with_reflectivity(0.3)
@@ -81,7 +81,7 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     Sphere{
-        pos: Vec3::new(-2.0, 0.0, -5.0),
+        pos: Vec3::new(-2.0, 0.0, -10.0),
         rad: 1.0,
         mat: Material::basic()
             .with_texture(scene.get_texture("scifi-alb"))
@@ -89,6 +89,36 @@ pub fn main() -> Result<(), String>{
             .with_roughness_map(scene.get_texture("scifi-rou"))
             .with_metalic_map(scene.get_texture("scifi-met"))
             .with_reflectivity(0.9),
+    }.add(&mut scene);
+
+    Sphere{
+        pos: Vec3::new(-2.0, 0.0, -5.0),
+        rad: 0.5,
+        mat: Material::basic()
+            .with_dielectic(Dielectric {
+                refraction: 0.0,
+                absorption: Vec3 { x: 0.8, y: 0.3, z: 0.3 }
+            })
+    }.add(&mut scene);
+
+    Sphere{
+        pos: Vec3::new(-0.0, 0.0, -5.0),
+        rad: 1.0,
+        mat: Material::basic()
+            .with_dielectic(Dielectric {
+                refraction: 0.0,
+                absorption: Vec3 { x: 0.8, y: 0.3, z: 0.3 }
+            })
+    }.add(&mut scene);
+
+    Sphere{
+        pos: Vec3::new(3.0, 0.0, -5.0),
+        rad: 2.0,
+        mat: Material::basic()
+            .with_dielectic(Dielectric {
+                refraction: 0.0,
+                absorption: Vec3 { x: 0.8, y: 0.3, z: 0.3 }
+            })
     }.add(&mut scene);
 
     Light{
@@ -100,8 +130,8 @@ pub fn main() -> Result<(), String>{
     info.set_time_point("Setting up scene");
     scene.pack_textures(&mut info);
 
-    // let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L));
-    let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O));
+    let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L));
+    // let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O));
 
     // let (w, h) = (960, 540);
     // let (w, h) = (1600, 900);
