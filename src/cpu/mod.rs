@@ -173,42 +173,39 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> 
                 dir: ray.dir
             };
 
+            // Outbound hit with this dielectric
             let mut hit2 = RayHit::NULL;
             inter_sphere(ray2, sphere, &mut hit2);
 
+            // Outbound hit with any object in the scene
             let hitx = inter_scene(ray2, scene);
 
+            let mut color : Vec3;
+            let d = hitx.pos.subed(hit.pos).len();
+
             if hitx.t < hit2.t {
-                let d = hitx.pos.subed(hit.pos).len();
-                let mut color = whitted_trace(ray2, scene, tps, ts, depth - 1);
-                // Apply absorption
-                return Vec3 {
-                    x: color.x * (dielec.absorption.x.ln() * d).exp(),
-                    y: color.y * (dielec.absorption.y.ln() * d).exp(),
-                    z: color.z * (dielec.absorption.z.ln() * d).exp(),
-                };
+                // We hit another object before leaving the dielectric.
+                color = whitted_trace(ray2, scene, tps, ts, depth - 1);
             } else {
-                // Distance travelled through dielectric
-                let d = if hit2.is_null() {
-                    0.0
-                } else {
-                    hit2.pos.subed(hit.pos).len()
-                };
+                // Travel all the way through the dielectric
+                if hit2.is_null() {
+                    eprintln!("SHOULDNT HAPPEN");
+                }
 
                 // Get color after passing through absorption.
                 let ray3 = Ray {
                     pos: hit2.pos.added(hit2.nor.scaled(0.0001)),
                     dir: ray.dir,
                 };
-                let mut color = whitted_trace(ray3, scene, tps, ts, depth - 1);
-
-                // Apply absorption
-                return Vec3 {
-                    x: color.x * (dielec.absorption.x.ln() * d).exp(),
-                    y: color.y * (dielec.absorption.y.ln() * d).exp(),
-                    z: color.z * (dielec.absorption.z.ln() * d).exp(),
-                };
+                color = whitted_trace(ray3, scene, tps, ts, depth - 1);
             }
+
+            // Apply absorption
+            return Vec3 {
+                x: color.x * (dielec.absorption.x.ln() * d).exp(),
+                y: color.y * (dielec.absorption.y.ln() * d).exp(),
+                z: color.z * (dielec.absorption.z.ln() * d).exp(),
+            };
         } else {
             eprintln!("Expect dielectric hit to be a sphere.")
         }
