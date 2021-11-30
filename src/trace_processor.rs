@@ -9,6 +9,8 @@ use crate::state::{ State };
 
 use ocl::{ Queue };
 
+use rand::prelude::*;
+
 pub trait TraceProcessor{
     fn update(&mut self);
     fn render(&mut self, scene: &mut Scene, state: &mut State) -> &[u32];
@@ -94,6 +96,7 @@ pub struct CpuWhitted{
     float_buffer: Vec<Vec3>,
     texture_params: Vec<u32>,
     textures: Vec<u8>,
+    rng: ThreadRng,
 }
 
 impl CpuWhitted{
@@ -114,6 +117,7 @@ impl CpuWhitted{
             float_buffer,
             texture_params,
             textures,
+            rng: rand::thread_rng(),
         }
     }
 }
@@ -123,9 +127,9 @@ impl TraceProcessor for CpuWhitted{
 
     fn render(&mut self, scene: &mut Scene, state: &mut State) -> &[u32]{
         whitted(
-            self.width, self.height, self.aa, self.threads, state.render_mode,
+            self.width, self.height, self.aa, self.threads,
             scene, &self.texture_params, &self.textures,
-            &mut self.screen_buffer, &mut self.float_buffer, state,
+            &mut self.screen_buffer, &mut self.float_buffer, state, &mut self.rng
         );
         &self.screen_buffer
     }

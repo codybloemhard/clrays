@@ -36,6 +36,7 @@ pub struct State{
     keys: [bool; 10],
     pub render_mode: RenderMode,
     pub last_frame: RenderMode,
+    pub aa_count: usize,
 }
 
 impl State{
@@ -45,6 +46,7 @@ impl State{
             keys: [false; 10],
             render_mode: RenderMode::Reduced,
             last_frame: RenderMode::None,
+            aa_count: 0,
         }
     }
 }

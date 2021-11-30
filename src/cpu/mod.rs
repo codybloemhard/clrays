@@ -2,6 +2,8 @@ use crate::scene::{ Scene, Material, Sphere, Plane };
 use crate::vec3::Vec3;
 use crate::state::{ RenderMode, State };
 
+use rand::prelude::*;
+
 const MAX_RENDER_DEPTH: u8 = 3;
 const GAMMA: f32 = 2.2;
 const PI: f32 = std::f32::consts::PI;
@@ -12,44 +14,66 @@ const AMBIENT: f32 = 0.05;
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::many_single_char_names)]
 pub fn whitted(
-    w: usize, h: usize, aa: usize, threads: usize, render_mode: RenderMode,
+    w: usize, h: usize, aa: usize, threads: usize,
     scene: &Scene, tex_params: &[u32], textures: &[u8],
-    screen: &mut Vec<u32>, acc: &mut Vec<Vec3>, state: &mut State
+    screen: &mut Vec<u32>, acc: &mut Vec<Vec3>, state: &mut State, rng: &mut ThreadRng
 ){
-    state.last_frame = render_mode;
-    let (reduce, aa) = match render_mode{
-        RenderMode::None => return,
-        RenderMode::Reduced => (4, 1),
-        RenderMode::Full => (1, aa),
+    let reduce = match state.render_mode{
+        RenderMode::Reduced => 4,
+        _ => 1,
     };
 
     let rw = w / reduce;
     let rh = h / reduce;
-    acc.iter_mut().take(rw * rh).for_each(|v| *v = Vec3::ZERO);
+
+    if reduce != 1 || state.aa_count == 0 {
+        acc.iter_mut().take(rw * rh).for_each(|v| *v = Vec3::ZERO);
+    }
+
+    if reduce == 1 && state.aa_count == aa{
+        state.last_frame = RenderMode::None;
+        return;
+    } else if reduce == 1{
+        state.aa_count += 1;
+        state.last_frame = RenderMode::Full;
+    } else {
+        state.aa_count = 0;
+        state.last_frame = RenderMode::Reduced;
+    }
+
+    let aa_count = match state.render_mode{
+        RenderMode::Reduced => 1,
+        _ => state.aa_count,
+    };
 
     let threads = threads.max(1);
     let target_strip_h = (rh / threads) + 1;
     let target_strip_l = target_strip_h * rw;
     let strips: Vec<&mut[Vec3]> = acc.chunks_mut(target_strip_l).take(threads).collect();
+    let seeds = (0..threads).map(|_| rng.gen::<u32>()).collect::<Vec<_>>();
 
     crossbeam_utils::thread::scope(|s|{
         let mut handlers = Vec::new();
         for (t, strip) in strips.into_iter().enumerate(){
             let strip_h = strip.len() / rw;
-            let offset = t * target_strip_h * aa;
+            let offset = t * target_strip_h;
+            let seed = seeds[t];
             let handler = s.spawn(move |_|{
                 let pos = scene.cam.pos;
                 let cd = scene.cam.dir.normalized_fast();
                 let aspect = rw as f32 / rh as f32;
                 let uv_dist = (aspect / 2.0) / (scene.cam.fov / 2.0 * 0.01745329).tan();
+                let mut seed = seed;
 
-                for xx in 0..rw * aa{
-                for yy in 0..strip_h * aa{
+                for xx in 0..rw{
+                for yy in 0..strip_h{
                     let x = xx;
                     let y = yy + offset;
                     let hor = cd.crossed(Vec3::UP).normalized_fast();
                     let ver = hor.crossed(cd).normalized_fast();
-                    let mut uv = Vec3::new(x as f32 / (rw as f32 * aa as f32), y as f32 / (rh as f32 * aa as f32), 0.0);
+                    let aa_u = u32tf01(xor32(&mut seed));
+                    let aa_v = u32tf01(xor32(&mut seed));
+                    let mut uv = Vec3::new((x as f32 + aa_u) / rw as f32, (y as f32 + aa_v) / rh as f32, 0.0);
                     uv.add_scalar(-0.5);
                     uv.mul(Vec3::new(aspect, -1.0, 0.0));
                     let mut to = pos.added(cd.scaled(uv_dist));
@@ -59,7 +83,7 @@ pub fn whitted(
 
                     let mut col = whitted_trace(ray, scene, tex_params, textures, MAX_RENDER_DEPTH);
                     col.pow_scalar(1.0 / GAMMA);
-                    strip[xx / aa + yy / aa * rw].add(col);
+                    strip[xx + yy * rw].add(col);
                 }
                 }
             });
@@ -98,7 +122,7 @@ pub fn whitted(
                         col.mix(Vec3::new(r, col.y, b), 1.0 - abr_str);
                     }
                     let vignette = (uv.x * uv.y * 32.0).powf(vst).min(1.0).max(0.0);
-                    col.div_scalar_fast(aa as f32 * aa as f32);
+                    col.div_scalar_fast(aa_count as f32);
                     col.scale(vignette);
                     col.clamp(0.0, 1.0);
                     col.scale(255.0);
@@ -111,6 +135,20 @@ pub fn whitted(
         }
         handlers.into_iter().for_each(|h| h.join().expect("Could not join whitted cpu thread! (post phase)"));
     }).expect("Could not create crossbeam threadscope! (post phase)");
+}
+
+// credit: George Marsaglia
+#[inline]
+fn xor32(seed: &mut u32) -> u32{
+    *seed ^= *seed << 13;
+    *seed ^= *seed >> 17;
+    *seed ^= *seed << 5;
+    *seed
+}
+
+#[inline]
+fn u32tf01(int: u32) -> f32{
+   int as f32 * 2.3283064e-10
 }
 
 fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> Vec3{
