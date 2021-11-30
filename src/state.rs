@@ -35,6 +35,7 @@ pub struct State{
     pub key_map: Keymap,
     keys: [bool; 10],
     pub render_mode: RenderMode,
+    pub last_frame: RenderMode,
 }
 
 impl State{
@@ -43,14 +44,22 @@ impl State{
             key_map,
             keys: [false; 10],
             render_mode: RenderMode::Reduced,
+            last_frame: RenderMode::None,
         }
     }
 }
 
 pub type InputFn = fn (_events: &[Event], _scene: &mut Scene, _state: &mut State) -> LoopRequest;
-pub type UpdateFn = fn (_dt: f64) -> LoopRequest;
+pub type UpdateFn = fn (_dt: f32, _state: &mut State) -> LoopRequest;
 
-pub fn std_update_fn(_: f64) -> LoopRequest { LoopRequest::Continue }
+pub fn std_update_fn(_: f32, _state: &mut State) -> LoopRequest { LoopRequest::Continue }
+
+pub fn log_update_fn(dt: f32, state: &mut State) -> LoopRequest {
+    if state.last_frame != RenderMode::None{
+        println!("{:?}: {} ms, ", state.last_frame, dt);
+    }
+    LoopRequest::Continue
+}
 
 pub fn std_input_fn(events: &[Event], _: &mut Scene, _: &mut State) -> LoopRequest{
     for event in events.iter() {
@@ -107,27 +116,21 @@ pub fn fps_input_fn(events: &[Event], scene: &mut Scene, state: &mut State) -> L
         match i {
             0 => { // Move Forward; Move into camera direction
                 cam.pos.add(cam.dir.scaled(ms));
-                break;
             },
             1 => { // Move Backward; Move opposite camera direction
                 cam.pos.add(cam.dir.neged().scaled(ms));
-                break;
             },
             2 => { // Move Left; Move camera direction crossed z-axis, negated
                 cam.pos.add(cam.dir.crossed(Vec3::UP).neged().scaled(ms));
-                break;
             },
             3 => { // Move Right; Move camera direction crossed z-axis
                 cam.pos.add(cam.dir.crossed(Vec3::UP).scaled(ms));
-                break;
             },
             4 => { // Move Up; Move camera direction crossed x-axis
                 cam.pos.add(cam.dir.crossed(Vec3::RIGHT).scaled(ms));
-                break;
             },
             5 => { // Move Down; Move camera direction crossed x-axis
                 cam.pos.add(cam.dir.crossed(Vec3::RIGHT).neged().scaled(ms));
-                break;
             },
             6 => { // Look Up;
                 cam.ori[1] = (cam.ori[1] + ls).min(FRAC_PI_2).max(-FRAC_PI_2);

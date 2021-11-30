@@ -1,6 +1,5 @@
 use crate::state::{ State, LoopRequest, InputFn, UpdateFn };
 use crate::trace_processor::TraceProcessor;
-use crate::misc::Incrementable;
 use crate::scene::Scene;
 
 use stopwatch::Stopwatch;
@@ -45,7 +44,7 @@ impl Window
         let mut elapsed = watch.elapsed_ms();
         let mut texture = 0u32;
         let mut fbo = 0u32;
-        let (glw,glh) = (self.width as i32, self.height as i32);
+        let (glw, glh) = (self.width as i32, self.height as i32);
         unsafe {
             gl::GenTextures(1, &mut texture);
             gl::BindTexture(gl::TEXTURE_2D, texture);
@@ -58,13 +57,13 @@ impl Window
             gl::FramebufferTexture(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, texture, 0);
         }
         println!("SDL+OpenGl setup time: {} ms", elapsed);
-        let mut frame = 0u32;
+        let mut last_frame = 0.0;
         loop {
             // Pump all sdl2 events into vector
-            let events : Vec<Event>= event_pump.poll_iter().collect();
+            let events : Vec<Event> = event_pump.poll_iter().collect();
 
+            if update_fn(last_frame, state) == LoopRequest::Stop { break; };
             if input_fn(&events, scene, state) == LoopRequest::Stop { break; }
-            if update_fn(0.0) == LoopRequest::Stop { break; };
 
             tracer.update();
             let int_tex = tracer.render(scene, state);
@@ -76,7 +75,7 @@ impl Window
                 window.gl_swap_window();
             }
             let e = watch.elapsed_ms();
-            println!("Frame: {} in {} ms.", frame.inc_post(), e - elapsed);
+            last_frame = (e - elapsed) as f32;
             elapsed = e;
         }
         Ok(())

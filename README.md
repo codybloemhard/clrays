@@ -11,6 +11,7 @@
 - skycolour, skybox(sphere), sky lighting
 
 ## Possible things to work on
+- random AA using xor32
 - cpu renderer
 - movement
 - pathtracing
@@ -22,6 +23,7 @@
 - skybox cubemap
 - procedural sky
 - bi/trilinear texture filtering
+- use Wang hash + xor32 on gpu
 - accelerating structure
 - models
 - export
@@ -44,6 +46,6 @@
 - [ ] absorption
 - [x] multithread 4x
 - [x] post: gamma, vignetting, chromatic aberration
-- [x] aa
-- [x] textures
+- [x] AA
+- [x] textures (albedo, normal, roughness, metalic)
 - [ ] mesh

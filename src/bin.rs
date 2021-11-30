@@ -8,7 +8,7 @@ use clr::scene::{ Scene, Camera, SceneItem, Material, Plane, Sphere, Light };
 use clr::vec3::{ Vec3 };
 use clr::info::{ Info };
 use clr::trace_tex::{ TexType };
-use clr::state::{ State, std_update_fn, fps_input_fn };
+use clr::state::{ State, log_update_fn, fps_input_fn };
 
 use sdl2::keyboard::Keycode;
 
@@ -109,12 +109,11 @@ pub fn main() -> Result<(), String>{
 
     // let mut tracer = unpackdb!(trace_processor::RealTracer::new((w, h), &mut scene, &mut info), "Could not create RealTracer!");
     // let mut tracer = unpackdb!(trace_processor::AaTracer::new((w, h), 2, &mut scene, &mut info), "Could not create AaTracer!");
-
-    let mut tracer = trace_processor::CpuWhitted::new(w as usize, h as usize, 1, 32, &mut scene, &mut info);
+    let mut tracer = trace_processor::CpuWhitted::new(w as usize, h as usize, 2, 32, &mut scene, &mut info);
 
     info.stop_time();
     info.print_info();
 
     let mut window = window::Window::new("ClRays", w as u32, h as u32);
-    window.run(fps_input_fn, std_update_fn, &mut state, &mut tracer, &mut scene)
+    window.run(fps_input_fn, log_update_fn, &mut state, &mut tracer, &mut scene)
 }

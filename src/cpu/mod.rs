@@ -1,6 +1,6 @@
 use crate::scene::{ Scene, Material, Sphere, Plane };
 use crate::vec3::Vec3;
-use crate::state::RenderMode;
+use crate::state::{ RenderMode, State };
 
 const MAX_RENDER_DEPTH: u8 = 3;
 const GAMMA: f32 = 2.2;
@@ -14,8 +14,9 @@ const AMBIENT: f32 = 0.05;
 pub fn whitted(
     w: usize, h: usize, aa: usize, threads: usize, render_mode: RenderMode,
     scene: &Scene, tex_params: &[u32], textures: &[u8],
-    screen: &mut Vec<u32>, acc: &mut Vec<Vec3>,
+    screen: &mut Vec<u32>, acc: &mut Vec<Vec3>, state: &mut State
 ){
+    state.last_frame = render_mode;
     let (reduce, aa) = match render_mode{
         RenderMode::None => return,
         RenderMode::Reduced => (4, 1),
@@ -56,7 +57,8 @@ pub fn whitted(
                     to.add(ver.scaled(uv.y));
                     let ray = Ray{ pos, dir: to.subed(pos).normalized_fast() };
 
-                    let col = whitted_trace(ray, scene, tex_params, textures, MAX_RENDER_DEPTH);
+                    let mut col = whitted_trace(ray, scene, tex_params, textures, MAX_RENDER_DEPTH);
+                    col.pow_scalar(1.0 / GAMMA);
                     strip[xx / aa + yy / aa * rw].add(col);
                 }
                 }
@@ -96,9 +98,8 @@ pub fn whitted(
                         col.mix(Vec3::new(r, col.y, b), 1.0 - abr_str);
                     }
                     let vignette = (uv.x * uv.y * 32.0).powf(vst).min(1.0).max(0.0);
-                    col.pow_scalar(1.0 / GAMMA);
-                    col.scale(vignette);
                     col.div_scalar_fast(aa as f32 * aa as f32);
+                    col.scale(vignette);
                     col.clamp(0.0, 1.0);
                     col.scale(255.0);
                     let int = ((col.x as u32) << 16) + ((col.y as u32) << 8) + col.z as u32;

@@ -125,7 +125,7 @@ impl TraceProcessor for CpuWhitted{
         whitted(
             self.width, self.height, self.aa, self.threads, state.render_mode,
             scene, &self.texture_params, &self.textures,
-            &mut self.screen_buffer, &mut self.float_buffer,
+            &mut self.screen_buffer, &mut self.float_buffer, state,
         );
         &self.screen_buffer
     }
