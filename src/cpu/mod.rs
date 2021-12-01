@@ -79,7 +79,7 @@ pub fn whitted(
                     let mut to = pos.added(cd.scaled(uv_dist));
                     to.add(hor.scaled(uv.x));
                     to.add(ver.scaled(uv.y));
-                    let ray = Ray{ pos, dir: to.subed(pos).normalized_fast() };
+                    let ray = Ray{ pos, dir: to.subed(pos).normalized_fast(), substance_refraction: 1.0 };
 
                     let mut col = whitted_trace_hit(ray, scene, tex_params, textures, MAX_RENDER_DEPTH);
                     col.pow_scalar(1.0 / GAMMA);
@@ -151,67 +151,91 @@ fn u32tf01(int: u32) -> f32{
    int as f32 * 2.3283064e-10
 }
 
-fn whitted_trace_color(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> Vec3 {
-    let mat = hit.mat.unwrap();
-
-    // Absorption
-    if let Some(dielec) = &mat.dielectric {
-        if let Some(sphere) = hit.sphere {
-            // ray --(hits dielec)--> ray2 --(leaves dielec)--> ray3 --(whitted trace cont.)-->
-            let d2 = ray.dir;
-            let ray2 = Ray {
-                pos: hit.pos.added(hit.nor.neged().scaled(0.0001)),
-                dir: ray.dir
-            };
-
-            // Outbound hit with this dielectric
-            let mut hit2 = RayHit::NULL;
-            inter_sphere(ray2, sphere, &mut hit2);
-
-            // Outbound hit with any object, excluding sphere, in the scene
-            let mut hitx = RayHit::NULL;
-            for plane in &scene.planes { inter_plane(ray2, plane, &mut hitx); }
-            for s in &scene.spheres {
-                if !s.pos.eq(&sphere.pos) {
-                    inter_sphere(ray2, &s, &mut hitx);
-                }
-            }
-
-            let mut color : Vec3;
-            let d : f32;
-
-            if hitx.t - hit2.t < 0.001 {
-                // We hit another object before leaving the dielectric, or another
-                // object and the dielectric hit at the exact same position.
-                d = hitx.pos.subed(hit.pos).len();
-                color = whitted_trace_color(&ray2, &mut hitx, scene, tps, ts, depth - 1);
-            } else {
-                // Travel all the way through the dielectric
-
-                d = hit2.pos.subed(hit.pos).len();
-
-                if hit2.is_null() {
-                    eprintln!("SHOULDNT HAPPEN");
-                }
-
-                // Get color after passing through absorption.
-                let ray3 = Ray {
-                    pos: hit2.pos.added(hit2.nor.scaled(0.0001)),
-                    dir: ray.dir,
-                };
-                color = whitted_trace_hit(ray3, scene, tps, ts, depth - 1);
-            }
-
-            // Apply absorption
-            return Vec3 {
-                x: color.x * (dielec.absorption.x.ln() * d).exp(),
-                y: color.y * (dielec.absorption.y.ln() * d).exp(),
-                z: color.z * (dielec.absorption.z.ln() * d).exp(),
-            };
-        } else {
-            eprintln!("Expect dielectric hit to be a sphere.")
-        }
+#[inline]
+fn absorption(color: &Vec3, dielec: &Dielectric, d: f32) -> Vec3 {
+    Vec3 {
+        x: color.x * (dielec.absorption.x.ln() * d).exp(),
+        y: color.y * (dielec.absorption.y.ln() * d).exp(),
+        z: color.z * (dielec.absorption.z.ln() * d).exp(),
     }
+}
+
+fn whitted_trace_reflect(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> Vec3 {
+    let newdir = Vec3::normalized_fast(Vec3::reflected(ray.dir, hit.nor));
+    let nray = Ray{ pos: hit.pos.added(hit.nor.scaled(EPSILON)), dir: newdir, substance_refraction: ray.substance_refraction };
+    return whitted_trace_hit(nray, scene, tps, ts, depth);
+}
+
+fn dielectric_reflection(nr: f32, nd: f32, ray: &Ray, hit: &RayHit) -> f32{
+    let mut n1;
+    let mut n2;
+    let mut normal;
+
+    if is_inbound(ray, hit) {
+        n1 = nr;
+        n2 = nd;
+        normal = hit.nor;
+    } else {
+        n1 = nd;
+        n2 = nr;
+        normal = hit.nor.neged();
+    }
+
+    let oi = ray.dir.normalized_fast().dot(normal.normalized_fast());
+    let n = n1 / n2;
+    let sint2: f32 = n * n * (1.0 - oi.cos() * oi.cos());
+    // Check for total internal reflection
+    if sint2 >= 0.9999 {
+        return 1.0;
+    }
+    // Apply refraction
+    let cost = (1.0 - (n * oi.sin()) * (n * oi.sin())).sqrt();
+
+    // Compute amount of reflection due to invalshoek
+    let _a1 = (n1 * oi.cos() - n2 * cost) /
+        (n1 * oi.cos() + n2 * cost);
+    let _a2 = (n1 * cost - n2 * oi.cos()) /
+        (n1 * cost + n2 * oi.cos());
+    let s_polarized = _a1 * _a1;
+    let p_polarized = _a2 * _a2;
+    return 0.5 * (s_polarized + p_polarized);
+}
+
+fn dielectric_ray(nr: f32, nd: f32, ray: &Ray, hit: &RayHit) -> Ray{
+    let mut n1;
+    let mut n2;
+    let mut normal;
+
+    if is_inbound(ray, hit) {
+        n1 = nr;
+        n2 = nd;
+        normal = hit.nor;
+    } else {
+        n1 = nd;
+        n2 = nr;
+        normal = hit.nor.neged();
+    }
+
+    let oi = ray.dir.normalized_fast().dot(normal.normalized_fast());
+    let n = n1 / n2;
+    let sint2: f32 = n * n * (1.0 - oi.cos() * oi.cos());
+    Ray {
+        pos: hit.pos.added(hit.nor.neged().scaled(0.0001)),
+        dir: ray.dir.scaled(n).subed(hit.nor.scaled(n * oi.cos() + (1.0 - sint2).sqrt())).normalized_fast(),
+        substance_refraction: n2
+    }
+}
+
+fn is_inbound(ray: &Ray, hit: &RayHit) -> bool {
+    ray.dir.dot(hit.nor) >= 0.0
+}
+
+fn whitted_trace_color(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> Vec3 {
+    if depth == 0 || hit.is_null() {
+        return get_sky_col(ray.dir, scene, tps, ts);
+    }
+
+    let mat = hit.mat.unwrap();
 
     // texture
     let mut texcol = Vec3::ONE;
@@ -260,6 +284,58 @@ fn whitted_trace_color(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], 
         hit.nor = newnor.normalized_fast();
     }
 
+    let mut reflectivity = mat.reflectivity;
+
+    // Dielectric
+    if let Some(dielec) = &mat.dielectric {
+    if let Some(sphere) = hit.sphere {
+        // Inbound ray
+        let nr = ray.substance_refraction;
+        let nd = dielec.refraction;
+        reflectivity = dielectric_reflection(nr, nd, ray, hit);
+        let reflected_color = whitted_trace_reflect(ray, hit, scene, tps, ts, depth - 1);
+        if reflectivity >= 0.9999 {
+            // Ignore further ray tracing within dielectric
+            return reflected_color;
+        }
+
+        // Some light is sent into dielectric:
+        // Obtain refracted ray that is sent into the dielectric.
+        let ray2 = dielectric_ray(nd, nr, ray, hit);
+
+        // Check ray collision with object within the dielectric or when exiting dielectric
+        let mut hit2 = RayHit::NULL;
+        inter_sphere(ray2, sphere, &mut hit2);
+
+        // Handle the case that we hit something within the dielectric.
+        let mut hitx = RayHit::NULL;
+        for plane in &scene.planes { inter_plane(ray2, plane, &mut hitx); }
+        for s in &scene.spheres {
+            if !s.pos.eq(&sphere.pos) {
+                inter_sphere(ray2, &s, &mut hitx);
+            }
+        }
+        if hitx.t - hit2.t < 0.001 {
+            // We hit another object before leaving the dielectric, or
+            // an object and the dielectric hit at the same position.
+            let d = hitx.pos.subed(hit.pos).len();
+            let color = whitted_trace_color(&ray2, &mut hitx, scene, tps, ts, depth - 1);
+
+            return reflected_color.scaled(reflectivity).added(absorption(&color, dielec, d).scaled(1.0-reflectivity));
+        }
+
+        if hit2.is_null() {
+            eprintln!("Expected an outbound ray from dielectrc.");
+        }
+
+        // The hit occurs with the dielectric. Travel all the way through the dielectric.
+        // Refract back out of this dielectric into the ray.substance_refraction.
+        let d = hit2.pos.subed(hit.pos).len();
+        let color = whitted_trace_color(&ray2, &mut hit2, scene, tps, ts, depth - 1);
+        return reflected_color.scaled(reflectivity).added(absorption(&color, dielec, d).scaled(1.0-reflectivity));
+    }
+    }
+
     // roughnessmap
     let mut roughness = mat.roughness;
     if mat.roughness_map > 0{
@@ -268,8 +344,7 @@ fn whitted_trace_color(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], 
     }
 
     // metalicmap
-    let mut reflectivity = mat.reflectivity;
-    if mat.metalic_map > 0{
+    if mat.metalic_map > 0 {
         let value = get_tex_scalar(mat.metalic_map - 1, uv, tps, ts);
         reflectivity *= value;
     }
@@ -280,7 +355,7 @@ fn whitted_trace_color(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], 
 
     //reflection
     let newdir = Vec3::normalized_fast(Vec3::reflected(ray.dir, hit.nor));
-    let nray = Ray{ pos: hit.pos.added(hit.nor.scaled(EPSILON)), dir: newdir };
+    let nray = Ray{ pos: hit.pos.added(hit.nor.scaled(EPSILON)), dir: newdir, substance_refraction: ray.substance_refraction };
 
     // neglect whitted trace ray if no reflect
     if reflectivity > 0.01 {
@@ -292,17 +367,8 @@ fn whitted_trace_color(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], 
 }
 
 fn whitted_trace_hit(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> Vec3{
-    if depth == 0 {
-        return get_sky_col(ray.dir, scene, tps, ts);
-    }
-
-    // hit
-    let mut hit = inter_scene(ray, scene);
-    if hit.is_null(){
-        return get_sky_col(ray.dir, scene, tps, ts);
-    }
-
     // Retrieve color for given hit in the scene.
+    let mut hit = inter_scene(ray, scene);
     whitted_trace_color(&ray, &mut hit, scene, tps, ts, depth)
 }
 
@@ -336,7 +402,7 @@ fn blinn_single(roughness: f32, lpos: Vec3, lpow: f32, viewdir: Vec3, hit: &RayH
         return (0.0, 0.0);
     }
     // exposed to light or not
-    let lray = Ray { pos: hit.pos.added(hit.nor.scaled(EPSILON)), dir: to_l };
+    let lray = Ray { pos: hit.pos.added(hit.nor.scaled(EPSILON)), dir: to_l, substance_refraction: hit.refraction };
     let lhit = inter_scene(lray, scene);
     if !lhit.is_null() && lhit.t < dist{
         return (0.0, 0.0);
@@ -380,6 +446,7 @@ const UV_SPHERE: u8 = 1;
 struct Ray{
     pub pos: Vec3,
     pub dir: Vec3,
+    pub substance_refraction: f32
 }
 
 #[derive(Clone)]
@@ -390,6 +457,7 @@ struct RayHit<'a>{
     pub mat: Option<&'a Material>,
     pub uvtype: u8,
     pub sphere: Option<&'a Sphere>,
+    pub refraction: f32,
 }
 
 impl RayHit<'_>{
@@ -400,6 +468,7 @@ impl RayHit<'_>{
         mat: None,
         uvtype: 255,
         sphere: None,
+        refraction: 1.0,
     };
 
     #[inline]
@@ -428,6 +497,9 @@ fn inter_sphere<'a>(ray: Ray, sphere: &'a Sphere, closest: &mut RayHit<'a>){
     closest.mat = Some(&sphere.mat);
     closest.uvtype = UV_SPHERE;
     closest.sphere = Some(sphere);
+    if let Some(dielec) = &sphere.mat.dielectric {
+        closest.refraction = dielec.refraction;
+    }
 }
 
 // ray-plane intersection
@@ -445,6 +517,9 @@ fn inter_plane<'a>(ray: Ray, plane: &'a Plane, closest: &mut RayHit<'a>){
     closest.mat = Some(&plane.mat);
     closest.uvtype = UV_PLANE;
     closest.sphere = None;
+    if let Some(dielec) = &plane.mat.dielectric {
+        closest.refraction = dielec.refraction;
+    }
 }
 
 // intersect whole scene

@@ -96,8 +96,8 @@ pub fn main() -> Result<(), String>{
         rad: 0.5,
         mat: Material::basic()
             .with_dielectic(Dielectric {
-                refraction: 0.0,
-                absorption: Vec3 { x: 0.8, y: 0.3, z: 0.3 }
+                refraction: 2.0,
+                absorption: Vec3 { x: 0.0, y: 0.0, z: 0.0 }
             })
     }.add(&mut scene);
 
@@ -106,8 +106,8 @@ pub fn main() -> Result<(), String>{
         rad: 1.0,
         mat: Material::basic()
             .with_dielectic(Dielectric {
-                refraction: 0.0,
-                absorption: Vec3 { x: 0.8, y: 0.3, z: 0.3 }
+                refraction: 2.0,
+                absorption: Vec3 { x: 0.0, y: 0.0, z: 0.0 }
             })
     }.add(&mut scene);
 
@@ -116,8 +116,8 @@ pub fn main() -> Result<(), String>{
         rad: 2.0,
         mat: Material::basic()
             .with_dielectic(Dielectric {
-                refraction: 0.0,
-                absorption: Vec3 { x: 0.8, y: 0.3, z: 0.3 }
+                refraction: 2.0,
+                absorption: Vec3 { x: 0.0, y: 0.0, z: 0.0 }
             })
     }.add(&mut scene);
 
@@ -133,9 +133,9 @@ pub fn main() -> Result<(), String>{
     let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L));
     // let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O));
 
-    // let (w, h) = (960, 540);
+    let (w, h) = (960, 540);
     // let (w, h) = (1600, 900);
-    let (w, h) = (1920, 1080);
+    // let (w, h) = (1920, 1080);
 
     // let mut tracer = unpackdb!(trace_processor::RealTracer::new((w, h), &mut scene, &mut info), "Could not create RealTracer!");
     // let mut tracer = unpackdb!(trace_processor::AaTracer::new((w, h), 2, &mut scene, &mut info), "Could not create AaTracer!");
