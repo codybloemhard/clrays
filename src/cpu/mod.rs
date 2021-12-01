@@ -236,6 +236,8 @@ fn whitted_trace_color(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], 
     }
 
     let mat = hit.mat.unwrap();
+    let mut reflectivity = mat.reflectivity;
+    let mut transparency = mat.transparency;
 
     // texture
     let mut texcol = Vec3::ONE;
@@ -284,7 +286,18 @@ fn whitted_trace_color(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], 
         hit.nor = newnor.normalized_fast();
     }
 
-    let mut reflectivity = mat.reflectivity;
+    // roughnessmap
+    let mut roughness = mat.roughness;
+    if mat.roughness_map > 0{
+        let value = get_tex_scalar(mat.roughness_map - 1, uv, tps, ts);
+        roughness *= value;
+    }
+
+    // metalicmap
+    if mat.metalic_map > 0 {
+        let value = get_tex_scalar(mat.metalic_map - 1, uv, tps, ts);
+        reflectivity *= value;
+    }
 
     // Dielectric
     if let Some(dielec) = &mat.dielectric {
@@ -336,34 +349,27 @@ fn whitted_trace_color(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], 
     }
     }
 
-    // roughnessmap
-    let mut roughness = mat.roughness;
-    if mat.roughness_map > 0{
-        let value = get_tex_scalar(mat.roughness_map - 1, uv, tps, ts);
-        roughness *= value;
-    }
-
-    // metalicmap
-    if mat.metalic_map > 0 {
-        let value = get_tex_scalar(mat.metalic_map - 1, uv, tps, ts);
-        reflectivity *= value;
-    }
-
     // diffuse, specular
     let (mut diff, spec) = blinn(&hit, mat, roughness, scene, ray.dir);
     diff.mul(texcol);
 
-    //reflection
-    let newdir = Vec3::normalized_fast(Vec3::reflected(ray.dir, hit.nor));
-    let nray = Ray{ pos: hit.pos.added(hit.nor.scaled(EPSILON)), dir: newdir, substance_refraction: ray.substance_refraction };
+    // transparency
+    let trans = if transparency > 0.01 {
+        let nray = Ray{ pos: hit.pos.added(hit.nor.neged().scaled(EPSILON)), dir: ray.dir, substance_refraction: ray.substance_refraction };
+        whitted_trace_hit(nray, scene, tps, ts, depth - 1).scaled(transparency)
+    } else { Vec3::BLACK };
 
-    // neglect whitted trace ray if no reflect
-    if reflectivity > 0.01 {
-        let refl = whitted_trace_hit(nray, scene, tps, ts, depth - 1);
-        (diff.scaled(1.0 - reflectivity)).added(refl.scaled(reflectivity)).added(spec)
-    } else {
-        (diff).added(spec)
-    }
+    // reflection
+    let refl = if reflectivity > 0.01 {
+        let newdir = Vec3::normalized_fast(Vec3::reflected(ray.dir, hit.nor));
+        let nray = Ray{ pos: hit.pos.added(hit.nor.scaled(EPSILON)), dir: newdir, substance_refraction: ray.substance_refraction };
+        whitted_trace_hit(nray, scene, tps, ts, depth - 1)
+    } else { Vec3::BLACK };
+
+    (diff).scaled(1.0 - reflectivity - transparency)
+        .added(spec)
+        .added(trans)
+        .added(refl)
 }
 
 fn whitted_trace_hit(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> Vec3{

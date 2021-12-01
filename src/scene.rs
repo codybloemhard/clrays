@@ -13,6 +13,7 @@ pub struct Dielectric{
 pub struct Material{
     pub col: Vec3,
     pub reflectivity: f32,
+    pub transparency: f32,
     pub roughness: f32,
     pub texture: u32,
     pub normal_map: u32,
@@ -36,6 +37,7 @@ impl Material{
         Self{
             col: Vec3::ONE.unhardened(0.05),
             reflectivity: 0.0,
+            transparency: 0.0,
             roughness: 1.0,
             texture: 0,
             normal_map: 0,
@@ -54,6 +56,11 @@ impl Material{
 
     pub fn with_reflectivity(mut self, refl: f32) -> Self{
         self.reflectivity = refl;
+        self
+    }
+
+    pub fn with_transparency(mut self, tran: f32) -> Self{
+        self.transparency = tran;
         self
     }
 

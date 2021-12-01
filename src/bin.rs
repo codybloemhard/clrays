@@ -53,73 +53,86 @@ pub fn main() -> Result<(), String>{
         pos: Vec3::new(0.0, -1.0, 0.0),
         nor: Vec3::UP,
         mat: Material::basic()
-            //.as_checkerboard()
+            .as_checkerboard()
             .with_texture(scene.get_texture("stone-alb"))
             .with_normal_map(scene.get_texture("stone-nor"))
             .with_roughness_map(scene.get_texture("stone-rou"))
             .with_tex_scale(4.0),
     }.add(&mut scene);
 
-    Sphere{
-        pos: Vec3::new(2.0, 0.0, -10.0),
-        rad: 1.0,
+    Plane{
+        pos: Vec3::new(0.0, -1.0, -3.0),
+        nor: Vec3::FORWARD,
         mat: Material::basic()
-            .with_texture(scene.get_texture("tiles-alb"))
-            .with_normal_map(scene.get_texture("tiles-nor"))
-            .with_roughness_map(scene.get_texture("tiles-rou")),
+            .with_reflectivity(0.5)
+            .with_transparency(0.5)
+            //.as_checkerboard()
+            // .with_texture(scene.get_texture("stone-alb"))
+            // .with_normal_map(scene.get_texture("stone-nor"))
+            // .with_roughness_map(scene.get_texture("stone-rou"))
+            // .with_tex_scale(4.0),
     }.add(&mut scene);
 
-    Sphere{
-        pos: Vec3::new(0.0, 0.0, -10.0),
-        rad: 1.0,
-        mat: Material::basic()
-            .with_reflectivity(0.3)
-            .with_texture(scene.get_texture("solar-alb"))
-            .with_normal_map(scene.get_texture("solar-nor"))
-            .with_roughness_map(scene.get_texture("solar-rou"))
-            .with_metalic_map(scene.get_texture("solar-met")),
-    }.add(&mut scene);
-
-    Sphere{
-        pos: Vec3::new(-2.0, 0.0, -10.0),
-        rad: 1.0,
-        mat: Material::basic()
-            .with_texture(scene.get_texture("scifi-alb"))
-            .with_normal_map(scene.get_texture("scifi-nor"))
-            .with_roughness_map(scene.get_texture("scifi-rou"))
-            .with_metalic_map(scene.get_texture("scifi-met"))
-            .with_reflectivity(0.9),
-    }.add(&mut scene);
-
-    Sphere{
-        pos: Vec3::new(-2.0, 0.0, -5.0),
-        rad: 0.5,
-        mat: Material::basic()
-            .with_dielectic(Dielectric {
-                refraction: 2.0,
-                absorption: Vec3 { x: 0.0, y: 0.0, z: 0.0 }
-            })
-    }.add(&mut scene);
-
-    Sphere{
-        pos: Vec3::new(-0.0, 0.0, -5.0),
-        rad: 1.0,
-        mat: Material::basic()
-            .with_dielectic(Dielectric {
-                refraction: 2.0,
-                absorption: Vec3 { x: 0.0, y: 0.0, z: 0.0 }
-            })
-    }.add(&mut scene);
-
-    Sphere{
-        pos: Vec3::new(3.0, 0.0, -5.0),
-        rad: 2.0,
-        mat: Material::basic()
-            .with_dielectic(Dielectric {
-                refraction: 2.0,
-                absorption: Vec3 { x: 0.0, y: 0.0, z: 0.0 }
-            })
-    }.add(&mut scene);
+    // Sphere{
+    //     pos: Vec3::new(2.0, 0.0, -10.0),
+    //     rad: 1.0,
+    //     mat: Material::basic()
+    //         .with_texture(scene.get_texture("tiles-alb"))
+    //         .with_normal_map(scene.get_texture("tiles-nor"))
+    //         .with_roughness_map(scene.get_texture("tiles-rou")),
+    // }.add(&mut scene);
+    //
+    // Sphere{
+    //     pos: Vec3::new(0.0, 0.0, -10.0),
+    //     rad: 1.0,
+    //     mat: Material::basic()
+    //         .with_reflectivity(0.3)
+    //         .with_texture(scene.get_texture("solar-alb"))
+    //         .with_normal_map(scene.get_texture("solar-nor"))
+    //         .with_roughness_map(scene.get_texture("solar-rou"))
+    //         .with_metalic_map(scene.get_texture("solar-met")),
+    // }.add(&mut scene);
+    //
+    // Sphere{
+    //     pos: Vec3::new(-2.0, 0.0, -10.0),
+    //     rad: 1.0,
+    //     mat: Material::basic()
+    //         .with_texture(scene.get_texture("scifi-alb"))
+    //         .with_normal_map(scene.get_texture("scifi-nor"))
+    //         .with_roughness_map(scene.get_texture("scifi-rou"))
+    //         .with_metalic_map(scene.get_texture("scifi-met"))
+    //         .with_reflectivity(0.9),
+    // }.add(&mut scene);
+    //
+    // Sphere{
+    //     pos: Vec3::new(-2.0, 0.0, -5.0),
+    //     rad: 0.5,
+    //     mat: Material::basic()
+    //         .with_dielectic(Dielectric {
+    //             refraction: 2.0,
+    //             absorption: Vec3 { x: 0.0, y: 0.0, z: 0.0 }
+    //         })
+    // }.add(&mut scene);
+    //
+    // Sphere{
+    //     pos: Vec3::new(-0.0, 0.0, -5.0),
+    //     rad: 1.0,
+    //     mat: Material::basic()
+    //         .with_dielectic(Dielectric {
+    //             refraction: 2.0,
+    //             absorption: Vec3 { x: 0.0, y: 0.0, z: 0.0 }
+    //         })
+    // }.add(&mut scene);
+    //
+    // Sphere{
+    //     pos: Vec3::new(3.0, 0.0, -5.0),
+    //     rad: 2.0,
+    //     mat: Material::basic()
+    //         .with_dielectic(Dielectric {
+    //             refraction: 2.0,
+    //             absorption: Vec3 { x: 0.0, y: 0.0, z: 0.0 }
+    //         })
+    // }.add(&mut scene);
 
     Light{
         pos: Vec3::new(0.0, 2.0, -3.0),
