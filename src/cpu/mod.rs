@@ -1,4 +1,4 @@
-use crate::scene::{Scene, Material, Sphere, Plane, Dielectric};
+use crate::scene::{ Scene, Material, Sphere, Plane };
 use crate::vec3::Vec3;
 use crate::state::{ RenderMode, State };
 
@@ -14,12 +14,12 @@ const AMBIENT: f32 = 0.05;
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::many_single_char_names)]
 pub fn whitted(
-    w: usize, h: usize, aa: usize, threads: usize,
+    w: usize, h: usize, threads: usize,
     scene: &Scene, tex_params: &[u32], textures: &[u8],
     screen: &mut Vec<u32>, acc: &mut Vec<Vec3>, state: &mut State, rng: &mut ThreadRng
 ){
     let reduce = match state.render_mode{
-        RenderMode::Reduced => 4,
+        RenderMode::Reduced => state.reduced_rate,
         _ => 1,
     };
 
@@ -30,7 +30,7 @@ pub fn whitted(
         acc.iter_mut().take(rw * rh).for_each(|v| *v = Vec3::ZERO);
     }
 
-    if reduce == 1 && state.aa_count == aa{
+    if reduce == 1 && state.aa_count == state.aa{
         state.last_frame = RenderMode::None;
         return;
     } else if reduce == 1{
@@ -167,7 +167,6 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> 
     if let Some(dielec) = &mat.dielectric {
         if let Some(sphere) = hit.sphere {
             // ray --(hits dielec)--> ray2 --(leaves dielec)--> ray3 --(whitted trace cont.)-->
-            let d2 = ray.dir;
             let ray2 = Ray {
                 pos: hit.pos.added(hit.nor.neged().scaled(0.0001)),
                 dir: ray.dir
@@ -180,12 +179,11 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> 
             // Outbound hit with any object in the scene
             let hitx = inter_scene(ray2, scene);
 
-            let mut color : Vec3;
             let d = hitx.pos.subed(hit.pos).len();
 
-            if hitx.t < hit2.t {
+            let colour = if hitx.t < hit2.t {
                 // We hit another object before leaving the dielectric.
-                color = whitted_trace(ray2, scene, tps, ts, depth - 1);
+                whitted_trace(ray2, scene, tps, ts, depth - 1)
             } else {
                 // Travel all the way through the dielectric
                 if hit2.is_null() {
@@ -197,14 +195,14 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> 
                     pos: hit2.pos.added(hit2.nor.scaled(0.0001)),
                     dir: ray.dir,
                 };
-                color = whitted_trace(ray3, scene, tps, ts, depth - 1);
-            }
+                whitted_trace(ray3, scene, tps, ts, depth - 1)
+            };
 
             // Apply absorption
             return Vec3 {
-                x: color.x * (dielec.absorption.x.ln() * d).exp(),
-                y: color.y * (dielec.absorption.y.ln() * d).exp(),
-                z: color.z * (dielec.absorption.z.ln() * d).exp(),
+                x: colour.x * (dielec.absorption.x.ln() * d).exp(),
+                y: colour.y * (dielec.absorption.y.ln() * d).exp(),
+                z: colour.z * (dielec.absorption.z.ln() * d).exp(),
             };
         } else {
             eprintln!("Expect dielectric hit to be a sphere.")

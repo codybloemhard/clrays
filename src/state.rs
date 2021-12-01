@@ -12,14 +12,15 @@ pub enum LoopRequest{
     Stop,
 }
 
-pub type Keymap = [Keycode; 10];
+const KEYS_AMOUNT: usize = 11;
+pub type Keymap = [Keycode; KEYS_AMOUNT];
 
 #[macro_export]
 macro_rules! build_keymap{
     ($mfo:ident,$mba:ident,$mle:ident,$mri:ident,$mup:ident,$mdo:ident,
-     $lup:ident,$ldo:ident,$lle:ident,$lri:ident) => {
+     $lup:ident,$ldo:ident,$lle:ident,$lri:ident,$foc:ident) => {
         [Keycode::$mfo, Keycode::$mba, Keycode::$mle, Keycode::$mri, Keycode::$mup, Keycode::$mdo,
-         Keycode::$lup, Keycode::$ldo, Keycode::$lle, Keycode::$lri]
+         Keycode::$lup, Keycode::$ldo, Keycode::$lle, Keycode::$lri, Keycode::$foc]
     }
 }
 
@@ -30,23 +31,66 @@ pub enum RenderMode{
     None,
 }
 
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct Settings{
+    pub aa_samples: usize,
+    pub max_reduced_ms: f32,
+    pub start_in_focus_mode: bool,
+}
+
+impl Default for Settings{
+    fn default() -> Self{
+        Self{
+            aa_samples: 4,
+            max_reduced_ms: 50.0,
+            start_in_focus_mode: false,
+        }
+    }
+}
+
+impl Settings{
+    pub fn start_aa(&self) -> usize{
+        if self.start_in_focus_mode{
+            self.aa_samples
+        } else {
+            1
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct State{
     pub key_map: Keymap,
-    keys: [bool; 10],
+    keys: [bool; KEYS_AMOUNT],
     pub render_mode: RenderMode,
     pub last_frame: RenderMode,
+    pub reduced_rate: usize,
+    pub aa: usize,
     pub aa_count: usize,
+    pub settings: Settings,
 }
 
 impl State{
-    pub fn new(key_map: Keymap) -> Self{
+    pub fn new(key_map: Keymap, settings: Settings) -> Self{
         Self{
             key_map,
-            keys: [false; 10],
+            keys: [false; KEYS_AMOUNT],
             render_mode: RenderMode::Reduced,
             last_frame: RenderMode::None,
+            reduced_rate: 2,
+            aa: settings.start_aa(),
             aa_count: 0,
+            settings,
+        }
+    }
+
+    pub fn toggle_focus_mode(&mut self){
+        self.aa_count = 0;
+        self.render_mode = RenderMode::Reduced;
+        self.aa = if self.aa == 1 {
+            self.settings.aa_samples
+        } else {
+            1
         }
     }
 }
@@ -58,7 +102,12 @@ pub fn std_update_fn(_: f32, _state: &mut State) -> LoopRequest { LoopRequest::C
 
 pub fn log_update_fn(dt: f32, state: &mut State) -> LoopRequest {
     if state.last_frame != RenderMode::None{
-        println!("{:?}: {} ms, ", state.last_frame, dt);
+        if state.last_frame == RenderMode::Reduced{
+            println!("{:?}({}): {} ms, ", state.last_frame, state.reduced_rate, dt);
+        }
+        if state.last_frame == RenderMode::Reduced && dt > state.settings.max_reduced_ms{
+            state.reduced_rate += 1;
+        }
     }
     LoopRequest::Continue
 }
@@ -86,7 +135,6 @@ pub fn fps_input_fn(events: &[Event], scene: &mut Scene, state: &mut State) -> L
     let cam = &mut scene.cam;
     let old_pos = cam.pos;
     let old_dir = cam.dir;
-    let keys = &mut state.keys;
 
     for event in events.iter() {
         match event {
@@ -94,17 +142,20 @@ pub fn fps_input_fn(events: &[Event], scene: &mut Scene, state: &mut State) -> L
             Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                 return LoopRequest::Stop;
             },
+            Event::KeyDown { keycode: Some(x), .. } if *x == state.key_map[10] => {
+                state.toggle_focus_mode();
+            },
             Event::KeyDown { keycode: Some(x), repeat: false, .. } => {
                 for (i, binding) in state.key_map.iter().enumerate(){
                     if x == binding{
-                        keys[i] = true;
+                        state.keys[i] = true;
                     }
                 }
             },
             Event::KeyUp { keycode: Some(x), repeat: false, .. } => {
                 for (i, binding) in state.key_map.iter().enumerate(){
                     if x == binding{
-                        keys[i] = false;
+                        state.keys[i] = false;
                     }
                 }
             },
@@ -113,7 +164,7 @@ pub fn fps_input_fn(events: &[Event], scene: &mut Scene, state: &mut State) -> L
     }
     let ms = cam.move_sensitivity;
     let ls = cam.look_sensitivity;
-    for (i, active) in keys.iter().enumerate(){
+    for (i, active) in state.keys.iter().enumerate(){
         if !active { continue; }
         match i {
             0 => { // Move Forward; Move into camera direction

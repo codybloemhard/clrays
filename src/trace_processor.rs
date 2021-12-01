@@ -90,7 +90,6 @@ impl TraceProcessor for AaTracer{
 pub struct CpuWhitted{
     width: usize,
     height: usize,
-    aa: usize,
     threads: usize,
     screen_buffer: Vec<u32>,
     float_buffer: Vec<Vec3>,
@@ -100,7 +99,7 @@ pub struct CpuWhitted{
 }
 
 impl CpuWhitted{
-    pub fn new(width: usize, height: usize, aa: usize, threads: usize, scene: &mut Scene, info: &mut Info) -> Self{
+    pub fn new(width: usize, height: usize, threads: usize, scene: &mut Scene, info: &mut Info) -> Self{
         let texture_params = scene.get_texture_params_buffer();
         info.set_time_point("Getting texture parameters");
         let textures = scene.get_textures_buffer();
@@ -111,7 +110,6 @@ impl CpuWhitted{
         Self{
             width,
             height,
-            aa: aa.max(1),
             threads,
             screen_buffer,
             float_buffer,
@@ -127,7 +125,7 @@ impl TraceProcessor for CpuWhitted{
 
     fn render(&mut self, scene: &mut Scene, state: &mut State) -> &[u32]{
         whitted(
-            self.width, self.height, self.aa, self.threads,
+            self.width, self.height, self.threads,
             scene, &self.texture_params, &self.textures,
             &mut self.screen_buffer, &mut self.float_buffer, state, &mut self.rng
         );
