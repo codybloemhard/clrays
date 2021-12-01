@@ -81,7 +81,7 @@ pub fn whitted(
                     to.add(ver.scaled(uv.y));
                     let ray = Ray{ pos, dir: to.subed(pos).normalized_fast() };
 
-                    let mut col = whitted_trace(ray, scene, tex_params, textures, MAX_RENDER_DEPTH);
+                    let mut col = whitted_trace_hit(ray, scene, tex_params, textures, MAX_RENDER_DEPTH);
                     col.pow_scalar(1.0 / GAMMA);
                     strip[xx + yy * rw].add(col);
                 }
@@ -151,16 +151,7 @@ fn u32tf01(int: u32) -> f32{
    int as f32 * 2.3283064e-10
 }
 
-fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> Vec3{
-    if depth == 0 {
-        return get_sky_col(ray.dir, scene, tps, ts);
-    }
-
-    // hit
-    let mut hit = inter_scene(ray, scene);
-    if hit.is_null(){
-        return get_sky_col(ray.dir, scene, tps, ts);
-    }
+fn whitted_trace_color(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> Vec3 {
     let mat = hit.mat.unwrap();
 
     // Absorption
@@ -177,17 +168,28 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> 
             let mut hit2 = RayHit::NULL;
             inter_sphere(ray2, sphere, &mut hit2);
 
-            // Outbound hit with any object in the scene
-            let hitx = inter_scene(ray2, scene);
+            // Outbound hit with any object, excluding sphere, in the scene
+            let mut hitx = RayHit::NULL;
+            for plane in &scene.planes { inter_plane(ray2, plane, &mut hitx); }
+            for s in &scene.spheres {
+                if !s.pos.eq(&sphere.pos) {
+                    inter_sphere(ray2, &s, &mut hitx);
+                }
+            }
 
             let mut color : Vec3;
-            let d = hitx.pos.subed(hit.pos).len();
+            let d : f32;
 
-            if hitx.t < hit2.t {
-                // We hit another object before leaving the dielectric.
-                color = whitted_trace(ray2, scene, tps, ts, depth - 1);
+            if hitx.t - hit2.t < 0.001 {
+                // We hit another object before leaving the dielectric, or another
+                // object and the dielectric hit at the exact same position.
+                d = hitx.pos.subed(hit.pos).len();
+                color = whitted_trace_color(&ray2, &mut hitx, scene, tps, ts, depth - 1);
             } else {
                 // Travel all the way through the dielectric
+
+                d = hit2.pos.subed(hit.pos).len();
+
                 if hit2.is_null() {
                     eprintln!("SHOULDNT HAPPEN");
                 }
@@ -197,7 +199,7 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> 
                     pos: hit2.pos.added(hit2.nor.scaled(0.0001)),
                     dir: ray.dir,
                 };
-                color = whitted_trace(ray3, scene, tps, ts, depth - 1);
+                color = whitted_trace_hit(ray3, scene, tps, ts, depth - 1);
             }
 
             // Apply absorption
@@ -214,7 +216,7 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> 
     // texture
     let mut texcol = Vec3::ONE;
     let uv = if
-        mat.texture > 0 ||
+    mat.texture > 0 ||
         mat.normal_map > 0 ||
         mat.roughness_map > 0 ||
         mat.metalic_map > 0 ||
@@ -282,11 +284,26 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> 
 
     // neglect whitted trace ray if no reflect
     if reflectivity > 0.01 {
-        let refl = whitted_trace(nray, scene, tps, ts, depth - 1);
+        let refl = whitted_trace_hit(nray, scene, tps, ts, depth - 1);
         (diff.scaled(1.0 - reflectivity)).added(refl.scaled(reflectivity)).added(spec)
     } else {
         (diff).added(spec)
     }
+}
+
+fn whitted_trace_hit(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> Vec3{
+    if depth == 0 {
+        return get_sky_col(ray.dir, scene, tps, ts);
+    }
+
+    // hit
+    let mut hit = inter_scene(ray, scene);
+    if hit.is_null(){
+        return get_sky_col(ray.dir, scene, tps, ts);
+    }
+
+    // Retrieve color for given hit in the scene.
+    whitted_trace_color(&ray, &mut hit, scene, tps, ts, depth)
 }
 
 // SHADING ------------------------------------------------------------
