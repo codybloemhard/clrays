@@ -10,17 +10,18 @@ use std::f32::consts::{ PI, FRAC_PI_2 };
 pub enum LoopRequest{
     Continue,
     Stop,
+    Export,
 }
 
-const KEYS_AMOUNT: usize = 11;
+const KEYS_AMOUNT: usize = 12;
 pub type Keymap = [Keycode; KEYS_AMOUNT];
 
 #[macro_export]
 macro_rules! build_keymap{
     ($mfo:ident,$mba:ident,$mle:ident,$mri:ident,$mup:ident,$mdo:ident,
-     $lup:ident,$ldo:ident,$lle:ident,$lri:ident,$foc:ident) => {
+     $lup:ident,$ldo:ident,$lle:ident,$lri:ident,$foc:ident,$scr:ident) => {
         [Keycode::$mfo, Keycode::$mba, Keycode::$mle, Keycode::$mri, Keycode::$mup, Keycode::$mdo,
-         Keycode::$lup, Keycode::$ldo, Keycode::$lle, Keycode::$lri, Keycode::$foc]
+         Keycode::$lup, Keycode::$ldo, Keycode::$lle, Keycode::$lri, Keycode::$foc, Keycode::$scr]
     }
 }
 
@@ -98,18 +99,20 @@ impl State{
 pub type InputFn = fn (_events: &[Event], _scene: &mut Scene, _state: &mut State) -> LoopRequest;
 pub type UpdateFn = fn (_dt: f32, _state: &mut State) -> LoopRequest;
 
-pub fn std_update_fn(_: f32, _state: &mut State) -> LoopRequest { LoopRequest::Continue }
-
-pub fn log_update_fn(dt: f32, state: &mut State) -> LoopRequest {
-    if state.last_frame != RenderMode::None{
-        if state.last_frame == RenderMode::Reduced{
-            println!("{:?}({}): {} ms, ", state.last_frame, state.reduced_rate, dt);
-        }
-        if state.last_frame == RenderMode::Reduced && dt > state.settings.max_reduced_ms{
-            state.reduced_rate += 1;
-        }
+pub fn std_update_fn(dt: f32, state: &mut State) -> LoopRequest {
+    if state.last_frame == RenderMode::Reduced && dt > state.settings.max_reduced_ms{
+        state.reduced_rate += 1;
     }
     LoopRequest::Continue
+}
+
+pub fn log_update_fn(dt: f32, state: &mut State) -> LoopRequest {
+    if state.last_frame == RenderMode::Reduced{
+        println!("{:?}({}): {} ms, ", state.last_frame, state.reduced_rate, dt);
+    } else if state.last_frame == RenderMode::Full{
+        println!("{:?}: {} ms, ", state.last_frame, dt);
+    }
+    std_update_fn(dt, state)
 }
 
 pub fn std_input_fn(events: &[Event], _: &mut Scene, _: &mut State) -> LoopRequest{
@@ -144,6 +147,9 @@ pub fn fps_input_fn(events: &[Event], scene: &mut Scene, state: &mut State) -> L
             },
             Event::KeyDown { keycode: Some(x), .. } if *x == state.key_map[10] => {
                 state.toggle_focus_mode();
+            },
+            Event::KeyDown { keycode: Some(x), .. } if *x == state.key_map[11] => {
+                return LoopRequest::Export;
             },
             Event::KeyDown { keycode: Some(x), repeat: false, .. } => {
                 for (i, binding) in state.key_map.iter().enumerate(){

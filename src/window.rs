@@ -5,6 +5,12 @@ use crate::scene::Scene;
 use stopwatch::Stopwatch;
 use sdl2::event::Event;
 
+use std::path::Path;
+use std::fs::File;
+use std::io::BufWriter;
+use std::time::{ SystemTime, UNIX_EPOCH };
+
+
 pub struct Window{
     title: String,
     width: u32,
@@ -62,11 +68,17 @@ impl Window
             // Pump all sdl2 events into vector
             let events : Vec<Event> = event_pump.poll_iter().collect();
 
-            if update_fn(last_frame, state) == LoopRequest::Stop { break; };
-            if input_fn(&events, scene, state) == LoopRequest::Stop { break; }
+            let upd_res = update_fn(last_frame, state);
+            if upd_res == LoopRequest::Stop { break; };
+            let inp_res = input_fn(&events, scene, state);
+            if inp_res == LoopRequest::Stop { break; }
 
             tracer.update();
             let int_tex = tracer.render(scene, state);
+            if upd_res == LoopRequest::Export || inp_res == LoopRequest::Export{
+                export(self.width, self.height, int_tex);
+            }
+
             unsafe{
                 gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as i32, glw, glh, 0, gl::BGRA, gl::UNSIGNED_BYTE, int_tex.as_ptr() as *mut std::ffi::c_void);
                 gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
@@ -82,3 +94,38 @@ impl Window
     }
 }
 
+fn export(w: u32, h: u32, tex: &[u32]){
+    let filename = match SystemTime::now().duration_since(UNIX_EPOCH){
+        Ok(n) => format!("{}.png", n.as_secs()),
+        Err(_) => "0.png".to_string(),
+    };
+    let path = Path::new(&filename);
+    let file = File::create(path).expect("Frag: could not open file for frame image.");
+    let writer = &mut BufWriter::new(file);
+
+    let mut encoder = png::Encoder::new(writer, w, h);
+    encoder.set_color(png::ColorType::Rgb);
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut writer = encoder.write_header().expect("Frag: could not write png header for frame image.");
+
+    let sw = w as usize;
+    let sh = h as usize;
+    let size = sw * sh;
+
+    // flip y
+    let mut transformed = vec![0; size * 3];
+    for y in 0..sh{
+    for x in 0..sw{
+        let int = tex[y * sw + x];
+        transformed[y * sw * 3 + x * 3 + 2] = (int & 0x000000ff) as u8;
+        transformed[y * sw * 3 + x * 3 + 1] = ((int & 0x0000ff00) >> 8) as u8;
+        transformed[y * sw * 3 + x * 3    ] = ((int & 0x00ff0000) >> 16) as u8;
+    }
+    }
+
+    if let Err(e) = writer.write_image_data(&transformed){
+        println!("Could not save frame image: {}", e);
+    } else {
+        println!("Frame exported!");
+    }
+}
