@@ -227,7 +227,7 @@ fn dielectric_ray(nr: f32, nd: f32, ray: &Ray, hit: &RayHit) -> Ray{
 }
 
 fn is_inbound(ray: &Ray, hit: &RayHit) -> bool {
-    ray.dir.dot(hit.nor) >= 0.0
+    ray.dir.dot(hit.nor) < 0.0
 }
 
 fn whitted_trace_color(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> Vec3 {
@@ -355,7 +355,11 @@ fn whitted_trace_color(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], 
 
     // transparency
     let trans = if transparency > 0.01 {
-        let nray = Ray{ pos: hit.pos.added(hit.nor.neged().scaled(EPSILON)), dir: ray.dir, substance_refraction: ray.substance_refraction };
+        let nray = if is_inbound(ray,hit) {
+            Ray{ pos: hit.pos.added(hit.nor.neged().scaled(EPSILON)), dir: ray.dir, substance_refraction: ray.substance_refraction }
+        } else {
+            Ray{ pos: hit.pos.added(hit.nor.neged().neged().scaled(EPSILON)), dir: ray.dir, substance_refraction: ray.substance_refraction }
+        };
         whitted_trace_hit(nray, scene, tps, ts, depth - 1).scaled(transparency)
     } else { Vec3::BLACK };
 
