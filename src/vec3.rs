@@ -244,6 +244,11 @@ impl Vec3{
     }
 
     #[inline]
+    pub fn sum(self) -> f32{
+        self.x + self.y + self.z
+    }
+
+    #[inline]
     pub fn reflected(self, nor: Vec3) -> Self{
         Self::subed(self, nor.scaled(2.0 * Self::dot(self, nor)))
     }
