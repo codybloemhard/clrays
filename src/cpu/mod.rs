@@ -1,4 +1,4 @@
-use crate::scene::{ Scene, Material, Sphere, Plane };
+use crate::scene::{ Scene, Material, Sphere, Plane, Triangle };
 use crate::vec3::Vec3;
 use crate::state::{ RenderMode, State };
 
@@ -428,11 +428,39 @@ fn inter_plane<'a>(ray: Ray, plane: &'a Plane, closest: &mut RayHit<'a>){
     closest.sphere = None;
 }
 
+// ray-triangle intersection
+#[inline]
+#[allow(clippy::many_single_char_names)]
+fn inter_triangle<'a>(ray: Ray, tri: &'a Triangle, closest: &mut RayHit<'a>){
+    let edge1 = Vec3::subed(tri.b, tri.a);
+    let edge2 = Vec3::subed(tri.c, tri.a);
+    let h = Vec3::crossed(ray.dir, edge2);
+    let a = Vec3::dot(edge1, h);
+    if a > -EPSILON && a < EPSILON { return; } // ray parallel to tri
+    let f = 1.0 / a;
+    let s = Vec3::subed(ray.pos, tri.a);
+    let u = f * Vec3::dot(s, h);
+    if !(0.0..=1.0).contains(&u) { return; }
+    let q = Vec3::crossed(s, edge1);
+    let v = f * Vec3::dot(ray.dir, q);
+    if v < 0.0 || u + v > 1.0 { return; }
+    let t = f * Vec3::dot(edge2, q);
+    if t <= EPSILON { return; }
+    if t > closest.t { return; }
+    closest.t = t;
+    closest.pos = ray.pos.added(ray.dir.scaled(t));
+    closest.nor = Vec3::crossed(edge1, edge2).normalized_fast();
+    closest.mat = Some(&tri.mat);
+    closest.uvtype = UV_PLANE;
+    closest.sphere = None;
+}
+
 // intersect whole scene
 fn inter_scene(ray: Ray, scene: &Scene) -> RayHit{
     let mut closest = RayHit::NULL;
     for plane in &scene.planes { inter_plane(ray, plane, &mut closest); }
     for sphere in &scene.spheres { inter_sphere(ray, sphere, &mut closest); }
+    for tri in &scene.triangles { inter_triangle(ray, tri, &mut closest); }
     closest
 }
 
@@ -468,6 +496,7 @@ fn tx_get_sample(tex: u32, tps: &[u32], ts: &[u8], x: u32, y: u32, w: u32) -> Ve
 #[inline]
 fn tx_get_scalar(tex: u32, tps: &[u32], ts: &[u8], x: u32, y: u32, w: u32) -> f32{
     let offset = tx_get_start(tex, tps) + ((y * w + x) as usize);
+    if offset > ts.len() { return 1.0; }
     let scalar = ts[offset] as f32;
     scalar / 255.0
 }

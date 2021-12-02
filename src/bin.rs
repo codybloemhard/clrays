@@ -4,7 +4,7 @@ extern crate clrays_rs;
 use clrays_rs as clr;
 use clr::window;
 use clr::trace_processor;
-use clr::scene::{ Scene, Camera, SceneItem, Material, Plane, Sphere, Light, Dielectric };
+use clr::scene::{ Scene, Camera, SceneItem, Material, Plane, Sphere, Triangle, Light, Dielectric };
 use clr::vec3::{ Vec3 };
 use clr::info::{ Info };
 use clr::trace_tex::{ TexType };
@@ -89,6 +89,13 @@ pub fn main() -> Result<(), String>{
             .with_roughness_map(scene.get_texture("scifi-rou"))
             .with_metalic_map(scene.get_texture("scifi-met"))
             .with_reflectivity(0.9),
+    }.add(&mut scene);
+
+    Triangle{
+        a: Vec3::new(-1.0, 1.0, -7.0),
+        b: Vec3::new( 1.0, 1.0, -7.0),
+        c: Vec3::new( 1.0, 3.0, -7.0),
+        mat: Material::basic().as_checkerboard(),
     }.add(&mut scene);
 
     Sphere{
