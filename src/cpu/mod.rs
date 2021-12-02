@@ -464,18 +464,26 @@ fn tx_get_sample(tex: u32, tps: &[u32], ts: &[u8], x: u32, y: u32, w: u32) -> Ve
     col.dived_scalar_fast(255.0)
 }
 
+// get value 0..1 from scalar map
+#[inline]
+fn tx_get_scalar(tex: u32, tps: &[u32], ts: &[u8], x: u32, y: u32, w: u32) -> f32{
+    let offset = tx_get_start(tex, tps) + ((y * w + x) as usize);
+    let scalar = ts[offset] as f32;
+    scalar / 255.0
+}
+
 // shared logic
 #[inline]
 #[allow(clippy::many_single_char_names)]
-fn uv_to_xy(uv: (f32, f32), tex: u32, tps: &[u32]) -> (u32, u32, u32){
+fn uv_to_xy(uv: (f32, f32), tex: u32, tps: &[u32]) -> (u32, f32, f32){
     let mut u = uv.0.fract();
     let mut v = uv.1.fract();
     if u < 0.0 { u += 1.0; }
     if v < 0.0 { v += 1.0; }
-    let w = tx_get_width(tex, tps);
-    let x = (w as f32* u) as u32;
-    let y = (tx_get_height(tex, tps) as f32 * v) as u32;
-    (w, x, y)
+    let w = tx_get_width(tex, tps) as f32;
+    let x = w * u;
+    let y = tx_get_height(tex, tps) as f32 * v;
+    (w as u32, x, y)
 }
 
 // get sky colour
@@ -488,26 +496,45 @@ fn get_sky_col(nor: Vec3, scene: &Scene, tps: &[u32], ts: &[u8]) -> Vec3{
     get_tex_col(scene.sky_box - 1, uv, tps, ts)
 }
 
+// get value to range 0..1 (no gamma)
+#[inline]
+#[allow(clippy::many_single_char_names)]
+fn get_tex_val(tex: u32, uv: (f32, f32), tps: &[u32], ts: &[u8]) -> Vec3{
+    let (w, x, y) = uv_to_xy(uv, tex, tps);
+    let (x1, y1, x2, y2) = (x.floor(), y.floor(), x.floor() + 1.0, y.floor() + 1.0);
+    let fq11 = tx_get_sample(tex, tps, ts, x1 as u32, y1 as u32, w);
+    let fq12 = tx_get_sample(tex, tps, ts, x1 as u32, y2 as u32, w);
+    let fq21 = tx_get_sample(tex, tps, ts, x2 as u32, y1 as u32, w);
+    let fq22 = tx_get_sample(tex, tps, ts, x2 as u32, y2 as u32, w);
+    let a = x - x1;
+    let b = y - y1;
+    fq11.scaled((1.0 - a) * (1.0 - b))
+        .added(fq21.scaled(a * (1.0 - b)))
+        .added(fq12.scaled(b * (1.0 - a)))
+        .added(fq22.scaled(a * b))
+}
+
 // get colour from texture and uv
 #[inline]
 fn get_tex_col(tex: u32, uv: (f32, f32), tps: &[u32], ts: &[u8]) -> Vec3{
-    let (w, x, y) = uv_to_xy(uv, tex, tps);
-    tx_get_sample(tex, tps, ts, x, y, w).powed_scalar(GAMMA)
-}
-
-// get value to range 0..1 (no gamma)
-#[inline]
-fn get_tex_val(tex: u32, uv: (f32, f32), tps: &[u32], ts: &[u8]) -> Vec3{
-    let (w, x, y) = uv_to_xy(uv, tex, tps);
-    tx_get_sample(tex, tps, ts, x, y, w)
+    get_tex_val(tex, uv, tps, ts).powed_scalar(GAMMA)
 }
 
 // get value 0..1 from scalar map
 #[inline]
+#[allow(clippy::many_single_char_names)]
 fn get_tex_scalar(tex: u32, uv: (f32, f32), tps: &[u32], ts: &[u8]) -> f32{
     let (w, x, y) = uv_to_xy(uv, tex, tps);
-    let offset = tx_get_start(tex, tps) + ((y * w + x) as usize);
-    let scalar = ts[offset] as f32;
-    scalar / 255.0
+    let (x1, y1, x2, y2) = (x.floor(), y.floor(), x.floor() + 1.0, y.floor() + 1.0);
+    let fq11 = tx_get_scalar(tex, tps, ts, x1 as u32, y1 as u32, w);
+    let fq12 = tx_get_scalar(tex, tps, ts, x1 as u32, y2 as u32, w);
+    let fq21 = tx_get_scalar(tex, tps, ts, x2 as u32, y1 as u32, w);
+    let fq22 = tx_get_scalar(tex, tps, ts, x2 as u32, y2 as u32, w);
+    let a = x - x1;
+    let b = y - y1;
+    fq11 * (1.0 -a) * (1.0 - b)
+        + fq21 * a * (1.0 - b)
+        + fq12 * b * (1.0 - a)
+        + fq22 * a * b
 }
 

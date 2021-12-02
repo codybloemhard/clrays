@@ -92,7 +92,7 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     Sphere{
-        pos: Vec3::new(-2.0, 0.0, -5.0),
+        pos: Vec3::new(-2.0, 0.0, 5.0),
         rad: 0.5,
         mat: Material::basic()
             .with_dielectic(Dielectric {
@@ -102,7 +102,7 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     Sphere{
-        pos: Vec3::new(-0.0, 0.0, -5.0),
+        pos: Vec3::new(-0.0, 0.0, 5.0),
         rad: 1.0,
         mat: Material::basic()
             .with_dielectic(Dielectric {
@@ -112,7 +112,7 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     Sphere{
-        pos: Vec3::new(3.0, 0.0, -5.0),
+        pos: Vec3::new(3.0, 0.0, 5.0),
         rad: 2.0,
         mat: Material::basic()
             .with_dielectic(Dielectric {
