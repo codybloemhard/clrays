@@ -4,7 +4,7 @@ extern crate clrays_rs;
 use clrays_rs as clr;
 use clr::window;
 use clr::trace_processor;
-use clr::scene::{ Scene, Camera, SceneItem, Material, Plane, Sphere, Light, Dielectric };
+use clr::scene::{ Scene, Camera, SceneItem, Material, Plane, Sphere, Light };
 use clr::vec3::{ Vec3 };
 use clr::info::{ Info };
 use clr::trace_tex::{ TexType };
@@ -61,17 +61,50 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     Plane{
-        pos: Vec3::new(0.0, -1.0, -3.0),
-        nor: Vec3::FORWARD,
+        pos: Vec3::new(0.0, 4.0, 0.0),
+        nor: Vec3::UP,
         mat: Material::basic()
-            .with_reflectivity(0.5)
-            .with_transparency(0.5)
-            //.as_checkerboard()
+            .as_dielectic()
+            // .with_absorption(Vec3 { x: 0.0, y: 0.0, z: 0.0 })
+            .with_refraction(1.3)
             // .with_texture(scene.get_texture("stone-alb"))
             // .with_normal_map(scene.get_texture("stone-nor"))
             // .with_roughness_map(scene.get_texture("stone-rou"))
-            // .with_tex_scale(4.0),
+            // .with_reflectivity(1.0)
+            // .with_transparency(1.0)
     }.add(&mut scene);
+
+    // Plane{
+    //     pos: Vec3::new(0.0, -1.0, -3.0),
+    //     nor: Vec3::FORWARD,
+    //     mat: Material::basic()
+    //         // .with_reflectivity(0.5)
+    //         // .with_transparency(1.0)
+    //         .with_refraction(3.0)
+    //         .with_dielectic(Dielectric {
+    //             refraction: 1.0,
+    //             absorption: Vec3 { x: 0.0, y: 0.0, z: 0.0 }
+    //         })
+    //         //.as_checkerboard()
+    //         // .with_texture(scene.get_texture("stone-alb"))
+    //         // .with_normal_map(scene.get_texture("stone-nor"))
+    //         // .with_roughness_map(scene.get_texture("stone-rou"))
+    //         // .with_tex_scale(4.0),
+    // }.add(&mut scene);
+
+    // Plane{
+    //     pos: Vec3::new(0.0, -1.0, -4.0),
+    //     nor: Vec3::FORWARD,
+    //     mat: Material::basic()
+    //         // .with_reflectivity(0.5)
+    //         // .with_transparency(1.0)
+    //         .with_refraction(3.0)
+    //     //.as_checkerboard()
+    //     // .with_texture(scene.get_texture("stone-alb"))
+    //     // .with_normal_map(scene.get_texture("stone-nor"))
+    //     // .with_roughness_map(scene.get_texture("stone-rou"))
+    //     // .with_tex_scale(4.0),
+    // }.add(&mut scene);
 
     // Sphere{
     //     pos: Vec3::new(2.0, 0.0, -10.0),
@@ -104,35 +137,32 @@ pub fn main() -> Result<(), String>{
     //         .with_reflectivity(0.9),
     // }.add(&mut scene);
     //
-    // Sphere{
-    //     pos: Vec3::new(-2.0, 0.0, -5.0),
-    //     rad: 0.5,
-    //     mat: Material::basic()
-    //         .with_dielectic(Dielectric {
-    //             refraction: 2.0,
-    //             absorption: Vec3 { x: 0.0, y: 0.0, z: 0.0 }
-    //         })
-    // }.add(&mut scene);
-    //
-    // Sphere{
-    //     pos: Vec3::new(-0.0, 0.0, -5.0),
-    //     rad: 1.0,
-    //     mat: Material::basic()
-    //         .with_dielectic(Dielectric {
-    //             refraction: 2.0,
-    //             absorption: Vec3 { x: 0.0, y: 0.0, z: 0.0 }
-    //         })
-    // }.add(&mut scene);
-    //
-    // Sphere{
-    //     pos: Vec3::new(3.0, 0.0, -5.0),
-    //     rad: 2.0,
-    //     mat: Material::basic()
-    //         .with_dielectic(Dielectric {
-    //             refraction: 2.0,
-    //             absorption: Vec3 { x: 0.0, y: 0.0, z: 0.0 }
-    //         })
-    // }.add(&mut scene);
+    Sphere{
+        pos: Vec3::new(-3.0, 0.0, -5.0),
+        rad: 1.0,
+        mat: Material::basic()
+            .as_dielectic()
+            .with_refraction(0.7)
+            .with_absorption(Vec3 { x: 0.0, y: 0.0, z: 0.0 })
+    }.add(&mut scene);
+
+    Sphere{
+        pos: Vec3::new(-0.0, 0.0, -5.0),
+        rad: 1.0,
+        mat: Material::basic()
+            .as_dielectic()
+            .with_refraction(2.0)
+            .with_absorption(Vec3 { x: 0.0, y: 0.0, z: 0.0 })
+    }.add(&mut scene);
+
+    Sphere{
+        pos: Vec3::new(3.0, 0.0, -5.0),
+        rad: 1.0,
+        mat: Material::basic()
+            .as_dielectic()
+            .with_refraction(3.0)
+            // .with_absorption(Vec3 { x: 0.0, y: 0.0, z: 0.0 })
+    }.add(&mut scene);
 
     Light{
         pos: Vec3::new(0.0, 2.0, -3.0),

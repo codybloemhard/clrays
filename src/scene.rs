@@ -5,15 +5,12 @@ use crate::info::Info;
 
 use std::collections::HashMap;
 
-pub struct Dielectric{
-    pub refraction: f32,
-    pub absorption: Vec3,
-}
-
 pub struct Material{
     pub col: Vec3,
+    pub absorption: Vec3,
     pub reflectivity: f32,
     pub transparency: f32,
+    pub refraction: f32, // refraction_index
     pub roughness: f32,
     pub texture: u32,
     pub normal_map: u32,
@@ -21,7 +18,7 @@ pub struct Material{
     pub metalic_map: u32,
     pub tex_scale: f32,
     pub is_checkerboard: bool,
-    pub dielectric: Option<Dielectric>
+    pub is_dielectric: bool
 }
 
 impl Material{
@@ -36,8 +33,10 @@ impl Material{
     pub fn basic() -> Self{
         Self{
             col: Vec3::ONE.unhardened(0.05),
+            absorption: Vec3::WHITE,
             reflectivity: 0.0,
             transparency: 0.0,
+            refraction: 1.0,
             roughness: 1.0,
             texture: 0,
             normal_map: 0,
@@ -45,7 +44,7 @@ impl Material{
             metalic_map: 0,
             tex_scale: 1.0,
             is_checkerboard: false,
-            dielectric: None
+            is_dielectric: false,
         }
     }
 
@@ -64,6 +63,16 @@ impl Material{
         self
     }
 
+    pub fn with_refraction(mut self, refr: f32) -> Self{
+        self.refraction = refr;
+        self
+    }
+
+    pub fn with_absorption(mut self, absorption: Vec3) -> Self{
+        self.absorption = absorption;
+        self
+    }
+
     pub fn with_roughness(mut self, roughn: f32) -> Self{
         self.roughness = roughn;
         self
@@ -79,8 +88,8 @@ impl Material{
         self
     }
 
-    pub fn with_dielectic(mut self, d: Dielectric) -> Self{
-        self.dielectric = Some(d);
+    pub fn as_dielectic(mut self) -> Self{
+        self.is_dielectric = true;
         self
     }
 
