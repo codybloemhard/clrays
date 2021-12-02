@@ -5,11 +5,13 @@ use crate::info::Info;
 
 use std::collections::HashMap;
 
+#[derive(Clone, PartialEq, Debug)]
 pub struct Dielectric{
     pub refraction: f32,
     pub absorption: Vec3,
 }
 
+#[derive(Clone, PartialEq, Debug)]
 pub struct Material{
     pub col: Vec3,
     pub reflectivity: f32,

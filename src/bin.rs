@@ -9,6 +9,7 @@ use clr::vec3::{ Vec3 };
 use clr::info::{ Info };
 use clr::trace_tex::{ TexType };
 use clr::state::{ State, Settings, log_update_fn, fps_input_fn };
+use clr::mesh::load_model;
 
 use sdl2::keyboard::Keycode;
 
@@ -19,8 +20,8 @@ pub fn main() -> Result<(), String>{
 
     let mut scene = Scene::new();
     scene.cam = Camera{
-        pos: Vec3::ZERO,
-        dir: Vec3::BACKWARD,
+        pos: Vec3::new(0.0, 5.0, -8.0),
+        dir: Vec3::new(0.0, -1.0, 2.0).normalized(),
         ori: [0.0, 0.0],
         move_sensitivity: 0.1,
         look_sensitivity: 0.05,
@@ -98,6 +99,9 @@ pub fn main() -> Result<(), String>{
         mat: Material::basic().as_checkerboard(),
     }.add(&mut scene);
 
+    // https://groups.csail.mit.edu/graphics/classes/6.837/F03/models/
+    load_model("assets/models/teapot.obj", Material::basic(), &mut scene);
+
     Sphere{
         pos: Vec3::new(-2.0, 0.0, 5.0),
         rad: 0.5,
@@ -138,7 +142,7 @@ pub fn main() -> Result<(), String>{
     scene.pack_textures(&mut info);
 
     let settings = Settings{
-        aa_samples: 16,
+        aa_samples: 1,
         max_reduced_ms: 40.0,
         start_in_focus_mode: true,
     };
