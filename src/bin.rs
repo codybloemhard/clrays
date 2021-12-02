@@ -108,7 +108,7 @@ pub fn main() -> Result<(), String>{
 
     Sphere{
         pos: Vec3::new(2.0, 0.0, -5.0),
-        rad: 1.0,
+        rad: 1.0 - 0.01,
         mat: Material::basic()
             .with_texture(scene.get_texture("tiles-alb"))
             .with_normal_map(scene.get_texture("tiles-nor"))
@@ -117,7 +117,7 @@ pub fn main() -> Result<(), String>{
 
     Sphere{
         pos: Vec3::new(0.0, 0.0, -5.0),
-        rad: 1.0,
+        rad: 1.0 - 0.01,
         mat: Material::basic()
             .with_reflectivity(0.3)
             .with_texture(scene.get_texture("solar-alb"))
@@ -127,8 +127,8 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     Sphere{
-        pos: Vec3::new(-2.0, 0.0, -5.0),
-        rad: 1.0,
+        pos: Vec3::new(-2.0, 0.1, -5.0),
+        rad: 1.0 - 0.01,
         mat: Material::basic()
             .with_texture(scene.get_texture("scifi-alb"))
             .with_normal_map(scene.get_texture("scifi-nor"))
@@ -136,19 +136,10 @@ pub fn main() -> Result<(), String>{
             .with_metalic_map(scene.get_texture("scifi-met"))
             .with_reflectivity(0.9),
     }.add(&mut scene);
-    //
-    // Sphere{
-    //     pos: Vec3::new(-3.0, 0.0, -5.0),
-    //     rad: 1.0,
-    //     mat: Material::basic()
-    //         .as_dielectic()
-    //         .with_refraction(0.7)
-    //         .with_absorption(Vec3 { x: 0.0, y: 0.0, z: 0.0 })
-    // }.add(&mut scene);
 
     Sphere{
         pos: Vec3::new(-4.0, 0.0, -5.0),
-        rad: 1.0,
+        rad: 1.0 - 0.01,
         mat: Material::basic()
             .as_dielectic()
             .with_refraction(2.0)
@@ -157,7 +148,7 @@ pub fn main() -> Result<(), String>{
 
     Sphere{
         pos: Vec3::new(0.0, 2.0, 5.0),
-        rad: 1.0,
+        rad: 1.0 - 0.01,
         mat: Material::basic()
             .as_dielectic()
             .with_absorption(Vec3 { x: 0.8, y: 0.3, z: 0.3 })
@@ -165,7 +156,7 @@ pub fn main() -> Result<(), String>{
 
     Sphere{
         pos: Vec3::new(-3.0, 2.0, 5.0),
-        rad: 2.0,
+        rad: 2.0 - 0.01,
         mat: Material::basic()
             .as_dielectic()
             .with_absorption(Vec3 { x: 0.8, y: 0.3, z: 0.3 })
@@ -173,7 +164,7 @@ pub fn main() -> Result<(), String>{
 
     Sphere{
         pos: Vec3::new(-10.0, 2.0, 5.0),
-        rad: 5.0,
+        rad: 5.0 - 0.01,
         mat: Material::basic()
             .as_dielectic()
             .with_absorption(Vec3 { x: 0.8, y: 0.3, z: 0.3 })

@@ -332,70 +332,21 @@ fn whitted_trace_color(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], 
     let (mut diff, spec) = blinn(&hit, mat, roughness, scene, ray.dir);
     diff.mul(texcol);
 
-    let mut transparency_dir = ray.dir;
-    let mut absorp = Vec3::WHITE;
 
     // dielectric: transparency / refraction and reflection
+    let mut transparency_dir = ray.dir;
     if mat.is_dielectric  {
         let (r, dir_refr) = resolve_dielectric(ray, hit);
         transparency_dir = dir_refr;
         reflectivity = r;
         transparency = 1.0 - r;
-
-        // if mat.absorption.sum() < 3.0 - EPSILON && is_inbound(ray, hit){
-        //     // Inbound ray
-        //     let nr = ray.refr;
-        //     let nd = dielec.refraction;
-        //     reflectivity = dielectric_reflection(nr, nd, ray, hit);
-        //     let reflected_color = whitted_trace_reflect(ray, hit, scene, tps, ts, depth - 1);
-        //     if reflectivity >= 0.9999 {
-        //         // Full internal reflection
-        //         // Ignore further ray tracing within dielectric
-        //         return reflected_color;
-        //     }
-        //
-        //     // Some light is sent into dielectric:
-        //     // Obtain refracted ray that is sent into the dielectric.
-        //     let ray2 = refraction(nd, nr, ray, hit);
-        //
-        //     // Check ray collision with object within the dielectric or when exiting dielectric
-        //     let mut hit2 = RayHit::NULL;
-        //     inter_sphere(ray2, sphere, &mut hit2);
-        //
-        //     // Handle the case that we hit something within the dielectric.
-        //     let mut hitx = RayHit::NULL;
-        //     for plane in &scene.planes { inter_plane(ray2, plane, &mut hitx); }
-        //     for s in &scene.spheres {
-        //         if !s.pos.eq(&sphere.pos) {
-        //             inter_sphere(ray2, &s, &mut hitx);
-        //         }
-        //     }
-        //     if hitx.t - hit2.t < 0.001 {
-        //         // We hit another object before leaving the dielectric, or
-        //         // an object and the dielectric hit at the same position.
-        //         let d = hitx.pos.subed(hit.pos).len();
-        //         let color = whitted_trace_color(&ray2, &mut hitx, scene, tps, ts, depth - 1);
-        //
-        //         return reflected_color.scaled(reflectivity).added(absorption(&color, dielec, d).scaled(1.0-reflectivity));
-        //     }
-        //
-        //     if hit2.is_null() {
-        //         eprintln!("Expected an outbound ray from dielectrc.");
-        //     }
-        //
-        //     // The hit occurs with the dielectric. Travel all the way through the dielectric.
-        //     // Refract back out of this dielectric into the ray.refr.
-        //     let d = hit2.pos.subed(hit.pos).len();
-        //     let color = whitted_trace_color(&ray2, &mut hit2, scene, tps, ts, depth - 1);
-        //     return reflected_color.scaled(reflectivity).added(absorption(&color, dielec, d).scaled(1.0-reflectivity));
-        // }
-        // }
     }
 
     // transparency / refraction
     let tran = if transparency > EPSILON {
         let normal = if is_inbound(ray,hit) { hit.nor } else { hit.nor.neged() };
         let ray_next = if is_inbound(ray, hit) {
+            // Move into object
             Ray{
                 pos: hit.pos.subed(normal.scaled(EPSILON)),
                 dir: transparency_dir,
@@ -403,6 +354,7 @@ fn whitted_trace_color(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], 
                 absorption: if hit.mat.is_some() { hit.mat.unwrap().absorption } else { Vec3::BLACK },
             }
         } else {
+            // Move into air
             Ray{
                 pos: hit.pos.subed(normal.scaled(EPSILON)),
                 dir: transparency_dir,
@@ -410,6 +362,7 @@ fn whitted_trace_color(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], 
                 absorption: Vec3::BLACK
             }
         };
+
         whitted_trace_hit(ray_next, scene, tps, ts, depth - 1)
     } else { Vec3::BLACK };
 
