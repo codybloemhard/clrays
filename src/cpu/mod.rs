@@ -1,12 +1,12 @@
 #![feature(destructuring_assignment)]
-use crate::scene::{Scene, Material, Sphere, Plane, WATER_REFRACTION, WATER_ABSORPTION, AIR_REFRACTION, AIR_ABSORPTION};
+use crate::scene::{Scene, Material, Sphere, Plane, Context, Contexts};
 use crate::vec3::Vec3;
 use crate::state::{ RenderMode, State };
 
 use rand::prelude::*;
 use crate::trace_tex::TexType::Vector3c8bpc;
 
-const MAX_RENDER_DEPTH: u8 = 9;
+const MAX_RENDER_DEPTH: u8 = 5;
 const GAMMA: f32 = 2.2;
 const PI: f32 = std::f32::consts::PI;
 const FRAC_2_PI: f32 = 0.5 * std::f32::consts::PI;
@@ -14,6 +14,7 @@ const FRAC_4_PI: f32 = 0.25 * std::f32::consts::PI;
 const MAX_RENDER_DIST: f32 = 1000000.0;
 const EPSILON: f32 = 0.001;
 const AMBIENT: f32 = 0.05;
+pub const AIR_REFRACTION : f32 = 1.0;
 
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::many_single_char_names)]
@@ -85,7 +86,8 @@ pub fn whitted(
                     to.add(ver.scaled(uv.y));
 
                     let ray = Ray { pos: pos, dir: to.subed(pos).normalized_fast() };
-                    let mut col = whitted_trace(ray, scene, tex_params, textures, MAX_RENDER_DEPTH);
+                    let contexts = Contexts::new();
+                    let mut col = whitted_trace(ray, scene, tex_params, textures, MAX_RENDER_DEPTH, contexts);
                     col.pow_scalar(1.0 / GAMMA);
                     strip[xx + yy * rw].add(col);
                 }
@@ -210,14 +212,25 @@ fn resolve_dielectric(ni: f32, nt: f32, dir: Vec3, normal: Vec3) -> (f32, Vec3){
     ( 0.5 * (s_polarized + p_polarized), dir_refr )
 }
 
+
 /// trace light ray through scene
-fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> Vec3{
+fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, contexts: Contexts) -> Vec3{
     let mut hit = inter_scene(ray, scene);
     if depth == 0 || hit.is_null() {
         return get_sky_col(ray.dir, scene, tps, ts);
     }
+
+    let absorption_context;
+    let refraction_context;
+    if let Some(context) = contexts.current() {
+        absorption_context = context.absorption;
+        refraction_context = context.refraction;
+    } else {
+        absorption_context = Vec3::BLACK;
+        refraction_context = 1.0;
+    }
+
     let is_inbound = ray.dir.dot(hit.nor) < 0.0;
-    // let is_underwater = depth == MAX_RENDER_DEPTH && ray.pos.y < 10.0;
     let mat = hit.mat.unwrap();
     let refraction = mat.refraction;
     let absorption = mat.absorption;
@@ -296,12 +309,11 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> 
         let ni;
         let nt;
         if is_inbound {
-            // ni = if is_underwater { WATER_REFRACTION } else { AIR_REFRACTION };
-            ni = AIR_REFRACTION;
+            ni = refraction_context;
             nt = refraction;
         } else {
             ni = refraction;
-            nt = AIR_REFRACTION;
+            nt = refraction_context;
         }
         (reflectivity, transparency_dir) = resolve_dielectric(ni, nt, ray.dir, normal);
         transparency = 1.0 - reflectivity;
@@ -310,20 +322,18 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> 
     // transparency / refraction
     let tran = if transparency > EPSILON {
         let ray_next = Ray{ pos: hit.pos.subed(normal.scaled(EPSILON)), dir: transparency_dir };
-        let color_next = whitted_trace(ray_next, scene, tps, ts, depth - 1).scaled(transparency);
-        let hit_next = inter_scene(ray_next, scene);
-        let is_inbound_next = ray_next.dir.dot(hit_next.nor) < 0.0;
-        if is_inbound_next {
-            absorp(&color_next, &absorption, hit_next.t)
+        let contexts_next = if is_inbound {
+                contexts.clone().pushed(Context { absorption, refraction })
         } else {
-            color_next
-        }
+            contexts.clone().popped()
+        };
+        whitted_trace(ray_next, scene, tps, ts, depth - 1, contexts_next).scaled(transparency)
     } else { Vec3::BLACK };
 
     // reflection
     let refl = if reflectivity > EPSILON {
         let ray_next = Ray{ pos: hit.pos.added(normal.scaled(EPSILON)), dir: ray.dir.reflected(normal) };
-        whitted_trace(ray_next, scene, tps, ts, depth - 1).scaled(reflectivity)
+        whitted_trace(ray_next, scene, tps, ts, depth - 1, contexts).scaled(reflectivity)
     } else { Vec3::BLACK };
 
     let color = (diff).scaled(1.0 - reflectivity - transparency)
@@ -332,12 +342,7 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> 
         .added(refl);
 
     if is_inbound {
-        // if is_underwater {
-        //     absorp(&color, &WATER_ABSORPTION, hit.t)
-        // } else {
-        // absorp(&color, &AIR_ABSORPTION, hit.t)
-        // }
-        color
+        absorp(&color, &absorption_context, hit.t)
     } else {
         absorp(&color, &absorption, hit.t)
     }
@@ -664,7 +669,7 @@ mod test {
         let normal = Vec3::UP;
         let ni = 0.5;
         let nt = 1.0;
-        let n = ni/nt ;
+        let n = ni/nt;
 
         let (_, dir_refr) = resolve_dielectric(ni, nt, dir, normal);
 

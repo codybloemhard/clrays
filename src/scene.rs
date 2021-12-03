@@ -5,10 +5,43 @@ use crate::info::Info;
 
 use std::collections::HashMap;
 
-pub const AIR_ABSORPTION : Vec3 = Vec3 {x: 0.01, y: 0.01, z: 0.01 };
-pub const AIR_REFRACTION : f32 = 1.0;
-pub const WATER_ABSORPTION : Vec3 = Vec3 {x: 0.09, y: 0.02, z: 0.01 };
-pub const WATER_REFRACTION : f32 = 1.33;
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Contexts {
+    pub stack: [Context; 3],
+    pub index: usize
+}
+impl Contexts {
+    pub fn new() -> Self{
+        Self { stack: [Context::new(), Context::new(), Context::new()], index: 0 }
+    }
+    pub fn current(&self) -> Option<Context>{
+        if self.index <= 2 {
+            Some(self.stack[self.index])
+        } else {
+            None
+        }
+    }
+    pub fn pushed(mut self, context: Context) -> Self{
+        self.index = (self.index+1).min(2);
+        self.stack[self.index] = context;
+        self
+    }
+    pub fn popped(mut self) -> Self{
+        self.index = (self.index-1).max(0);
+        self
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Context {
+    pub absorption: Vec3,
+    pub refraction: f32,
+}
+impl Context {
+    pub fn new() -> Self{
+        Self { absorption: Vec3::BLACK, refraction: 1.0 }
+    }
+}
 
 pub struct Material{
     pub col: Vec3,

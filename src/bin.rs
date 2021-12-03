@@ -11,9 +11,15 @@ use clr::trace_tex::{ TexType };
 use clr::state::{ State, log_update_fn, fps_input_fn };
 
 use sdl2::keyboard::Keycode;
-use clrays_rs::scene::{WATER_ABSORPTION, WATER_REFRACTION};
+
+pub const AIR_ABSORPTION : Vec3 = Vec3 {x: 0.01, y: 0.01, z: 0.01 };
+pub const AIR_REFRACTION : f32 = 1.0;
+pub const WATER_ABSORPTION : Vec3 = Vec3 {x: 0.49, y: 0.1, z: 0.04 };
+pub const WATER_REFRACTION : f32 = 1.33;
 
 const EPSILON: f32 = 0.001;
+const USE_WATERFLOOR : bool = false;
+// const USE_WATERFLOOR : bool = true;
 
 
 pub fn main() -> Result<(), String>{
@@ -53,25 +59,38 @@ pub fn main() -> Result<(), String>{
     scene.add_texture("sky", "assets/textures/sky0.jpg", TexType::Vector3c8bpc);
     scene.set_skybox("sky");
 
-    Plane{
-        pos: Vec3::new(0.0, -1.0, 0.0),
-        nor: Vec3::UP,
-        mat: Material::basic()
-            .as_checkerboard()
-            .with_texture(scene.get_texture("stone-alb"))
-            .with_normal_map(scene.get_texture("stone-nor"))
-            .with_roughness_map(scene.get_texture("stone-rou"))
-            .with_tex_scale(4.0),
-    }.add(&mut scene);
+    if USE_WATERFLOOR {
+        Plane{
+            pos: Vec3::new(0.0, -4.0, 0.0),
+            nor: Vec3::UP,
+            mat: Material::basic()
+                .as_checkerboard()
+                .with_texture(scene.get_texture("stone-alb"))
+                .with_normal_map(scene.get_texture("stone-nor"))
+                .with_roughness_map(scene.get_texture("stone-rou"))
+                .with_tex_scale(4.0),
+        }.add(&mut scene);
 
-    // Plane{
-    //     pos: Vec3::new(0.0, 10.0, 0.0),
-    //     nor: Vec3::UP,
-    //     mat: Material::basic()
-    //         .as_dielectric()
-    //         .with_absorption(WATER_ABSORPTION)
-    //         .with_refraction(WATER_REFRACTION)
-    // }.add(&mut scene);
+        Plane{
+            pos: Vec3::new(0.0, -1.0, 0.0),
+            nor: Vec3::UP,
+            mat: Material::basic()
+                .as_dielectric()
+                .with_absorption(WATER_ABSORPTION)
+                .with_refraction(WATER_REFRACTION)
+        }.add(&mut scene);
+    } else {
+        Plane{
+            pos: Vec3::new(0.0, -1.0, 0.0),
+            nor: Vec3::UP,
+            mat: Material::basic()
+                .as_checkerboard()
+                .with_texture(scene.get_texture("stone-alb"))
+                .with_normal_map(scene.get_texture("stone-nor"))
+                .with_roughness_map(scene.get_texture("stone-rou"))
+                .with_tex_scale(4.0),
+        }.add(&mut scene);
+    }
 
     Sphere{
         pos: Vec3::new(2.0, 0.0, -5.0),
@@ -132,6 +151,7 @@ pub fn main() -> Result<(), String>{
         mat: Material::basic()
             .as_dielectric()
             .with_absorption(Vec3 { x: 0.8, y: 0.3, z: 0.3 })
+            .with_refraction(AIR_REFRACTION)
     }.add(&mut scene);
 
     Sphere{
@@ -140,6 +160,7 @@ pub fn main() -> Result<(), String>{
         mat: Material::basic()
             .as_dielectric()
             .with_absorption(Vec3 { x: 0.8, y: 0.3, z: 0.3 })
+            .with_refraction(AIR_REFRACTION)
     }.add(&mut scene);
 
     Sphere{
@@ -148,6 +169,7 @@ pub fn main() -> Result<(), String>{
         mat: Material::basic()
             .as_dielectric()
             .with_absorption(Vec3 { x: 0.8, y: 0.3, z: 0.3 })
+            .with_refraction(AIR_REFRACTION)
     }.add(&mut scene);
 
     Light{
