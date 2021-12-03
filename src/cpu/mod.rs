@@ -99,7 +99,7 @@ pub fn whitted(
                         }
                     };
 
-                    let mut col = whitted_trace_hit(ray, scene, tex_params, textures, MAX_RENDER_DEPTH);
+                    let mut col = whitted_trace(ray, scene, tex_params, textures, MAX_RENDER_DEPTH);
                     col.pow_scalar(1.0 / GAMMA);
                     strip[xx + yy * rw].add(col);
                 }
@@ -253,13 +253,8 @@ fn is_inbound(ray: &Ray, hit: &RayHit) -> bool {
     ray.dir.dot(hit.nor) < 0.0
 }
 
-fn whitted_trace_hit(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> Vec3{
-    // Retrieve color for given hit in the scene.
+fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> Vec3{
     let mut hit = inter_scene(ray, scene);
-    whitted_trace_color(&ray, &mut hit, scene, tps, ts, depth)
-}
-
-fn whitted_trace_color(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> Vec3 {
     if depth == 0 || hit.is_null() {
         return get_sky_col(ray.dir, scene, tps, ts);
     }
@@ -362,8 +357,7 @@ fn whitted_trace_color(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], 
                 absorption: Vec3::BLACK
             }
         };
-
-        whitted_trace_hit(ray_next, scene, tps, ts, depth - 1)
+        whitted_trace(ray_next, scene, tps, ts, depth - 1)
     } else { Vec3::BLACK };
 
     // reflection
@@ -375,7 +369,7 @@ fn whitted_trace_color(ray: &Ray, hit: &mut RayHit, scene: &Scene, tps: &[u32], 
             refr: ray.refr,
             absorption: ray.absorption,
         };
-        whitted_trace_hit(ray_next, scene, tps, ts, depth - 1).scaled(reflectivity)
+        whitted_trace(ray_next, scene, tps, ts, depth - 1).scaled(reflectivity)
     } else { Vec3::BLACK };
 
     let color = (diff).scaled(1.0 - reflectivity - transparency)
