@@ -4,6 +4,7 @@ use crate::misc::{ Incrementable, build_vec, make_nonzero_len };
 use crate::info::Info;
 
 use std::collections::HashMap;
+use crate::consts::*;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Contexts {

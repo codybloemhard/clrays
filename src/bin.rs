@@ -11,16 +11,7 @@ use clr::trace_tex::{ TexType };
 use clr::state::{ State, log_update_fn, fps_input_fn };
 
 use sdl2::keyboard::Keycode;
-
-pub const AIR_ABSORPTION : Vec3 = Vec3 {x: 0.01, y: 0.01, z: 0.01 };
-pub const AIR_REFRACTION : f32 = 1.0;
-pub const WATER_ABSORPTION : Vec3 = Vec3 {x: 0.49, y: 0.1, z: 0.04 };
-pub const WATER_REFRACTION : f32 = 1.33;
-
-const EPSILON: f32 = 0.001;
-const USE_WATERFLOOR : bool = false;
-// const USE_WATERFLOOR : bool = true;
-
+use clrays_rs::consts::*;
 
 pub fn main() -> Result<(), String>{
     // clr::test(clr::test_platform::PlatformTest::OpenCl2);
@@ -124,11 +115,11 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     Sphere{
-        pos: Vec3::new(-4.0, 0.0, -5.0),
+        pos: Vec3::new(3.0, 3.0, -5.0),
         rad: 1.0 - EPSILON,
         mat: Material::basic()
             .as_dielectric()
-            .with_refraction(2.0)
+            .with_refraction(0.7)
     }.add(&mut scene);
 
     Sphere{
@@ -136,13 +127,21 @@ pub fn main() -> Result<(), String>{
         rad: 1.0 - EPSILON,
         mat: Material::basic()
             .as_dielectric()
-            .with_refraction(0.5)
+            .with_refraction(1.6)
     }.add(&mut scene);
     Sphere{
         pos: Vec3::new(-0.0, 3.0, -5.0),
         rad: 0.95 - EPSILON,
         mat: Material::basic()
             .as_dielectric()
+    }.add(&mut scene);
+
+    Sphere{
+        pos: Vec3::new(-3.0, 3.0, -5.0),
+        rad: 1.0 - EPSILON,
+        mat: Material::basic()
+            .as_dielectric()
+            .with_refraction(2.0)
     }.add(&mut scene);
 
     Sphere{
@@ -184,9 +183,9 @@ pub fn main() -> Result<(), String>{
     let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L));
     // let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O));
 
-    let (w, h) = (960, 540);
+    // let (w, h) = (960, 540);
     // let (w, h) = (1600, 900);
-    // let (w, h) = (1920, 1080);
+    let (w, h) = (1920, 1080);
 
     // let mut tracer = unpackdb!(trace_processor::RealTracer::new((w, h), &mut scene, &mut info), "Could not create RealTracer!");
     // let mut tracer = unpackdb!(trace_processor::AaTracer::new((w, h), 2, &mut scene, &mut info), "Could not create AaTracer!");

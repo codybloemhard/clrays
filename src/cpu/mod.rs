@@ -5,16 +5,7 @@ use crate::state::{ RenderMode, State };
 
 use rand::prelude::*;
 use crate::trace_tex::TexType::Vector3c8bpc;
-
-const MAX_RENDER_DEPTH: u8 = 5;
-const GAMMA: f32 = 2.2;
-const PI: f32 = std::f32::consts::PI;
-const FRAC_2_PI: f32 = 0.5 * std::f32::consts::PI;
-const FRAC_4_PI: f32 = 0.25 * std::f32::consts::PI;
-const MAX_RENDER_DIST: f32 = 1000000.0;
-const EPSILON: f32 = 0.001;
-const AMBIENT: f32 = 0.05;
-pub const AIR_REFRACTION : f32 = 1.0;
+use crate::consts::*;
 
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::many_single_char_names)]
@@ -327,6 +318,20 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, con
         } else {
             contexts.clone().popped()
         };
+        // // --- Disabled bug-fix ---
+        // // Outbound hit with any object, excluding sphere, in the scene
+        // let mut hitx = RayHit::NULL;
+        // let mut hit_self = RayHit::NULL;
+        // for plane in &scene.planes { inter_plane(ray_next, plane, &mut hitx); }
+        // for s in &scene.spheres {
+        //     inter_sphere(ray_next, &s, &mut hitx);
+        //     if !s.pos.eq(&sphere.pos) {
+        //
+        //     } else {
+        //
+        //     }
+        // }
+        //
         whitted_trace(ray_next, scene, tps, ts, depth - 1, contexts_next).scaled(transparency)
     } else { Vec3::BLACK };
 
