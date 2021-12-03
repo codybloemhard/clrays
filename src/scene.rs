@@ -5,12 +5,17 @@ use crate::info::Info;
 
 use std::collections::HashMap;
 
+pub const AIR_ABSORPTION : Vec3 = Vec3 {x: 0.01, y: 0.01, z: 0.01 };
+pub const AIR_REFRACTION : f32 = 1.0;
+pub const WATER_ABSORPTION : Vec3 = Vec3 {x: 0.09, y: 0.02, z: 0.01 };
+pub const WATER_REFRACTION : f32 = 1.33;
+
 pub struct Material{
     pub col: Vec3,
     pub absorption: Vec3,
     pub reflectivity: f32,
     pub transparency: f32,
-    pub refraction: f32, // refraction_index
+    pub refraction: f32,
     pub roughness: f32,
     pub texture: u32,
     pub normal_map: u32,
@@ -33,7 +38,7 @@ impl Material{
     pub fn basic() -> Self{
         Self{
             col: Vec3::ONE.unhardened(0.05),
-            absorption: Vec3::WHITE,
+            absorption: Vec3::BLACK,
             reflectivity: 0.0,
             transparency: 0.0,
             refraction: 1.0,
@@ -88,7 +93,7 @@ impl Material{
         self
     }
 
-    pub fn as_dielectic(mut self) -> Self{
+    pub fn as_dielectric(mut self) -> Self{
         self.is_dielectric = true;
         self
     }

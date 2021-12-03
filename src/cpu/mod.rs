@@ -1,11 +1,12 @@
-use crate::scene::{Scene, Material, Sphere, Plane};
+#![feature(destructuring_assignment)]
+use crate::scene::{Scene, Material, Sphere, Plane, WATER_REFRACTION, WATER_ABSORPTION, AIR_REFRACTION, AIR_ABSORPTION};
 use crate::vec3::Vec3;
 use crate::state::{ RenderMode, State };
 
 use rand::prelude::*;
 use crate::trace_tex::TexType::Vector3c8bpc;
 
-const MAX_RENDER_DEPTH: u8 = 5;
+const MAX_RENDER_DEPTH: u8 = 9;
 const GAMMA: f32 = 2.2;
 const PI: f32 = std::f32::consts::PI;
 const FRAC_2_PI: f32 = 0.5 * std::f32::consts::PI;
@@ -83,22 +84,7 @@ pub fn whitted(
                     to.add(hor.scaled(uv.x));
                     to.add(ver.scaled(uv.y));
 
-                    let ray = if let Some(sphere) = inside(pos, &scene.spheres) {
-                        Ray {
-                            pos: pos,
-                            dir: to.subed(pos).normalized_fast(),
-                            refr: sphere.mat.refraction,
-                            absorption: sphere.mat.absorption
-                        }
-                    } else {
-                        Ray {
-                            pos: pos,
-                            dir: to.subed(pos).normalized_fast(),
-                            refr: 1.0,
-                            absorption: Vec3::BLACK
-                        }
-                    };
-
+                    let ray = Ray { pos: pos, dir: to.subed(pos).normalized_fast() };
                     let mut col = whitted_trace(ray, scene, tex_params, textures, MAX_RENDER_DEPTH);
                     col.pow_scalar(1.0 / GAMMA);
                     strip[xx + yy * rw].add(col);
@@ -180,86 +166,62 @@ fn inside(pos: Vec3, spheres: &Vec<Sphere>) -> Option<&Sphere>{
 }
 
 #[inline]
-fn absorption(color: &Vec3, absorption: &Vec3, d: f32) -> Vec3 {
-    Vec3 {
-        x: color.x * ((1.0-absorption.x).ln() * d).exp(),
-        y: color.y * ((1.0-absorption.y).ln() * d).exp(),
-        z: color.z * ((1.0-absorption.z).ln() * d).exp(),
+fn absorp(color: &Vec3, absorption: &Vec3, d: f32) -> Vec3 {
+    if absorption.eq(&Vec3::BLACK) {
+        *color
+    } else {
+        Vec3 {
+            x: color.x * ((1.0-absorption.x).ln() * d).exp(),
+            y: color.y * ((1.0-absorption.y).ln() * d).exp(),
+            z: color.z * ((1.0-absorption.z).ln() * d).exp(),
+        }
     }
 }
 
-fn resolve_dielectric(ray: &Ray, hit: &RayHit) -> (f32, Vec3){
-    let ni;
-    let nt;
-    let dir = ray.dir;
-    let normal;
-    if is_inbound(ray, hit) {
-        ni = ray.refr;
-        nt = hit.refr;
-        normal = hit.nor;
-    } else {
-        ni = hit.refr;
-        nt = 1.0;
-        normal = hit.nor.neged();
-    }
-
-    if ni == nt {
-        // No refraction nor reflection
-        return (0.0, ray.dir)
-    }
+/// reflectivity and (refracted) ray direction
+fn resolve_dielectric(ni: f32, nt: f32, dir: Vec3, normal: Vec3) -> (f32, Vec3){
+    // same medium
+    if ni == nt { return (0.0, dir) }
 
     let n = ni / nt;
-
     let cos_oi = normal.dot(dir.neged());
     let cos_oi2 = cos_oi*cos_oi;
-
     let sin_oi2 = 1.0 - cos_oi2;
-    // let sin_oi = sin_oi2.sqrt();
-
     let sin_ot2 = n*n*sin_oi2;
-    // let sin_ot = sin_oi2.sqrt();
 
-    if 1.0 - sin_ot2 < 0.0 {
-        // Full internal reflection
-        return (1.0, Vec3::ZERO);
-    }
+    // full internal reflection
+    if 1.0 - sin_ot2 < 0.0 { return (1.0, Vec3::ZERO); }
 
     let cos_ot2= 1.0 - sin_ot2;
     let cos_ot = cos_ot2.sqrt();
-
     let dir_t = normal.scaled(-cos_oi);
     let dir_p = dir.clone().subed(dir_t);
-
     let refr_t = normal.scaled(-(1.0-sin_ot2).sqrt());
     let refr_p = dir_p.scaled(n);
-
     let dir_refr = refr_p.added(refr_t);
 
-    // Compute amount of reflection due to invalshoek
+    // fresnell
     let _a1 = (ni * cos_oi - nt * cos_ot) /
               (ni * cos_oi + nt * cos_ot);
     let _a2 = (ni * cos_ot - nt * cos_oi) /
               (ni * cos_ot + nt * cos_oi);
     let s_polarized = _a1 * _a1;
     let p_polarized = _a2 * _a2;
-
-    (
-        0.5 * (s_polarized + p_polarized),
-        dir_refr
-    )
+    ( 0.5 * (s_polarized + p_polarized), dir_refr )
 }
 
-fn is_inbound(ray: &Ray, hit: &RayHit) -> bool {
-    ray.dir.dot(hit.nor) < 0.0
-}
-
+/// trace light ray through scene
 fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> Vec3{
     let mut hit = inter_scene(ray, scene);
     if depth == 0 || hit.is_null() {
         return get_sky_col(ray.dir, scene, tps, ts);
     }
-
+    let is_inbound = ray.dir.dot(hit.nor) < 0.0;
+    // let is_underwater = depth == MAX_RENDER_DEPTH && ray.pos.y < 10.0;
     let mat = hit.mat.unwrap();
+    let refraction = mat.refraction;
+    let absorption = mat.absorption;
+    let normal = if is_inbound { hit.nor } else { hit.nor.neged() };
     let mut reflectivity = mat.reflectivity;
     let mut transparency = mat.transparency;
 
@@ -283,6 +245,7 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> 
         (0.0, 0.0)
     };
 
+    // checkerboard custom texture
     if mat.is_checkerboard{
         texcol = if ((uv.0.floor()*3.0) as i32 + (uv.1.floor()*3.0) as i32) % 2 == 0 { Vec3::BLACK } else { Vec3::WHITE }
     } else if mat.texture > 0{
@@ -327,48 +290,39 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> 
     let (mut diff, spec) = blinn(&hit, mat, roughness, scene, ray.dir);
     diff.mul(texcol);
 
-
     // dielectric: transparency / refraction and reflection
     let mut transparency_dir = ray.dir;
     if mat.is_dielectric  {
-        let (r, dir_refr) = resolve_dielectric(ray, hit);
-        transparency_dir = dir_refr;
-        reflectivity = r;
-        transparency = 1.0 - r;
+        let ni;
+        let nt;
+        if is_inbound {
+            // ni = if is_underwater { WATER_REFRACTION } else { AIR_REFRACTION };
+            ni = AIR_REFRACTION;
+            nt = refraction;
+        } else {
+            ni = refraction;
+            nt = AIR_REFRACTION;
+        }
+        (reflectivity, transparency_dir) = resolve_dielectric(ni, nt, ray.dir, normal);
+        transparency = 1.0 - reflectivity;
     }
 
     // transparency / refraction
     let tran = if transparency > EPSILON {
-        let normal = if is_inbound(ray,hit) { hit.nor } else { hit.nor.neged() };
-        let ray_next = if is_inbound(ray, hit) {
-            // Move into object
-            Ray{
-                pos: hit.pos.subed(normal.scaled(EPSILON)),
-                dir: transparency_dir,
-                refr: if hit.mat.is_some() { hit.mat.unwrap().refraction } else { 1.0 },
-                absorption: if hit.mat.is_some() { hit.mat.unwrap().absorption } else { Vec3::BLACK },
-            }
+        let ray_next = Ray{ pos: hit.pos.subed(normal.scaled(EPSILON)), dir: transparency_dir };
+        let color_next = whitted_trace(ray_next, scene, tps, ts, depth - 1).scaled(transparency);
+        let hit_next = inter_scene(ray_next, scene);
+        let is_inbound_next = ray_next.dir.dot(hit_next.nor) < 0.0;
+        if is_inbound_next {
+            absorp(&color_next, &absorption, hit_next.t)
         } else {
-            // Move into air
-            Ray{
-                pos: hit.pos.subed(normal.scaled(EPSILON)),
-                dir: transparency_dir,
-                refr: 1.0,
-                absorption: Vec3::BLACK
-            }
-        };
-        whitted_trace(ray_next, scene, tps, ts, depth - 1)
+            color_next
+        }
     } else { Vec3::BLACK };
 
     // reflection
     let refl = if reflectivity > EPSILON {
-        let normal = if is_inbound(ray,hit) { hit.nor } else { hit.nor.neged() };
-        let ray_next = Ray{
-            pos: hit.pos.added(normal.scaled(EPSILON)),
-            dir: ray.dir.reflected(normal),
-            refr: ray.refr,
-            absorption: ray.absorption,
-        };
+        let ray_next = Ray{ pos: hit.pos.added(normal.scaled(EPSILON)), dir: ray.dir.reflected(normal) };
         whitted_trace(ray_next, scene, tps, ts, depth - 1).scaled(reflectivity)
     } else { Vec3::BLACK };
 
@@ -377,12 +331,21 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8) -> 
         .added(tran)
         .added(refl);
 
-    absorption(&color, &ray.absorption, hit.t)
+    if is_inbound {
+        // if is_underwater {
+        //     absorp(&color, &WATER_ABSORPTION, hit.t)
+        // } else {
+        // absorp(&color, &AIR_ABSORPTION, hit.t)
+        // }
+        color
+    } else {
+        absorp(&color, &absorption, hit.t)
+    }
 }
 
 // SHADING ------------------------------------------------------------
 
-// get diffuse light incl colour of hit with all lights
+/// get diffuse light incl colour of hit with all lights
 fn blinn(hit: &RayHit, mat: &Material, roughness: f32, scene: &Scene, viewdir: Vec3) -> (Vec3, Vec3){
     let mut col = Vec3::ONE.scaled(AMBIENT);
     let mut spec = Vec3::ZERO;
@@ -394,7 +357,7 @@ fn blinn(hit: &RayHit, mat: &Material, roughness: f32, scene: &Scene, viewdir: V
     (col.muled(mat.col), spec.scaled(1.0 - roughness))
 }
 
-// get diffuse light strength for hit for a light
+/// get diffuse light strength for hit for a light
 fn blinn_single(roughness: f32, lpos: Vec3, lpow: f32, viewdir: Vec3, hit: &RayHit, scene: &Scene) -> (f32, f32){
     let mut to_l = Vec3::subed(lpos, hit.pos);
     let dist = Vec3::len(to_l);
@@ -410,7 +373,7 @@ fn blinn_single(roughness: f32, lpos: Vec3, lpow: f32, viewdir: Vec3, hit: &RayH
         return (0.0, 0.0);
     }
     // exposed to light or not
-    let lray = Ray { pos: hit.pos.added(hit.nor.scaled(EPSILON)), dir: to_l, refr: 1.0, absorption: Vec3::BLACK };
+    let lray = Ray { pos: hit.pos.added(hit.nor.scaled(EPSILON)), dir: to_l };
     let lhit = inter_scene(lray, scene);
     if !lhit.is_null() && lhit.t < dist{
         return (0.0, 0.0);
@@ -454,16 +417,6 @@ const UV_SPHERE: u8 = 1;
 struct Ray{
     pub pos: Vec3,
     pub dir: Vec3,
-    pub refr: f32,
-    pub absorption: Vec3
-}
-impl Ray{
-    pub const NULL: Self = Ray{
-        pos: Vec3::ZERO,
-        dir: Vec3::ZERO,
-        refr: 1.0,
-        absorption: Vec3::WHITE,
-    };
 }
 
 #[derive(Clone)]
@@ -473,7 +426,6 @@ struct RayHit<'a>{
     pub t: f32,
     pub mat: Option<&'a Material>,
     pub uvtype: u8,
-    pub refr: f32,
 }
 
 impl RayHit<'_>{
@@ -483,7 +435,6 @@ impl RayHit<'_>{
         t: MAX_RENDER_DIST,
         mat: None,
         uvtype: 255,
-        refr: 1.0,
     };
 
     #[inline]
@@ -511,7 +462,6 @@ fn inter_sphere<'a>(ray: Ray, sphere: &'a Sphere, closest: &mut RayHit<'a>){
     closest.nor = Vec3::subed(closest.pos, sphere.pos).scaled(1.0 / sphere.rad);
     closest.mat = Some(&sphere.mat);
     closest.uvtype = UV_SPHERE;
-    closest.refr = sphere.mat.refraction;
 }
 
 // ray-plane intersection
@@ -528,7 +478,6 @@ fn inter_plane<'a>(ray: Ray, plane: &'a Plane, closest: &mut RayHit<'a>){
     closest.nor = plane.nor;
     closest.mat = Some(&plane.mat);
     closest.uvtype = UV_PLANE;
-    closest.refr = plane.mat.refraction;
 }
 
 // intersect whole scene
@@ -645,45 +594,6 @@ mod test {
         let sin_oi2 = 1.0 - cos_oi * cos_oi;
         assert_small(sin_oi, sin_oi2.sqrt());
     }
-
-    // #[test]
-    // fn test_computing_angles_opposite_no_refraction() {
-    //     let dir = Vec3::DOWN;
-    //     let normal = Vec3::UP;
-    //     let n = 1.0;
-    //     let cos_oi = dir.neged().dot(normal);
-    //     let cos_oi2 = cos_oi*cos_oi;
-    //     assert_small(cos_oi, 1.0);
-    //     let sin_oi2 = 1.0 - cos_oi * cos_oi;
-    //     let sin_oi = sin_oi2.sqrt();
-    //     assert_small(sin_oi, 0.0);
-    //     let sin_ot2 = n*n*sin_oi2;
-    //     let sin_ot = sin_oi2.sqrt();
-    //     assert_small(sin_ot, 0.0);
-    //     let cos_ot2= 1.0 - sin_ot2;
-    //     let cos_ot = cos_ot2.sqrt();
-    //     assert_small(cos_ot, 1.0);
-    //
-    //     // let dir_refr = dir.scaled(n).subed(normal.scaled(n - cos_ot));
-    //     // (n * dir) - (   ( n + sqrt(1.0 - sinT2) ) * normal
-    //     // dir.scaled(n).subed( normal.scaled( n + (1.0 - sin_ot2).sqrt() )
-    //
-    //     // let dir_refr = dir.neged().scaled(n).subed(normal.scaled(n + cos_ot));
-    //
-    //     let ray_p = dir.subed(normal.scaled(cos_oi));
-    //     let ray_t = dir.subed(ray_p);
-    //
-    //     let refr_p = ray_p.scaled(n);
-    //     let refr_t = normal.scaled((1.0-sin_oi2).sqrt());
-    //
-    //     assert_eq!(ray_p,refr_p);
-    //     assert_eq!(ray_t,refr_t);
-    //
-    //     let dir_refr = refr_p.added(refr_t);
-    //
-    //     assert_eq!(dir,dir_refr);
-    // }
-    //
     #[test]
     fn test_computing_angles_opposite_half_refraction_stupid() {
         let dir = Vec3::DOWN;
@@ -702,12 +612,6 @@ mod test {
         let cos_ot = cos_ot2.sqrt();
         assert_small(cos_ot, 1.0);
 
-        // let dir_refr = dir.scaled(n).subed(normal.scaled(n - cos_ot));
-        // (n * dir) - (   ( n + sqrt(1.0 - sinT2) ) * normal
-        // dir.scaled(n).subed( normal.scaled( n + (1.0 - sin_ot2).sqrt() )
-
-        // let dir_refr = dir.neged().scaled(n).subed(normal.scaled(n + cos_ot));
-
         let dir_t = normal.scaled(-cos_oi);
         let dir_p = dir.clone().subed(dir_t);
 
@@ -723,7 +627,7 @@ mod test {
     }
 
     #[test]
-    fn test_computing_angles_45_deg_no_refraction_stupid() {
+    fn test_computing_angles_45_deg_no_refraction_all_steps() {
         let dir = Vec3 {x: FRAC_4_PI.cos(), y: -FRAC_4_PI.sin(), z: 0.0};
         let normal = Vec3::UP;
         let n = 1.0;
@@ -755,30 +659,14 @@ mod test {
     }
 
     #[test]
-    fn test_computing_angles_45_deg_half_refraction_stupid() {
+    fn test_computing_angles_45_deg_half_refraction_function() {
         let dir = Vec3 {x: FRAC_4_PI.cos(), y: -FRAC_4_PI.sin(), z: 0.0};
         let normal = Vec3::UP;
-        let n = 0.5;
+        let ni = 0.5;
+        let nt = 1.0;
+        let n = ni/nt ;
 
-        let cos_oi = dir.neged().dot(normal);
-        let cos_oi2 = cos_oi*cos_oi;
-
-        let sin_oi2 = 1.0 - cos_oi * cos_oi;
-        let sin_oi = sin_oi2.sqrt();
-
-        let sin_ot2 = n*n*sin_oi2;
-        let sin_ot = sin_oi2.sqrt();
-
-        let cos_ot2= 1.0 - sin_ot2;
-        let cos_ot = cos_ot2.sqrt();
-
-        let dir_t = normal.scaled(-cos_oi);
-        let dir_p = dir.clone().subed(dir_t);
-
-        let refr_t = normal.scaled(-(1.0-sin_ot2).sqrt());
-        let refr_p = dir_p.scaled(n);
-
-        let dir_refr = refr_p.added(refr_t);
+        let (_, dir_refr) = resolve_dielectric(ni, nt, dir, normal);
 
         // Check
         let x = n*dir.x;
@@ -786,63 +674,7 @@ mod test {
         assert_eq!(Vec3 {x: x, y: -y, z: 0.0},dir_refr);
     }
 
-    #[test]
-    fn test_computing_angles_45_deg_half_refraction_simplified() {
-        let dir = Vec3 {x: FRAC_4_PI.cos(), y: -FRAC_4_PI.sin(), z: 0.0};
-        let normal = Vec3::UP;
-        let n = 0.5;
-
-        let cos_oi = dir.neged().dot(normal);
-        let cos_oi2 = cos_oi*cos_oi;
-
-        let sin_oi2 = 1.0 - cos_oi2;
-        // let sin_oi = sin_oi2.sqrt();
-
-        let sin_ot2 = n*n*sin_oi2;
-        // let sin_ot = sin_oi2.sqrt();
-
-        // let cos_ot2= 1.0 - sin_ot2;
-        // let cos_ot = cos_ot2.sqrt();
-
-        let dir_t = normal.scaled(-cos_oi);
-        let dir_p = dir.clone().subed(dir_t);
-
-        let refr_t = normal.scaled(-(1.0-sin_ot2).sqrt());
-        let refr_p = dir_p.scaled(n);
-
-        let dir_refr = refr_p.added(refr_t);
-
-        // Check
-        let x = n*dir.x;
-        let y = (1.0-x*x).sqrt();
-        assert_eq!(Vec3 {x: x, y: -y, z: 0.0},dir_refr);
-    }
-
-    // #[test]
-    // fn test_ray_dir_unchanged_when_similar_refraction_indices() {
-    //     let ray = Ray {
-    //         pos: Vec3::BLACK,
-    //         dir: Vec3::DOWN,
-    //         refr: 1.0
-    //     };
-    //     let mut hit = RayHit::NULL;
-    //     hit.nor = Vec3::UP;
-    //
-    //     let mat = Material::basic()
-    //         .with_refraction(1.0)
-    //         .with_dielectic(Dielectric {
-    //             refraction: 1.0,
-    //             absorption: Vec3 { x: 1.0, y: 1.0, z: 1.0 }
-    //         });
-    //     hit.mat = Some(&mat);
-    //     hit.refr = mat.refraction;
-    //     // let hit
-    //     let (reflectivity, ray_refracted) = resolve_dielectric(&ray, &hit);
-    //     // if !ray_refracted.dir.eq(&ray.dir) {}
-    //     assert_eq!(ray.dir, ray_refracted.dir);
-    // }
     #[test]
     fn test_full_internal_reflection() {
-        // assert_eq!(true);
     }
 }
