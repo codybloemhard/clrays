@@ -21,6 +21,8 @@ pub fn whitted(
 
     let rw = w / reduce;
     let rh = h / reduce;
+    let pixels = usize::min(rw, rh);
+    let radius = pixels as f32 * 0.5;
 
     if reduce != 1 || state.aa_count == 0 {
         acc.iter_mut().take(rw * rh).for_each(|v| *v = Vec3::ZERO);
@@ -61,25 +63,56 @@ pub fn whitted(
                 let uv_dist = (aspect / 2.0) / (scene.cam.fov / 2.0 * 0.01745329).tan();
                 let mut seed = seed;
 
+                // Camera direction in spherical coordinates, phi (x dir) and theta (z dir)
+                let phi_mid = f32::atan2(cd.x,-cd.z);
+                let theta_mid = cd.y.asin();
+                let angle = scene.cam.angle_radius;
+                let is_wide = angle > 0.0;
+
                 for xx in 0..rw{
                 for yy in 0..strip_h{
                     let x = xx;
                     let y = yy + offset;
-                    let hor = cd.crossed(Vec3::UP).normalized_fast();
-                    let ver = hor.crossed(cd).normalized_fast();
                     let aa_u = u32tf01(xor32(&mut seed));
                     let aa_v = u32tf01(xor32(&mut seed));
-                    let mut uv = Vec3::new((x as f32 + aa_u) / rw as f32, (y as f32 + aa_v) / rh as f32, 0.0);
-                    uv.add_scalar(-0.5);
-                    uv.mul(Vec3::new(aspect, -1.0, 0.0));
-                    let mut to = pos.added(cd.scaled(uv_dist));
-                    to.add(hor.scaled(uv.x));
-                    to.add(ver.scaled(uv.y));
 
-                    let ray = Ray { pos: pos, dir: to.subed(pos).normalized_fast() };
-                    let contexts = Contexts::new();
-                    let mut col = whitted_trace(ray, scene, tex_params, textures, MAX_RENDER_DEPTH, contexts);
-                    col.pow_scalar(1.0 / GAMMA);
+                    let hor = cd.crossed(Vec3::UP).normalized_fast();
+                    let ver = hor.crossed(cd).normalized_fast();
+
+                    let dir = if !is_wide { // normal
+                        let mut uv = Vec3::new((x as f32 + aa_u) / rw as f32, (y as f32 + aa_v) / rh as f32, 0.0);
+                        uv.add_scalar(-0.5);
+                        uv.mul(Vec3::new(aspect, -1.0, 0.0));
+                        let mut to = pos.added(cd.scaled(uv_dist));
+                        to.add(hor.scaled(uv.x));
+                        to.add(ver.scaled(uv.y));
+                        to.subed(pos).normalized_fast()
+                    } else {
+                        // wide-angle
+                        let dx = (x as f32 + aa_u) / rw as f32 - 0.5;
+                        let dy = (y as f32 + aa_v) / rh as f32 - 0.5;
+                        let phi = phi_mid + dx * angle * 2.0;
+                        let theta = theta_mid - dy * angle * 2.0;
+                        Vec3{
+                            x: theta.cos()*phi.sin(),
+                            y: theta.sin(),
+                            z: -theta.cos()*phi.cos()
+                        }.normalized_fast()
+                    };
+
+                    let offset_x = x as f32 - rw as f32 * 0.5;
+                    let offset_y = y as f32 - rh as f32 * 0.5;
+                    let offset_len = (offset_x*offset_x + offset_y*offset_y).sqrt();
+                    let col = if is_wide && offset_len > radius{
+                        // circular screen
+                        Vec3::BLACK
+                    } else {
+                        let ray = Ray { pos, dir };
+                        let contexts = Contexts::new();
+                        let mut col = whitted_trace(ray, scene, tex_params, textures, MAX_RENDER_DEPTH, contexts);
+                        col.pow_scalar(1.0 / GAMMA);
+                        col
+                    };
                     strip[xx + yy * rw].add(col);
                 }
                 }
@@ -578,11 +611,16 @@ mod test {
     use crate::vec3::Vec3;
     use crate::cpu::{Ray, resolve_dielectric, RayHit, EPSILON, FRAC_4_PI};
     use crate::scene::Material;
+    use crate::consts::{FRAC_2_PI, PI};
 
     fn assert_small(a:f32,b:f32) {
-        if (a-b).abs() > EPSILON {
-            panic!("{} != {}", a,b);
-        }
+        if (a-b).abs() > EPSILON { panic!("{} != {}", a,b); }
+    }
+
+    fn assert_small_vec(a: Vec3, b: Vec3) {
+        if (a.x-b.x).abs() > EPSILON { panic!("{:?} != {:?}", a,b); }
+        if (a.y-b.y).abs() > EPSILON { panic!("{:?} != {:?}", a,b); }
+        if (a.z-b.z).abs() > EPSILON { panic!("{:?} != {:?}", a,b); }
     }
 
     #[test]
@@ -682,6 +720,144 @@ mod test {
         let x = n*dir.x;
         let y = (1.0-x*x).sqrt();
         assert_eq!(Vec3 {x: x, y: -y, z: 0.0},dir_refr);
+    }
+
+    #[test]
+    fn angles() {
+        let cd = Vec3::BACKWARD;
+        let angle_radius = FRAC_2_PI;
+
+        let phi_mid = f32::atan2(cd.x,-cd.z);
+        let theta_mid = cd.y.asin();
+        assert_eq!(phi_mid, 0.0);
+        assert_eq!(theta_mid, 0.0);
+
+        // left
+        let dx = -0.5;
+        let dy = 0.0;
+        let phi = phi_mid - dx * angle_radius * 2.0;
+        let theta = theta_mid + dy * angle_radius * 2.0;
+        let phi = if theta.abs() > FRAC_2_PI {
+            phi + PI
+        } else { phi };
+
+        let dir = Vec3{
+            x: theta.cos()*phi.sin(),
+            y: theta.sin(),
+            z: -theta.cos()*phi.cos()
+        }.normalized_fast();
+
+        assert_small_vec(dir, Vec3::LEFT);
+
+        // right
+        let dx = 0.5;
+        let dy = 0.0;
+        let phi = phi_mid - dx * angle_radius * 2.0;
+        let theta = theta_mid + dy * angle_radius * 2.0;
+        let phi = if theta.abs() > FRAC_2_PI {
+            phi + PI
+        } else { phi };
+
+        let dir = Vec3{
+            x: theta.cos()*phi.sin(),
+            y: theta.sin(),
+            z: -theta.cos()*phi.cos()
+        }.normalized_fast();
+
+        assert_small_vec(dir, Vec3::RIGHT);
+
+        // up
+        let dx = 0.0;
+        let dy = 0.5;
+        let phi = phi_mid - dx * angle_radius * 2.0;
+        let theta = theta_mid + dy * angle_radius * 2.0;
+        let phi = if theta.abs() > FRAC_2_PI {
+            phi + PI
+        } else { phi };
+
+        let dir = Vec3{
+            x: theta.cos()*phi.sin(),
+            y: theta.sin(),
+            z: -theta.cos()*phi.cos()
+        }.normalized_fast();
+
+        assert_small_vec(dir, Vec3::UP);
+
+        // down
+        let dx = 0.0;
+        let dy = -0.5;
+        let phi = phi_mid - dx * angle_radius * 2.0;
+        let theta = theta_mid + dy * angle_radius * 2.0;
+        let phi = if theta.abs() > FRAC_2_PI {
+            phi + PI
+        } else { phi };
+
+        let dir = Vec3{
+            x: theta.cos()*phi.sin(),
+            y: theta.sin(),
+            z: -theta.cos()*phi.cos()
+        }.normalized_fast();
+
+        assert_small_vec(dir, Vec3::DOWN);
+    }
+
+    #[test]
+    fn screen_pos() {
+        let rw = 1200.0;
+        let rh = 1000.0;
+        // middle
+        let xx = 600.0;
+        let yy = 500.0;
+        let dx = xx / rw - 0.5;
+        let dy = yy / rh - 0.5;
+        assert_small(dx, 0.0);
+        assert_small(dy, 0.0);
+        // left
+        let xx = 000.0;
+        let yy = 500.0;
+        let dx = xx / rw - 0.5;
+        let dy = yy / rh - 0.5;
+        assert_small(dx, -0.5);
+        assert_small(dy, 0.0);
+        // top
+        let xx = 600.0;
+        let yy = 1000.0;
+        let dx = xx / rw - 0.5;
+        let dy = yy / rh - 0.5;
+        assert_small(dx, 0.0);
+        assert_small(dy, 0.5);
+    }
+
+    #[test]
+    fn circular_screen() {
+        let rw = 1200.0;
+        let rh = 1000.0;
+        let pixels = f32::min(rw, rh);
+        let radius = pixels * 0.5;
+        // middle
+        let xx = 600.0;
+        let yy = 500.0;
+        let offset_x = xx - rw * 0.5;
+        let offset_y = yy - rh * 0.5;
+        let offset_len = (offset_x*offset_x + offset_y*offset_y).sqrt();
+        let is_black = offset_len > radius;
+        assert_eq!(is_black, false);
+        // left
+        let xx = 000.0;
+        let yy = 500.0;
+        let offset_x = xx - rw * 0.5;
+        let offset_y = yy - rh * 0.5;
+        let offset_len = (offset_x*offset_x + offset_y*offset_y).sqrt();
+        let is_black = offset_len > radius;
+        assert_eq!(is_black, true);
+        // top
+        let xx = 600.0;
+        let yy = 1000.0;
+        let offset_x = xx - rw * 0.5;
+        let offset_y = yy - rh * 0.5;
+        let offset_len = (offset_x*offset_x + offset_y*offset_y).sqrt();
+        let is_black = offset_len > radius;
+        assert_eq!(is_black, false);
     }
 
     #[test]

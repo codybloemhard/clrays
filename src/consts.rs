@@ -14,5 +14,5 @@ pub const WATER_REFRACTION : f32 = 1.33;
 pub const AIR_ABSORPTION : Vec3 = Vec3 {x: 0.01, y: 0.01, z: 0.01 };
 pub const AIR_REFRACTION : f32 = 1.0;
 
-// pub const USE_WATERFLOOR : bool = false;
 pub const USE_WATERFLOOR : bool = true;
+pub const USE_WIDE_ANGLE : bool = true;

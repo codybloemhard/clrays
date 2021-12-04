@@ -29,6 +29,7 @@ pub fn main() -> Result<(), String>{
         chromatic_aberration_shift: 2,
         chromatic_aberration_strength: 0.3,
         vignette_strength: 0.1,
+        angle_radius: if USE_WIDE_ANGLE { FRAC_2_PI } else { 0.0 }
     };
     scene.sky_col = Vec3::BLUE.unhardened(0.1);
     scene.add_texture("wood", "assets/textures/wood.png", TexType::Vector3c8bpc);
