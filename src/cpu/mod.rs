@@ -1,9 +1,8 @@
-use crate::scene::{Scene, Material, Sphere, Plane, Triangle, Contexts, Context};
+use crate::scene::{ Scene, Material, Sphere, Plane, Triangle, Contexts, Context };
 use crate::vec3::Vec3;
 use crate::state::{ RenderMode, State };
 
 use rand::prelude::*;
-use crate::trace_tex::TexType::Vector3c8bpc;
 use crate::consts::*;
 
 #[allow(clippy::too_many_arguments)]
@@ -198,15 +197,15 @@ fn u32tf01(int: u32) -> f32{
    int as f32 * 2.3283064e-10
 }
 
-#[inline]
-fn inside(pos: Vec3, spheres: &Vec<Sphere>) -> Option<&Sphere>{
-    for sphere in spheres {
-        if pos.dist(sphere.pos) <= sphere.rad {
-            return Some(sphere);
-        }
-    }
-    None
-}
+// #[inline]
+// fn inside(pos: Vec3, spheres: &Vec<Sphere>) -> Option<&Sphere>{
+//     for sphere in spheres {
+//         if pos.dist(sphere.pos) <= sphere.rad {
+//             return Some(sphere);
+//         }
+//     }
+//     None
+// }
 
 #[inline]
 fn absorp(color: &Vec3, absorption: &Vec3, d: f32) -> Vec3 {
@@ -221,7 +220,8 @@ fn absorp(color: &Vec3, absorption: &Vec3, d: f32) -> Vec3 {
     }
 }
 
-/// reflectivity and (refracted) ray direction
+// reflectivity and (refracted) ray direction
+#[inline]
 fn resolve_dielectric(ni: f32, nt: f32, dir: Vec3, normal: Vec3) -> (f32, Vec3){
     // same medium
     if ni == nt { return (0.0, dir) }
@@ -235,10 +235,10 @@ fn resolve_dielectric(ni: f32, nt: f32, dir: Vec3, normal: Vec3) -> (f32, Vec3){
     // full internal reflection
     if 1.0 - sin_ot2 < 0.0 { return (1.0, Vec3::ZERO); }
 
-    let cos_ot2= 1.0 - sin_ot2;
+    let cos_ot2 = 1.0 - sin_ot2;
     let cos_ot = cos_ot2.sqrt();
     let dir_t = normal.scaled(-cos_oi);
-    let dir_p = dir.clone().subed(dir_t);
+    let dir_p = dir.subed(dir_t);
     let refr_t = normal.scaled(-(1.0-sin_ot2).sqrt());
     let refr_p = dir_p.scaled(n);
     let dir_refr = refr_p.added(refr_t);
@@ -250,11 +250,11 @@ fn resolve_dielectric(ni: f32, nt: f32, dir: Vec3, normal: Vec3) -> (f32, Vec3){
               (ni * cos_ot + nt * cos_oi);
     let s_polarized = _a1 * _a1;
     let p_polarized = _a2 * _a2;
-    ( 0.5 * (s_polarized + p_polarized), dir_refr )
+    (0.5 * (s_polarized + p_polarized), dir_refr)
 }
 
 
-/// trace light ray through scene
+// trace light ray through scene
 fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, contexts: Contexts) -> Vec3{
     let mut hit = inter_scene(ray, scene);
     if depth == 0 || hit.is_null() {
@@ -356,7 +356,9 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, con
             ni = refraction;
             nt = refraction_context;
         }
-        (reflectivity, transparency_dir) = resolve_dielectric(ni, nt, ray.dir, normal);
+        let (new_ref, new_trans_dir) = resolve_dielectric(ni, nt, ray.dir, normal);
+        reflectivity = new_ref;
+        transparency_dir = new_trans_dir;
         transparency = 1.0 - reflectivity;
     }
 
@@ -364,9 +366,9 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, con
     let tran = if transparency > EPSILON {
         let ray_next = Ray{ pos: hit.pos.subed(normal.scaled(EPSILON)), dir: transparency_dir };
         let contexts_next = if is_inbound {
-                contexts.clone().pushed(Context { absorption, refraction })
+                contexts.pushed(Context { absorption, refraction })
         } else {
-            contexts.clone().popped()
+            contexts.popped()
         };
         // // --- Disabled bug-fix ---
         // // Outbound hit with any object, excluding sphere, in the scene
@@ -448,6 +450,7 @@ fn blinn_single(roughness: f32, lpos: Vec3, lpow: f32, viewdir: Vec3, hit: &RayH
 // UV's ------------------------------------------------------------
 
 // plane uv
+#[inline]
 fn plane_uv(pos: Vec3, nor: Vec3) -> (f32, f32){
     let u = Vec3::new(nor.y, nor.z, -nor.x);
     let v = Vec3::crossed(u, nor).normalized_fast();
@@ -455,6 +458,7 @@ fn plane_uv(pos: Vec3, nor: Vec3) -> (f32, f32){
 }
 
 // sphere uv
+#[inline]
 fn sphere_uv(nor: Vec3) -> (f32, f32){
     let u = 0.5 + (f32::atan2(-nor.z, -nor.x) / (2.0 * PI));
     let v = 0.5 - (f32::asin(-nor.y) / PI);
@@ -462,6 +466,7 @@ fn sphere_uv(nor: Vec3) -> (f32, f32){
 }
 
 // sphere skybox uv(just sphere uv with inverted normal)
+#[inline]
 fn sky_sphere_uv(nor: Vec3) -> (f32, f32){
     let u = 0.5 + (f32::atan2(nor.z, nor.x) / (2.0 * PI));
     let v = 0.5 - (f32::asin(nor.y) / PI);
@@ -572,6 +577,7 @@ fn inter_triangle<'a>(ray: Ray, tri: &'a Triangle, closest: &mut RayHit<'a>){
 }
 
 // intersect whole scene
+#[inline]
 fn inter_scene(ray: Ray, scene: &Scene) -> RayHit{
     let mut closest = RayHit::NULL;
     for plane in &scene.planes { inter_plane(ray, plane, &mut closest); }

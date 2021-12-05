@@ -4,13 +4,13 @@ use crate::misc::{ Incrementable, build_vec, make_nonzero_len };
 use crate::info::Info;
 
 use std::collections::HashMap;
-use crate::consts::*;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Contexts {
     pub stack: [Context; 3],
     pub index: usize
 }
+
 impl Contexts {
     pub fn new() -> Self{
         Self { stack: [Context::new(), Context::new(), Context::new()], index: 0 }
@@ -38,6 +38,7 @@ pub struct Context {
     pub absorption: Vec3,
     pub refraction: f32,
 }
+
 impl Context {
     pub fn new() -> Self{
         Self { absorption: Vec3::BLACK, refraction: 1.0 }

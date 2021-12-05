@@ -1,5 +1,3 @@
-#![feature(destructuring_assignment)]
-
 #[cfg(test)]
 mod tests {
     #[test]

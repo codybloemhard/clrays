@@ -14,6 +14,9 @@ use clr::mesh::load_model;
 use sdl2::keyboard::Keycode;
 use clrays_rs::consts::*;
 
+pub const USE_WATERFLOOR : bool = true;
+pub const USE_WIDE_ANGLE : bool = false;
+
 pub fn main() -> Result<(), String>{
     // clr::test(clr::test_platform::PlatformTest::OpenCl2);
     let mut info = Info::new();
@@ -21,8 +24,10 @@ pub fn main() -> Result<(), String>{
 
     let mut scene = Scene::new();
     scene.cam = Camera{
-        pos: Vec3::new(0.0, 5.0, -8.0),
-        dir: Vec3::new(0.0, -1.0, 2.0).normalized(),
+        // pos: Vec3::new(0.0, 5.0, -8.0),
+        // dir: Vec3::new(0.0, -1.0, 2.0).normalized(),
+        pos: Vec3::ZERO,
+        dir: Vec3::BACKWARD,
         ori: [0.0, 0.0],
         move_sensitivity: 0.1,
         look_sensitivity: 0.05,
@@ -30,7 +35,7 @@ pub fn main() -> Result<(), String>{
         chromatic_aberration_shift: 2,
         chromatic_aberration_strength: 0.3,
         vignette_strength: 0.1,
-        angle_radius: if USE_WIDE_ANGLE { FRAC_2_PI } else { 0.0 }
+        angle_radius: if USE_WIDE_ANGLE { FRAC_2_PI } else { 0.0 },
         distortion_coefficient: 2.0
     };
     scene.sky_col = Vec3::BLUE.unhardened(0.1);
@@ -125,7 +130,7 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     // https://groups.csail.mit.edu/graphics/classes/6.837/F03/models/
-    load_model("assets/models/teapot.obj", Material::basic(), &mut scene);
+    // load_model("assets/models/teapot.obj", Material::basic(), &mut scene);
 
     Sphere{
         pos: Vec3::new(3.0, 3.0, -5.0),
@@ -194,9 +199,9 @@ pub fn main() -> Result<(), String>{
     scene.pack_textures(&mut info);
 
     let settings = Settings{
-        aa_samples: 1,
+        aa_samples: 12,
         max_reduced_ms: 40.0,
-        start_in_focus_mode: true,
+        start_in_focus_mode: false,
     };
     // let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O), settings);
     let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O, F, B), settings);
