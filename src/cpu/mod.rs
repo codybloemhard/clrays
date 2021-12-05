@@ -272,7 +272,7 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, con
     let tran = if transparency > EPSILON {
         let ray_next = Ray{ pos: hit.pos.subed(normal.scaled(EPSILON)), dir: transparency_dir };
         let contexts_next = if is_inbound {
-                contexts.pushed(Context { absorption, refraction })
+            contexts.pushed(Context { absorption, refraction })
         } else {
             contexts.popped()
         };

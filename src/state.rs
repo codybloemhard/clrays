@@ -129,12 +129,6 @@ pub fn std_input_fn(events: &[Event], _: &mut Scene, _: &mut State) -> LoopReque
 }
 
 pub fn fps_input_fn(events: &[Event], scene: &mut Scene, state: &mut State) -> LoopRequest{
-    fn yaw_roll(yaw: f32, roll: f32) -> Vec3 {
-        let a = roll;  // Up/Down
-        let b = yaw;   // Left/Right
-        Vec3 { x: a.cos() * b.sin(), y: a.sin(), z: -a.cos() * b.cos() }
-    }
-
     let cam = &mut scene.cam;
     let old_pos = cam.pos;
     let old_dir = cam.dir;
@@ -192,34 +186,26 @@ pub fn fps_input_fn(events: &[Event], scene: &mut Scene, state: &mut State) -> L
                 cam.pos.add(cam.dir.crossed(Vec3::RIGHT).neged().scaled(ms));
             },
             6 => { // Look Up;
-                cam.ori[1] = (cam.ori[1] + ls).min(FRAC_PI_2).max(-FRAC_PI_2);
-                let yaw = cam.ori[0]; // Up/Down
-                let roll = cam.ori[1]; // Left/Right
-                cam.dir = yaw_roll(yaw, roll);
+                cam.ori.roll = (cam.ori.roll + ls).min(FRAC_PI_2).max(-FRAC_PI_2);
+                cam.dir = Vec3::new_dir(&cam.ori);
             },
             7 => { // Look Down;
-                cam.ori[1] = (cam.ori[1] - ls).min(FRAC_PI_2).max(-FRAC_PI_2);
-                let yaw = cam.ori[0]; // Up/Down
-                let roll = cam.ori[1]; // Left/Right
-                cam.dir = yaw_roll(yaw, roll);
+                cam.ori.roll = (cam.ori.roll - ls).min(FRAC_PI_2).max(-FRAC_PI_2);
+                cam.dir = Vec3::new_dir(&cam.ori);
             },
             8 => { // Look Left;
-                cam.ori[0] -= ls;
-                if cam.ori[0] < -PI {
-                    cam.ori[0] += 2.0 * PI;
+                cam.ori.yaw -= ls;
+                if cam.ori.yaw < -PI {
+                    cam.ori.yaw += 2.0 * PI;
                 }
-                let yaw = cam.ori[0]; // Up/Down
-                let roll = cam.ori[1]; // Left/Right
-                cam.dir = yaw_roll(yaw, roll);
+                cam.dir = Vec3::new_dir(&cam.ori);
             },
             9 => { // Look Right;
-                cam.ori[0] += ls;
-                if cam.ori[0] > PI {
-                    cam.ori[0] -= 2.0 * PI;
+                cam.ori.yaw += ls;
+                if cam.ori.yaw > PI {
+                    cam.ori.yaw -= 2.0 * PI;
                 }
-                let yaw = cam.ori[0]; // Up/Down
-                let roll = cam.ori[1]; // Left/Right
-                cam.dir = yaw_roll(yaw, roll);
+                cam.dir = Vec3::new_dir(&cam.ori);
             },
             _ => {},
         }

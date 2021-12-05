@@ -5,6 +5,13 @@ pub struct Vec3{
     pub z: f32,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct Orientation {
+    pub yaw: f32,
+    pub roll: f32
+}
+
+
 impl Vec3{
     pub const ZERO: Vec3 =      Self { x:  0.0, y:  0.0, z:  0.0 };
     pub const ONE: Vec3 =       Self { x:  1.0, y:  1.0, z:  1.0 };
@@ -23,6 +30,21 @@ impl Vec3{
     #[inline]
     pub fn new(x: f32, y: f32, z: f32) -> Self{
         Self { x, y, z }
+    }
+
+    #[inline]
+    pub fn new_dir(ori: &Orientation) -> Self {
+        let a = ori.roll;  // Up/Down
+        let b = ori.yaw;   // Left/Right
+        Self { x: a.cos() * b.sin(), y: a.sin(), z: a.cos() * -b.cos() }
+    }
+
+    #[inline]
+    pub fn orientation(&self) -> Orientation {
+        Orientation {
+            yaw: f32::atan2(self.x,-self.z),
+            roll: self.y.asin()
+        }
     }
 
     #[inline]

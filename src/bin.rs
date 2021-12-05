@@ -28,7 +28,7 @@ pub fn main() -> Result<(), String>{
         // dir: Vec3::new(0.0, -1.0, 2.0).normalized(),
         pos: Vec3::ZERO,
         dir: Vec3::BACKWARD,
-        ori: [0.0, 0.0],
+        ori: Vec3::BACKWARD.normalized().orientation(),
         move_sensitivity: 0.1,
         look_sensitivity: 0.05,
         fov: 80.0,

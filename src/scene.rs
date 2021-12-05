@@ -1,4 +1,4 @@
-use crate::vec3::Vec3;
+use crate::vec3::{Vec3, Orientation};
 use crate::trace_tex::{ TexType, TraceTex };
 use crate::misc::{ Incrementable, build_vec, make_nonzero_len };
 use crate::info::Info;
@@ -214,7 +214,7 @@ impl SceneItem for Light{
 pub struct Camera{
     pub pos: Vec3,
     pub dir: Vec3,
-    pub ori: [f32; 2],
+    pub ori: Orientation,
     pub move_sensitivity: f32,
     pub look_sensitivity: f32,
     pub fov: f32,
@@ -277,7 +277,7 @@ impl Scene{
             cam: Camera{
                 pos: Vec3::ZERO,
                 dir: Vec3::BACKWARD,
-                ori: [0.0, 0.0],
+                ori: Orientation { yaw: 0.0, roll: 0.0 },
                 move_sensitivity: 0.1,
                 look_sensitivity: 0.05,
                 fov: 90.0,
