@@ -259,6 +259,7 @@ pub struct Camera{
     pub chromatic_aberration_strength: f32,
     pub vignette_strength: f32,
     pub angle_radius: f32,
+    pub distortion_coefficient: f32
 }
 
 pub struct Scene{
@@ -320,7 +321,8 @@ impl Scene{
                 chromatic_aberration_shift: 2,
                 chromatic_aberration_strength: 0.2,
                 vignette_strength: 0.1,
-                angle_radius: 0.0
+                angle_radius: 0.0,
+                distortion_coefficient: 1.0
             }
         }
     }

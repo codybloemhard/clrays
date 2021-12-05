@@ -79,7 +79,8 @@ pub fn whitted(
                     let hor = cd.crossed(Vec3::UP).normalized_fast();
                     let ver = hor.crossed(cd).normalized_fast();
 
-                    let dir = if !is_wide { // normal
+                    let dir = if !is_wide {
+                        // normal
                         let mut uv = Vec3::new((x as f32 + aa_u) / rw as f32, (y as f32 + aa_v) / rh as f32, 0.0);
                         uv.add_scalar(-0.5);
                         uv.mul(Vec3::new(aspect, -1.0, 0.0));
@@ -91,20 +92,37 @@ pub fn whitted(
                         // wide-angle
                         let dx = ((x as f32 + aa_u) / rw as f32 - 0.5) * aspect;
                         let dy = (y as f32 + aa_v) / rh as f32 - 0.5;
-                        let phi = phi_mid + dx * angle * 2.0;
-                        let theta = theta_mid - dy * angle * 2.0;
-                        Vec3{
-                            x: theta.cos()*phi.sin(),
-                            y: theta.sin(),
-                            z: -theta.cos()*phi.cos()
-                        }.normalized_fast()
+
+                        // barrel distortion
+                        let scale = scene.cam.distortion_coefficient;
+                        let rho = f32::atan2(dy, dx);
+                        let r = (dx*dx + dy*dy).sqrt();
+                        let r = r * 2.0; // ensures r covers range [-1.0,1.0]
+                        let r = r.powf(scale);
+                        let r = r * 0.5; // scales back to range [-0.5,0.5]
+                        let dx = r*rho.cos();
+                        let dy = r*rho.sin();
+
+                        // circular screen
+                        let off_x = x as f32 - rw as f32 * 0.5;
+                        let off_y = y as f32 - rh as f32 * 0.5;
+                        let off_len = (off_x*off_x + off_y*off_y).sqrt();
+                        if off_len > radius {
+                            Vec3::BLACK
+                        } else {
+                            assert!(r <= 1.0);
+                            assert!(r.powf(scale) <= 1.0);
+                            let phi = phi_mid + dx * angle * 2.0;
+                            let theta = theta_mid - dy * angle * 2.0;
+                            Vec3{
+                                x: theta.cos()*phi.sin(),
+                                y: theta.sin(),
+                                z: -theta.cos()*phi.cos()
+                            }.normalized_fast()
+                        }
                     };
 
-                    let offset_x = x as f32 - rw as f32 * 0.5;
-                    let offset_y = y as f32 - rh as f32 * 0.5;
-                    let offset_len = (offset_x*offset_x + offset_y*offset_y).sqrt();
-                    let col = if is_wide && offset_len > radius{
-                        // circular screen
+                    let col = if dir.eq(&Vec3::BLACK){
                         Vec3::BLACK
                     } else {
                         let ray = Ray { pos, dir };
