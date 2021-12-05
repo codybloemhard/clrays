@@ -44,6 +44,7 @@ impl Context {
     }
 }
 
+#[derive(Clone, PartialEq, Debug)]
 pub struct Material{
     pub col: Vec3,
     pub absorption: Vec3,
@@ -205,18 +206,19 @@ impl SceneItem for Sphere{
     }
 }
 
-pub struct Box{
-    pub pos: Vec3,
-    pub size: Vec3,
+pub struct Triangle{
+    pub a: Vec3,
+    pub b: Vec3,
+    pub c: Vec3,
     pub mat: Material,
 }
 
-impl SceneItem for Box{
+impl SceneItem for Triangle{
     fn get_data(&self) -> Vec<f32>{
-        let hs = self.size.scaled(0.5);
         vec![
-            self.pos.x - hs.x, self.pos.y - hs.y, self.pos.z - hs.z,
-            self.pos.x + hs.x, self.pos.y + hs.y, self.pos.z + hs.z,
+            self.a.x, self.a.y, self.a.z,
+            self.b.x, self.b.y, self.b.z,
+            self.c.x, self.c.y, self.c.z,
             self.mat.texture as f32, self.mat.normal_map as f32,
             self.mat.roughness_map as f32, self.mat.metalic_map as f32,
             self.mat.tex_scale
@@ -224,7 +226,7 @@ impl SceneItem for Box{
     }
 
     fn add(self, scene: &mut Scene){
-        scene.add_box(self);
+        scene.add_triangle(self);
     }
 }
 
@@ -265,7 +267,7 @@ pub struct Camera{
 pub struct Scene{
     pub spheres: Vec<Sphere>,
     pub planes: Vec<Plane>,
-    pub boxes: Vec<Box>,
+    pub triangles: Vec<Triangle>,
     pub lights: Vec<Light>,
     scene_params: [u32; Self::SCENE_PARAM_SIZE],
     next_texture: u32,
@@ -293,13 +295,13 @@ impl Scene{
     const LIGHT_SIZE: u32 = 7;
     const SPHERE_SIZE: u32 = 4 + Self::MATERIAL_SIZE;
     const PLANE_SIZE: u32 = 6 + Self::MATERIAL_SIZE;
-    const BOX_SIZE: u32 = 6 + Self::MATERIAL_SIZE;
+    const TRIANGLE_SIZE: u32 = 9 + Self::MATERIAL_SIZE;
 
     pub fn new() -> Self{
         Self{
             spheres: Vec::new(),
             planes: Vec::new(),
-            boxes: Vec::new(),
+            triangles: Vec::new(),
             lights: Vec::new(),
             scene_params: [0; Self::SCENE_PARAM_SIZE],
             next_texture: 0,
@@ -331,13 +333,13 @@ impl Scene{
         let mut len = self.lights.len() * Self::LIGHT_SIZE as usize;
         len += self.spheres.len() * Self::SPHERE_SIZE as usize;
         len += self.planes.len() * Self::PLANE_SIZE as usize;
-        len += self.boxes.len() * Self::BOX_SIZE as usize;
+        len += self.triangles.len() * Self::TRIANGLE_SIZE as usize;
         let mut res = build_vec(len);
         let mut i = 0;
         Self::bufferize(&mut res, &mut i, &self.lights, Self::LIGHT_SIZE as usize);
         Self::bufferize(&mut res, &mut i, &self.spheres, Self::SPHERE_SIZE as usize);
         Self::bufferize(&mut res, &mut i, &self.planes, Self::PLANE_SIZE as usize);
-        Self::bufferize(&mut res, &mut i, &self.boxes, Self::BOX_SIZE as usize);
+        Self::bufferize(&mut res, &mut i, &self.triangles, Self::TRIANGLE_SIZE as usize);
         make_nonzero_len(&mut res);
         res
     }
@@ -353,9 +355,9 @@ impl Scene{
         self.scene_params[6] = Self::PLANE_SIZE;
         self.scene_params[7] = self.planes.len() as u32;
         self.scene_params[8] = i; i += self.planes.len() as u32 * Self::PLANE_SIZE;
-        self.scene_params[9] = Self::BOX_SIZE;
-        self.scene_params[10] = self.boxes.len() as u32;
-        self.scene_params[11] = i; //i += self.boxes.len() as u32 * Self::BOX_SIZE;
+        self.scene_params[9] = Self::TRIANGLE_SIZE;
+        self.scene_params[10] = self.triangles.len() as u32;
+        self.scene_params[11] = i; //i += self.triangles.len() as u32 * Self::TRIANGLE_SIZE;
         //scene
         self.scene_params[12] = self.skybox;
         self.put_in_scene_params(13, self.sky_col);
@@ -459,5 +461,5 @@ impl Scene{
     pub fn add_light(&mut self, l: Light){ self.lights.push(l); }
     pub fn add_sphere(&mut self, s: Sphere){ self.spheres.push(s); }
     pub fn add_plane(&mut self, p: Plane){ self.planes.push(p); }
-    pub fn add_box(&mut self, b: Box){ self.boxes.push(b); }
+    pub fn add_triangle(&mut self, b: Triangle){ self.triangles.push(b); }
 }

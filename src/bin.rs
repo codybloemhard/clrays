@@ -4,11 +4,12 @@ extern crate clrays_rs;
 use clrays_rs as clr;
 use clr::window;
 use clr::trace_processor;
-use clr::scene::{ Scene, Camera, SceneItem, Material, Plane, Sphere, Light };
+use clr::scene::{ Scene, Camera, SceneItem, Material, Plane, Triangle, Sphere, Light };
 use clr::vec3::{ Vec3 };
 use clr::info::{ Info };
 use clr::trace_tex::{ TexType };
-use clr::state::{ State, log_update_fn, fps_input_fn };
+use clr::state::{ State, Settings, log_update_fn, fps_input_fn };
+use clr::mesh::load_model;
 
 use sdl2::keyboard::Keycode;
 use clrays_rs::consts::*;
@@ -20,8 +21,8 @@ pub fn main() -> Result<(), String>{
 
     let mut scene = Scene::new();
     scene.cam = Camera{
-        pos: Vec3::ZERO,
-        dir: Vec3::BACKWARD,
+        pos: Vec3::new(0.0, 5.0, -8.0),
+        dir: Vec3::new(0.0, -1.0, 2.0).normalized(),
         ori: [0.0, 0.0],
         move_sensitivity: 0.1,
         look_sensitivity: 0.05,
@@ -116,6 +117,16 @@ pub fn main() -> Result<(), String>{
             .with_reflectivity(0.9),
     }.add(&mut scene);
 
+    Triangle{
+        a: Vec3::new(-1.0, 1.0, -7.0),
+        b: Vec3::new( 1.0, 1.0, -7.0),
+        c: Vec3::new( 1.0, 3.0, -7.0),
+        mat: Material::basic().as_checkerboard(),
+    }.add(&mut scene);
+
+    // https://groups.csail.mit.edu/graphics/classes/6.837/F03/models/
+    load_model("assets/models/teapot.obj", Material::basic(), &mut scene);
+
     Sphere{
         pos: Vec3::new(3.0, 3.0, -5.0),
         rad: 1.0 - EPSILON,
@@ -182,8 +193,13 @@ pub fn main() -> Result<(), String>{
     info.set_time_point("Setting up scene");
     scene.pack_textures(&mut info);
 
-    let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L));
-    // let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O));
+    let settings = Settings{
+        aa_samples: 1,
+        max_reduced_ms: 40.0,
+        start_in_focus_mode: true,
+    };
+    // let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O), settings);
+    let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O, F, B), settings);
 
     // let (w, h) = (960, 540);
     // let (w, h) = (1600, 900);
@@ -191,7 +207,7 @@ pub fn main() -> Result<(), String>{
 
     // let mut tracer = unpackdb!(trace_processor::RealTracer::new((w, h), &mut scene, &mut info), "Could not create RealTracer!");
     // let mut tracer = unpackdb!(trace_processor::AaTracer::new((w, h), 2, &mut scene, &mut info), "Could not create AaTracer!");
-    let mut tracer = trace_processor::CpuWhitted::new(w as usize, h as usize, 1, 32, &mut scene, &mut info);
+    let mut tracer = trace_processor::CpuWhitted::new(w as usize, h as usize, 32, &mut scene, &mut info);
 
     info.stop_time();
     info.print_info();

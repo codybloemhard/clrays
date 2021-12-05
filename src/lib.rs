@@ -21,6 +21,7 @@ pub mod cl_helpers;
 pub mod info;
 pub mod trace_processor;
 pub mod cpu;
+pub mod mesh;
 pub mod consts;
 
 pub fn test(t: test_platform::PlatformTest){

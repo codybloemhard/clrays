@@ -1,5 +1,4 @@
-#![feature(destructuring_assignment)]
-use crate::scene::{Scene, Material, Sphere, Plane, Context, Contexts};
+use crate::scene::{Scene, Material, Sphere, Plane, Triangle, Contexts, Context};
 use crate::vec3::Vec3;
 use crate::state::{ RenderMode, State };
 
@@ -10,12 +9,12 @@ use crate::consts::*;
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::many_single_char_names)]
 pub fn whitted(
-    w: usize, h: usize, aa: usize, threads: usize,
+    w: usize, h: usize, threads: usize,
     scene: &Scene, tex_params: &[u32], textures: &[u8],
     screen: &mut Vec<u32>, acc: &mut Vec<Vec3>, state: &mut State, rng: &mut ThreadRng
 ){
     let reduce = match state.render_mode{
-        RenderMode::Reduced => 4,
+        RenderMode::Reduced => state.reduced_rate,
         _ => 1,
     };
 
@@ -28,7 +27,7 @@ pub fn whitted(
         acc.iter_mut().take(rw * rh).for_each(|v| *v = Vec3::ZERO);
     }
 
-    if reduce == 1 && state.aa_count == aa{
+    if reduce == 1 && state.aa_count == state.aa{
         state.last_frame = RenderMode::None;
         return;
     } else if reduce == 1{
@@ -283,7 +282,7 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, con
     // texture
     let mut texcol = Vec3::ONE;
     let uv = if
-    mat.texture > 0 ||
+        mat.texture > 0 ||
         mat.normal_map > 0 ||
         mat.roughness_map > 0 ||
         mat.metalic_map > 0 ||
@@ -406,7 +405,7 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, con
 
 // SHADING ------------------------------------------------------------
 
-/// get diffuse light incl colour of hit with all lights
+// get diffuse light incl colour of hit with all lights
 fn blinn(hit: &RayHit, mat: &Material, roughness: f32, scene: &Scene, viewdir: Vec3) -> (Vec3, Vec3){
     let mut col = Vec3::ONE.scaled(AMBIENT);
     let mut spec = Vec3::ZERO;
@@ -418,7 +417,7 @@ fn blinn(hit: &RayHit, mat: &Material, roughness: f32, scene: &Scene, viewdir: V
     (col.muled(mat.col), spec.scaled(1.0 - roughness))
 }
 
-/// get diffuse light strength for hit for a light
+// get diffuse light strength for hit for a light
 fn blinn_single(roughness: f32, lpos: Vec3, lpow: f32, viewdir: Vec3, hit: &RayHit, scene: &Scene) -> (f32, f32){
     let mut to_l = Vec3::subed(lpos, hit.pos);
     let dist = Vec3::len(to_l);
@@ -487,6 +486,7 @@ struct RayHit<'a>{
     pub t: f32,
     pub mat: Option<&'a Material>,
     pub uvtype: u8,
+    pub sphere: Option<&'a Sphere>,
 }
 
 impl RayHit<'_>{
@@ -496,6 +496,7 @@ impl RayHit<'_>{
         t: MAX_RENDER_DIST,
         mat: None,
         uvtype: 255,
+        sphere: None,
     };
 
     #[inline]
@@ -523,6 +524,7 @@ fn inter_sphere<'a>(ray: Ray, sphere: &'a Sphere, closest: &mut RayHit<'a>){
     closest.nor = Vec3::subed(closest.pos, sphere.pos).scaled(1.0 / sphere.rad);
     closest.mat = Some(&sphere.mat);
     closest.uvtype = UV_SPHERE;
+    closest.sphere = Some(sphere);
 }
 
 // ray-plane intersection
@@ -539,6 +541,34 @@ fn inter_plane<'a>(ray: Ray, plane: &'a Plane, closest: &mut RayHit<'a>){
     closest.nor = plane.nor;
     closest.mat = Some(&plane.mat);
     closest.uvtype = UV_PLANE;
+    closest.sphere = None;
+}
+
+// ray-triangle intersection
+#[inline]
+#[allow(clippy::many_single_char_names)]
+fn inter_triangle<'a>(ray: Ray, tri: &'a Triangle, closest: &mut RayHit<'a>){
+    let edge1 = Vec3::subed(tri.b, tri.a);
+    let edge2 = Vec3::subed(tri.c, tri.a);
+    let h = Vec3::crossed(ray.dir, edge2);
+    let a = Vec3::dot(edge1, h);
+    if a > -EPSILON && a < EPSILON { return; } // ray parallel to tri
+    let f = 1.0 / a;
+    let s = Vec3::subed(ray.pos, tri.a);
+    let u = f * Vec3::dot(s, h);
+    if !(0.0..=1.0).contains(&u) { return; }
+    let q = Vec3::crossed(s, edge1);
+    let v = f * Vec3::dot(ray.dir, q);
+    if v < 0.0 || u + v > 1.0 { return; }
+    let t = f * Vec3::dot(edge2, q);
+    if t <= EPSILON { return; }
+    if t > closest.t { return; }
+    closest.t = t;
+    closest.pos = ray.pos.added(ray.dir.scaled(t));
+    closest.nor = Vec3::crossed(edge1, edge2).normalized_fast();
+    closest.mat = Some(&tri.mat);
+    closest.uvtype = UV_PLANE;
+    closest.sphere = None;
 }
 
 // intersect whole scene
@@ -546,6 +576,7 @@ fn inter_scene(ray: Ray, scene: &Scene) -> RayHit{
     let mut closest = RayHit::NULL;
     for plane in &scene.planes { inter_plane(ray, plane, &mut closest); }
     for sphere in &scene.spheres { inter_sphere(ray, sphere, &mut closest); }
+    for tri in &scene.triangles { inter_triangle(ray, tri, &mut closest); }
     closest
 }
 
@@ -577,18 +608,27 @@ fn tx_get_sample(tex: u32, tps: &[u32], ts: &[u8], x: u32, y: u32, w: u32) -> Ve
     col.dived_scalar_fast(255.0)
 }
 
+// get value 0..1 from scalar map
+#[inline]
+fn tx_get_scalar(tex: u32, tps: &[u32], ts: &[u8], x: u32, y: u32, w: u32) -> f32{
+    let offset = tx_get_start(tex, tps) + ((y * w + x) as usize);
+    if offset > ts.len() { return 1.0; }
+    let scalar = ts[offset] as f32;
+    scalar / 255.0
+}
+
 // shared logic
 #[inline]
 #[allow(clippy::many_single_char_names)]
-fn uv_to_xy(uv: (f32, f32), tex: u32, tps: &[u32]) -> (u32, u32, u32){
+fn uv_to_xy(uv: (f32, f32), tex: u32, tps: &[u32]) -> (u32, f32, f32){
     let mut u = uv.0.fract();
     let mut v = uv.1.fract();
     if u < 0.0 { u += 1.0; }
     if v < 0.0 { v += 1.0; }
-    let w = tx_get_width(tex, tps);
-    let x = (w as f32* u) as u32;
-    let y = (tx_get_height(tex, tps) as f32 * v) as u32;
-    (w, x, y)
+    let w = tx_get_width(tex, tps) as f32;
+    let x = w * u;
+    let y = tx_get_height(tex, tps) as f32 * v;
+    (w as u32, x, y)
 }
 
 // get sky colour
@@ -601,27 +641,46 @@ fn get_sky_col(nor: Vec3, scene: &Scene, tps: &[u32], ts: &[u8]) -> Vec3{
     get_tex_col(scene.sky_box - 1, uv, tps, ts)
 }
 
+// get value to range 0..1 (no gamma)
+#[inline]
+#[allow(clippy::many_single_char_names)]
+fn get_tex_val(tex: u32, uv: (f32, f32), tps: &[u32], ts: &[u8]) -> Vec3{
+    let (w, x, y) = uv_to_xy(uv, tex, tps);
+    let (x1, y1, x2, y2) = (x.floor(), y.floor(), x.floor() + 1.0, y.floor() + 1.0);
+    let fq11 = tx_get_sample(tex, tps, ts, x1 as u32, y1 as u32, w);
+    let fq12 = tx_get_sample(tex, tps, ts, x1 as u32, y2 as u32, w);
+    let fq21 = tx_get_sample(tex, tps, ts, x2 as u32, y1 as u32, w);
+    let fq22 = tx_get_sample(tex, tps, ts, x2 as u32, y2 as u32, w);
+    let a = x - x1;
+    let b = y - y1;
+    fq11.scaled((1.0 - a) * (1.0 - b))
+        .added(fq21.scaled(a * (1.0 - b)))
+        .added(fq12.scaled(b * (1.0 - a)))
+        .added(fq22.scaled(a * b))
+}
+
 // get colour from texture and uv
 #[inline]
 fn get_tex_col(tex: u32, uv: (f32, f32), tps: &[u32], ts: &[u8]) -> Vec3{
-    let (w, x, y) = uv_to_xy(uv, tex, tps);
-    tx_get_sample(tex, tps, ts, x, y, w).powed_scalar(GAMMA)
-}
-
-// get value to range 0..1 (no gamma)
-#[inline]
-fn get_tex_val(tex: u32, uv: (f32, f32), tps: &[u32], ts: &[u8]) -> Vec3{
-    let (w, x, y) = uv_to_xy(uv, tex, tps);
-    tx_get_sample(tex, tps, ts, x, y, w)
+    get_tex_val(tex, uv, tps, ts).powed_scalar(GAMMA)
 }
 
 // get value 0..1 from scalar map
 #[inline]
+#[allow(clippy::many_single_char_names)]
 fn get_tex_scalar(tex: u32, uv: (f32, f32), tps: &[u32], ts: &[u8]) -> f32{
     let (w, x, y) = uv_to_xy(uv, tex, tps);
-    let offset = tx_get_start(tex, tps) + ((y * w + x) as usize);
-    let scalar = ts[offset] as f32;
-    scalar / 255.0
+    let (x1, y1, x2, y2) = (x.floor(), y.floor(), x.floor() + 1.0, y.floor() + 1.0);
+    let fq11 = tx_get_scalar(tex, tps, ts, x1 as u32, y1 as u32, w);
+    let fq12 = tx_get_scalar(tex, tps, ts, x1 as u32, y2 as u32, w);
+    let fq21 = tx_get_scalar(tex, tps, ts, x2 as u32, y1 as u32, w);
+    let fq22 = tx_get_scalar(tex, tps, ts, x2 as u32, y2 as u32, w);
+    let a = x - x1;
+    let b = y - y1;
+    fq11 * (1.0 -a) * (1.0 - b)
+        + fq21 * a * (1.0 - b)
+        + fq12 * b * (1.0 - a)
+        + fq22 * a * b
 }
 
 #[cfg(test)]
