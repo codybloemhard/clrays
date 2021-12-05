@@ -1,4 +1,4 @@
-use crate::scene::{ Scene, Material, Sphere, Plane, Triangle, Contexts, Context };
+use crate::scene::{ Scene, Material, Sphere, Plane, Triangle };
 use crate::vec3::Vec3;
 use crate::state::{ RenderMode, State };
 
@@ -54,19 +54,21 @@ pub fn whitted(
             let strip_h = strip.len() / rw;
             let offset = t * target_strip_h;
             let seed = seeds[t];
+
+            let pos = scene.cam.pos;
+            let cd = scene.cam.dir.normalized_fast();
+            let aspect = rw as f32 / rh as f32;
+            let uv_dist = (aspect / 2.0) / (scene.cam.fov / 2.0 * 0.01745329).tan();
+
+            // Camera direction in spherical coordinates, phi (x dir) and theta (z dir)
+            let phi_mid = f32::atan2(cd.x, -cd.z);
+            let theta_mid = cd.y.asin();
+            let angle = scene.cam.angle_radius;
+            let dist_coef = scene.cam.distortion_coefficient;
+            let is_wide = angle > 0.0;
+
             let handler = s.spawn(move |_|{
-                let pos = scene.cam.pos;
-                let cd = scene.cam.dir.normalized_fast();
-                let aspect = rw as f32 / rh as f32;
-                let uv_dist = (aspect / 2.0) / (scene.cam.fov / 2.0 * 0.01745329).tan();
                 let mut seed = seed;
-
-                // Camera direction in spherical coordinates, phi (x dir) and theta (z dir)
-                let phi_mid = f32::atan2(cd.x,-cd.z);
-                let theta_mid = cd.y.asin();
-                let angle = scene.cam.angle_radius;
-                let is_wide = angle > 0.0;
-
                 for xx in 0..rw{
                 for yy in 0..strip_h{
                     let x = xx;
@@ -74,53 +76,9 @@ pub fn whitted(
                     let aa_u = u32tf01(xor32(&mut seed));
                     let aa_v = u32tf01(xor32(&mut seed));
 
-                    let hor = cd.crossed(Vec3::UP).normalized_fast();
-                    let ver = hor.crossed(cd).normalized_fast();
-
-                    let dir = if !is_wide {
-                        // normal
-                        let mut uv = Vec3::new((x as f32 + aa_u) / rw as f32, (y as f32 + aa_v) / rh as f32, 0.0);
-                        uv.add_scalar(-0.5);
-                        uv.mul(Vec3::new(aspect, -1.0, 0.0));
-                        let mut to = pos.added(cd.scaled(uv_dist));
-                        to.add(hor.scaled(uv.x));
-                        to.add(ver.scaled(uv.y));
-                        to.subed(pos).normalized_fast()
-                    } else {
-                        // wide-angle
-                        let dx = ((x as f32 + aa_u) / rw as f32 - 0.5) * aspect;
-                        let dy = (y as f32 + aa_v) / rh as f32 - 0.5;
-
-                        // barrel distortion
-                        let scale = scene.cam.distortion_coefficient;
-                        let rho = f32::atan2(dy, dx);
-                        let r = (dx*dx + dy*dy).sqrt();
-                        let r = r * 2.0; // ensures r covers range [-1.0,1.0]
-                        let r = r.powf(scale);
-                        let r = r * 0.5; // scales back to range [-0.5,0.5]
-                        let dx = r*rho.cos();
-                        let dy = r*rho.sin();
-
-                        // circular screen
-                        let off_x = x as f32 - rw as f32 * 0.5;
-                        let off_y = y as f32 - rh as f32 * 0.5;
-                        let off_len = (off_x*off_x + off_y*off_y).sqrt();
-                        if off_len > radius {
-                            Vec3::BLACK
-                        } else {
-                            assert!(r <= 1.0);
-                            assert!(r.powf(scale) <= 1.0);
-                            let phi = phi_mid + dx * angle * 2.0;
-                            let theta = theta_mid - dy * angle * 2.0;
-                            Vec3{
-                                x: theta.cos()*phi.sin(),
-                                y: theta.sin(),
-                                z: -theta.cos()*phi.cos()
-                            }.normalized_fast()
-                        }
-                    };
-
-                    let col = if dir.eq(&Vec3::BLACK){
+                    let dir = initial_ray_dir(pos, cd, x as f32, y as f32, rw as f32, rh as f32, aa_u, aa_v,
+                                              aspect, uv_dist, angle, radius, theta_mid, phi_mid, dist_coef, is_wide);
+                    let col = if dir.eq(&Vec3::ZERO){
                         Vec3::BLACK
                     } else {
                         let ray = Ray { pos, dir };
@@ -183,6 +141,8 @@ pub fn whitted(
     }).expect("Could not create crossbeam threadscope! (post phase)");
 }
 
+// RANDOM ------------------------------------------------------------
+
 // credit: George Marsaglia
 #[inline]
 fn xor32(seed: &mut u32) -> u32{
@@ -197,62 +157,8 @@ fn u32tf01(int: u32) -> f32{
    int as f32 * 2.3283064e-10
 }
 
-// #[inline]
-// fn inside(pos: Vec3, spheres: &Vec<Sphere>) -> Option<&Sphere>{
-//     for sphere in spheres {
-//         if pos.dist(sphere.pos) <= sphere.rad {
-//             return Some(sphere);
-//         }
-//     }
-//     None
-// }
 
-#[inline]
-fn absorp(color: &Vec3, absorption: &Vec3, d: f32) -> Vec3 {
-    if absorption.eq(&Vec3::BLACK) {
-        *color
-    } else {
-        Vec3 {
-            x: color.x * ((1.0-absorption.x).ln() * d).exp(),
-            y: color.y * ((1.0-absorption.y).ln() * d).exp(),
-            z: color.z * ((1.0-absorption.z).ln() * d).exp(),
-        }
-    }
-}
-
-// reflectivity and (refracted) ray direction
-#[inline]
-fn resolve_dielectric(ni: f32, nt: f32, dir: Vec3, normal: Vec3) -> (f32, Vec3){
-    // same medium
-    if ni == nt { return (0.0, dir) }
-
-    let n = ni / nt;
-    let cos_oi = normal.dot(dir.neged());
-    let cos_oi2 = cos_oi*cos_oi;
-    let sin_oi2 = 1.0 - cos_oi2;
-    let sin_ot2 = n*n*sin_oi2;
-
-    // full internal reflection
-    if 1.0 - sin_ot2 < 0.0 { return (1.0, Vec3::ZERO); }
-
-    let cos_ot2 = 1.0 - sin_ot2;
-    let cos_ot = cos_ot2.sqrt();
-    let dir_t = normal.scaled(-cos_oi);
-    let dir_p = dir.subed(dir_t);
-    let refr_t = normal.scaled(-(1.0-sin_ot2).sqrt());
-    let refr_p = dir_p.scaled(n);
-    let dir_refr = refr_p.added(refr_t);
-
-    // fresnell
-    let _a1 = (ni * cos_oi - nt * cos_ot) /
-              (ni * cos_oi + nt * cos_ot);
-    let _a2 = (ni * cos_ot - nt * cos_oi) /
-              (ni * cos_ot + nt * cos_oi);
-    let s_polarized = _a1 * _a1;
-    let p_polarized = _a2 * _a2;
-    (0.5 * (s_polarized + p_polarized), dir_refr)
-}
-
+// WHITTED ------------------------------------------------------------
 
 // trace light ray through scene
 fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, contexts: Contexts) -> Vec3{
@@ -370,20 +276,6 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, con
         } else {
             contexts.popped()
         };
-        // // --- Disabled bug-fix ---
-        // // Outbound hit with any object, excluding sphere, in the scene
-        // let mut hitx = RayHit::NULL;
-        // let mut hit_self = RayHit::NULL;
-        // for plane in &scene.planes { inter_plane(ray_next, plane, &mut hitx); }
-        // for s in &scene.spheres {
-        //     inter_sphere(ray_next, &s, &mut hitx);
-        //     if !s.pos.eq(&sphere.pos) {
-        //
-        //     } else {
-        //
-        //     }
-        // }
-        //
         whitted_trace(ray_next, scene, tps, ts, depth - 1, contexts_next).scaled(transparency)
     } else { Vec3::BLACK };
 
@@ -403,6 +295,151 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, con
     } else {
         absorp(&color, &absorption, hit.t)
     }
+}
+
+// LENS ------------------------------------------------------------
+
+#[inline]
+#[allow(clippy::too_many_arguments)]
+fn initial_ray_dir(pos: Vec3, cd: Vec3, x: f32, y: f32, rw: f32, rh: f32, aa_u: f32, aa_v: f32,
+                   aspect: f32, uv_dist: f32, angle: f32, radius: f32, theta_mid: f32, phi_mid: f32, dist_coef: f32,
+                   is_wide: bool) -> Vec3
+{
+    let u = (x as f32 + aa_u) / rw as f32;
+    let v = (y as f32 + aa_v) / rh as f32;
+   if !is_wide {
+        // normal
+        let hor = cd.crossed(Vec3::UP).normalized_fast();
+        let ver = hor.crossed(cd).normalized_fast();
+
+        let mut uv = Vec3::new(u, v, 0.0);
+        uv.add_scalar(-0.5);
+        uv.mul(Vec3::new(aspect, -1.0, 0.0));
+        let mut to = pos.added(cd.scaled(uv_dist));
+        to.add(hor.scaled(uv.x));
+        to.add(ver.scaled(uv.y));
+        to.subed(pos).normalized_fast()
+    } else {
+        // wide-angle
+        let dx = (u - 0.5) * aspect;
+        let dy = v - 0.5;
+
+        // barrel distortion
+        let rho = f32::atan2(dy, dx);
+        let r = (dx * dx + dy * dy).sqrt();
+        let r = r * 2.0; // ensures r covers range [-1.0, 1.0]
+        let r = r.powf(dist_coef);
+        let r = r * 0.5; // scales back to range [-0.5, 0.5]
+        let dx = r * rho.cos();
+        let dy = r * rho.sin();
+
+        // circular screen
+        let off_x = x as f32 - rw as f32 * 0.5;
+        let off_y = y as f32 - rh as f32 * 0.5;
+        let off_len = (off_x * off_x + off_y * off_y).sqrt();
+        if off_len > radius {
+            Vec3::ZERO
+        } else {
+            assert!(r <= 1.0);
+            assert!(r.powf(dist_coef) <= 1.0);
+            let phi = phi_mid + dx * angle * 2.0;
+            let theta = theta_mid - dy * angle * 2.0;
+            Vec3{
+                x:  theta.cos() * phi.sin(),
+                y:  theta.sin(),
+                z: -theta.cos() * phi.cos()
+            }.normalized_fast()
+        }
+    }
+}
+
+// REFRACTION ------------------------------------------------------------
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Contexts {
+    pub stack: [Context; 3],
+    pub index: usize
+}
+
+impl Contexts {
+    pub fn new() -> Self{
+        Self { stack: [Context::new(), Context::new(), Context::new()], index: 0 }
+    }
+    pub fn current(&self) -> Option<Context>{
+        if self.index <= 2 {
+            Some(self.stack[self.index])
+        } else {
+            None
+        }
+    }
+    pub fn pushed(mut self, context: Context) -> Self{
+        self.index = (self.index+1).min(2);
+        self.stack[self.index] = context;
+        self
+    }
+    pub fn popped(mut self) -> Self{
+        self.index = (self.index-1).max(0);
+        self
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Context {
+    pub absorption: Vec3,
+    pub refraction: f32,
+}
+
+impl Context {
+    pub fn new() -> Self{
+        Self { absorption: Vec3::BLACK, refraction: 1.0 }
+    }
+}
+
+
+#[inline]
+fn absorp(color: &Vec3, absorption: &Vec3, d: f32) -> Vec3 {
+    if absorption.eq(&Vec3::BLACK) {
+        *color
+    } else {
+        Vec3 {
+            x: color.x * ((1.0-absorption.x).ln() * d).exp(),
+            y: color.y * ((1.0-absorption.y).ln() * d).exp(),
+            z: color.z * ((1.0-absorption.z).ln() * d).exp(),
+        }
+    }
+}
+
+// reflectivity and (refracted) ray direction
+#[inline]
+fn resolve_dielectric(ni: f32, nt: f32, dir: Vec3, normal: Vec3) -> (f32, Vec3){
+    // same medium
+    if ni == nt { return (0.0, dir) }
+
+    let n = ni / nt;
+    let cos_oi = normal.dot(dir.neged());
+    let cos_oi2 = cos_oi*cos_oi;
+    let sin_oi2 = 1.0 - cos_oi2;
+    let sin_ot2 = n*n*sin_oi2;
+
+    // full internal reflection
+    if 1.0 - sin_ot2 < 0.0 { return (1.0, Vec3::ZERO); }
+
+    let cos_ot2 = 1.0 - sin_ot2;
+    let cos_ot = cos_ot2.sqrt();
+    let dir_t = normal.scaled(-cos_oi);
+    let dir_p = dir.subed(dir_t);
+    let refr_t = normal.scaled(-(1.0-sin_ot2).sqrt());
+    let refr_p = dir_p.scaled(n);
+    let dir_refr = refr_p.added(refr_t);
+
+    // fresnell
+    let _a1 = (ni * cos_oi - nt * cos_ot) /
+              (ni * cos_oi + nt * cos_ot);
+    let _a2 = (ni * cos_ot - nt * cos_oi) /
+              (ni * cos_ot + nt * cos_oi);
+    let s_polarized = _a1 * _a1;
+    let p_polarized = _a2 * _a2;
+    (0.5 * (s_polarized + p_polarized), dir_refr)
 }
 
 // SHADING ------------------------------------------------------------
@@ -689,12 +726,13 @@ fn get_tex_scalar(tex: u32, uv: (f32, f32), tps: &[u32], ts: &[u8]) -> f32{
         + fq22 * a * b
 }
 
+// TESTS ------------------------------------------------------------
+
 #[cfg(test)]
 mod test {
     use crate::vec3::Vec3;
-    use crate::cpu::{Ray, resolve_dielectric, RayHit, EPSILON, FRAC_4_PI};
-    use crate::scene::Material;
-    use crate::consts::{FRAC_2_PI, PI};
+    use crate::cpu::{ resolve_dielectric, EPSILON, FRAC_4_PI };
+    use crate::consts::{ FRAC_2_PI, PI };
 
     fn assert_small(a:f32,b:f32) {
         if (a-b).abs() > EPSILON { panic!("{} != {}", a,b); }
@@ -731,7 +769,6 @@ mod test {
         let normal = Vec3::UP;
         let n = 1.0 / 2.0;
         let cos_oi = dir.neged().dot(normal);
-        let cos_oi2 = cos_oi*cos_oi;
         assert_small(cos_oi, 1.0);
         let sin_oi2 = 1.0 - cos_oi * cos_oi;
         let sin_oi = sin_oi2.sqrt();
@@ -763,7 +800,6 @@ mod test {
         let normal = Vec3::UP;
         let n = 1.0;
         let cos_oi = dir.neged().dot(normal);
-        let cos_oi2 = cos_oi*cos_oi;
         assert_small(cos_oi, FRAC_4_PI.cos());
         let sin_oi2 = 1.0 - cos_oi * cos_oi;
         let sin_oi = sin_oi2.sqrt();
@@ -941,9 +977,5 @@ mod test {
         let offset_len = (offset_x*offset_x + offset_y*offset_y).sqrt();
         let is_black = offset_len > radius;
         assert_eq!(is_black, false);
-    }
-
-    #[test]
-    fn test_full_internal_reflection() {
     }
 }
