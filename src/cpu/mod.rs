@@ -89,7 +89,7 @@ pub fn whitted(
                         to.subed(pos).normalized_fast()
                     } else {
                         // wide-angle
-                        let dx = (x as f32 + aa_u) / rw as f32 - 0.5;
+                        let dx = ((x as f32 + aa_u) / rw as f32 - 0.5) * aspect;
                         let dy = (y as f32 + aa_v) / rh as f32 - 0.5;
                         let phi = phi_mid + dx * angle * 2.0;
                         let theta = theta_mid - dy * angle * 2.0;
