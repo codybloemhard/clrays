@@ -37,9 +37,9 @@ pub fn whitted(
         state.last_frame = RenderMode::Reduced;
     }
 
-    let aa_count = match state.render_mode{
-        RenderMode::Reduced => 1,
-        _ => state.aa_count,
+    let (aa_count, max_depth) = match state.render_mode{
+        RenderMode::Reduced => (1, 1),
+        _ => (state.aa_count, MAX_RENDER_DEPTH),
     };
 
     let threads = threads.max(1);
@@ -83,7 +83,7 @@ pub fn whitted(
                     } else {
                         let ray = Ray { pos, dir };
                         let contexts = Contexts::new();
-                        let mut col = whitted_trace(ray, scene, tex_params, textures, MAX_RENDER_DEPTH, contexts);
+                        let mut col = whitted_trace(ray, scene, tex_params, textures, max_depth, contexts);
                         col.pow_scalar(1.0 / GAMMA);
                         col
                     };
@@ -116,15 +116,15 @@ pub fn whitted(
                     let x = xx;
                     let y = yy + offset;
                     let mut uv = Vec3::new(x as f32 / w as f32, y as f32 / h as f32, 0.0);
-                    uv.x *= 1.0 - uv.x;
-                    uv.y *= 1.0 - uv.y;
-                    let mut col = acc[x / reduce + y / reduce * w / reduce];
+                    let mut col = acc[(x / reduce).min(rw - 1) + (y / reduce).min(rh - 1) * rw];
                     if ash > 0 && ast > EPSILON{
-                        let r = acc[((x.max(ash) - ash) / reduce + (y.max(ash) - ash) / reduce * w / reduce)].x;
-                        let b = acc[((x.min(w - ash - 1) + ash) / reduce + (y.min(h - ash - 1) + ash) / reduce * w / reduce)].z;
+                        let r = acc[((x.max(ash) - ash) / reduce).min(rw - 1) + ((y.max(ash) - ash) / reduce).min(rh - 1) * rw].x;
+                        let b = acc[((x.min(w - ash - 1) + ash) / reduce).min(rw - 1) + ((y.min(h - ash - 1) + ash) / reduce).min(rh - 1) * rw].z;
                         let abr_str = (uv.x * uv.y * 8.0).powf(ast).min(1.0).max(0.0);
                         col.mix(Vec3::new(r, col.y, b), 1.0 - abr_str);
                     }
+                    uv.x *= 1.0 - uv.x;
+                    uv.y *= 1.0 - uv.y;
                     let vignette = (uv.x * uv.y * 32.0).powf(vst).min(1.0).max(0.0);
                     col.div_scalar_fast(aa_count as f32);
                     col.scale(vignette);
@@ -394,7 +394,6 @@ impl Context {
         Self { absorption: Vec3::BLACK, refraction: 1.0 }
     }
 }
-
 
 #[inline]
 fn absorp(color: &Vec3, absorption: &Vec3, d: f32) -> Vec3 {
