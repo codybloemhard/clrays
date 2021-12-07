@@ -13,3 +13,6 @@ pub const WATER_REFRACTION : f32 = 1.33;
 pub const AIR_ABSORPTION : Vec3 = Vec3 { x: 0.01, y: 0.01, z: 0.01 };
 pub const AIR_REFRACTION : f32 = 1.0;
 
+pub const UV_PLANE: u8 = 0;
+pub const UV_SPHERE: u8 = 1;
+

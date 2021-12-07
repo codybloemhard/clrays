@@ -1,8 +1,8 @@
 #[derive(PartialEq, Clone, Copy, Debug, Default)]
-pub struct Vec3{
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
+pub struct Vec3{ // 12 bytes
+    pub x: f32, // f32: 4 bytes
+    pub y: f32, // f32: 4 bytes
+    pub z: f32, // f32: 4 bytes
 }
 
 #[derive(Clone, Copy, Debug)]

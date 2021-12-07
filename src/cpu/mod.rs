@@ -162,7 +162,9 @@ fn u32tf01(int: u32) -> f32{
 
 // trace light ray through scene
 fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, contexts: Contexts) -> Vec3{
-    let mut hit = inter_scene(ray, scene);
+    let mut hit = RayHit::NULL;
+    scene.bvh.node.intersect(ray, scene, &mut hit);
+
     if depth == 0 || hit.is_null() {
         return get_sky_col(ray.dir, scene, tps, ts);
     }
@@ -307,7 +309,7 @@ fn initial_ray_dir(pos: Vec3, cd: Vec3, x: f32, y: f32, rw: f32, rh: f32, aa_u: 
 {
     let u = (x as f32 + aa_u) / rw as f32;
     let v = (y as f32 + aa_v) / rh as f32;
-   if !is_wide {
+    if !is_wide {
         // normal
         let hor = cd.crossed(Vec3::UP).normalized_fast();
         let ver = hor.crossed(cd).normalized_fast();
@@ -510,17 +512,14 @@ fn sky_sphere_uv(nor: Vec3) -> (f32, f32){
 
 // INTERSECTING ------------------------------------------------------------
 
-const UV_PLANE: u8 = 0;
-const UV_SPHERE: u8 = 1;
-
 #[derive(Clone, Copy, PartialEq, Debug, Default)]
-struct Ray{
+pub struct Ray{
     pub pos: Vec3,
     pub dir: Vec3,
 }
 
 #[derive(Clone)]
-struct RayHit<'a>{
+pub struct RayHit<'a>{
     pub pos: Vec3,
     pub nor: Vec3,
     pub t: f32,
@@ -545,28 +544,6 @@ impl RayHit<'_>{
     }
 }
 
-// ray-sphere intersection
-#[inline]
-fn inter_sphere<'a>(ray: Ray, sphere: &'a Sphere, closest: &mut RayHit<'a>){
-    let l = Vec3::subed(sphere.pos, ray.pos);
-    let tca = Vec3::dot(ray.dir, l);
-    let d = tca*tca - Vec3::dot(l, l) + sphere.rad*sphere.rad;
-    if d < 0.0 { return; }
-    let dsqrt = d.sqrt();
-    let mut t = tca - dsqrt;
-    if t < 0.0 {
-        t = tca + dsqrt;
-        if t < 0.0 { return; }
-    }
-    if t > closest.t { return; }
-    closest.t = t;
-    closest.pos = ray.pos.added(ray.dir.scaled(t));
-    closest.nor = Vec3::subed(closest.pos, sphere.pos).scaled(1.0 / sphere.rad);
-    closest.mat = Some(&sphere.mat);
-    closest.uvtype = UV_SPHERE;
-    closest.sphere = Some(sphere);
-}
-
 #[inline]
 fn dist_sphere(ray: Ray, sphere: &Sphere) -> f32{
     let l = Vec3::subed(sphere.pos, ray.pos);
@@ -582,23 +559,6 @@ fn dist_sphere(ray: Ray, sphere: &Sphere) -> f32{
     t
 }
 
-// ray-plane intersection
-#[inline]
-fn inter_plane<'a>(ray: Ray, plane: &'a Plane, closest: &mut RayHit<'a>){
-    let divisor = Vec3::dot(ray.dir, plane.nor);
-    if divisor.abs() < EPSILON { return; }
-    let planevec = Vec3::subed(plane.pos, ray.pos);
-    let t = Vec3::dot(planevec, plane.nor) / divisor;
-    if t < EPSILON { return; }
-    if t > closest.t { return; }
-    closest.t = t;
-    closest.pos = ray.pos.added(ray.dir.scaled(t));
-    closest.nor = plane.nor;
-    closest.mat = Some(&plane.mat);
-    closest.uvtype = UV_PLANE;
-    closest.sphere = None;
-}
-
 #[inline]
 fn dist_plane(ray: Ray, plane: &Plane) -> f32{
     let divisor = Vec3::dot(ray.dir, plane.nor);
@@ -607,33 +567,6 @@ fn dist_plane(ray: Ray, plane: &Plane) -> f32{
     let t = Vec3::dot(planevec, plane.nor) / divisor;
     if t < EPSILON { return MAX_RENDER_DIST; }
     t
-}
-
-// ray-triangle intersection
-#[inline]
-#[allow(clippy::many_single_char_names)]
-fn inter_triangle<'a>(ray: Ray, tri: &'a Triangle, closest: &mut RayHit<'a>){
-    let edge1 = Vec3::subed(tri.b, tri.a);
-    let edge2 = Vec3::subed(tri.c, tri.a);
-    let h = Vec3::crossed(ray.dir, edge2);
-    let a = Vec3::dot(edge1, h);
-    if a > -EPSILON && a < EPSILON { return; } // ray parallel to tri
-    let f = 1.0 / a;
-    let s = Vec3::subed(ray.pos, tri.a);
-    let u = f * Vec3::dot(s, h);
-    if !(0.0..=1.0).contains(&u) { return; }
-    let q = Vec3::crossed(s, edge1);
-    let v = f * Vec3::dot(ray.dir, q);
-    if v < 0.0 || u + v > 1.0 { return; }
-    let t = f * Vec3::dot(edge2, q);
-    if t <= EPSILON { return; }
-    if t > closest.t { return; }
-    closest.t = t;
-    closest.pos = ray.pos.added(ray.dir.scaled(t));
-    closest.nor = Vec3::crossed(edge1, edge2).normalized_fast();
-    closest.mat = Some(&tri.mat);
-    closest.uvtype = UV_PLANE;
-    closest.sphere = None;
 }
 
 #[inline]
@@ -660,9 +593,7 @@ fn dist_triangle(ray: Ray, tri: &Triangle) -> f32{
 #[inline]
 fn inter_scene(ray: Ray, scene: &Scene) -> RayHit{
     let mut closest = RayHit::NULL;
-    for plane in &scene.planes { inter_plane(ray, plane, &mut closest); }
-    for sphere in &scene.spheres { inter_sphere(ray, sphere, &mut closest); }
-    for tri in &scene.triangles { inter_triangle(ray, tri, &mut closest); }
+    scene.bvh.intersect(ray, scene, &mut closest);
     closest
 }
 

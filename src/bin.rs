@@ -122,15 +122,16 @@ pub fn main() -> Result<(), String>{
             .with_reflectivity(0.9),
     }.add(&mut scene);
 
-    Triangle{
-        a: Vec3::new(-1.0, 1.0, -7.0),
-        b: Vec3::new( 1.0, 1.0, -7.0),
-        c: Vec3::new( 1.0, 3.0, -7.0),
-        mat: Material::basic().as_checkerboard(),
-    }.add(&mut scene);
+    // Triangle{
+    //     a: Vec3::new(-1.0, 1.0, -7.0),
+    //     b: Vec3::new( 1.0, 1.0, -7.0),
+    //     c: Vec3::new( 1.0, 3.0, -7.0),
+    //     mat: Material::basic().as_checkerboard(),
+    // }.add(&mut scene);
 
     // https://groups.csail.mit.edu/graphics/classes/6.837/F03/models/
-    load_model("assets/models/object-scene.obj", Material::basic(), &mut scene);
+    // load_model("assets/models/object-scene.obj", Material::basic(), &mut scene);
+    load_model("assets/models/teapot.obj", Material::basic(), &mut scene);
 
     Sphere{
         pos: Vec3::new(3.0, 3.0, -5.0),
@@ -195,6 +196,9 @@ pub fn main() -> Result<(), String>{
         col: Vec3::ONE,
     }.add(&mut scene);
 
+    scene.generate_bvh();
+    scene.bvh.node.print(0);
+
     info.set_time_point("Setting up scene");
     scene.pack_textures(&mut info);
 
@@ -204,8 +208,8 @@ pub fn main() -> Result<(), String>{
         start_in_focus_mode: false,
         max_render_depth: 4,
     };
-    // let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O), settings);
-    let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O, F, B), settings);
+    let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O), settings);
+    // let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O, F, B), settings);
 
     // let (w, h) = (960, 540);
     // let (w, h) = (1600, 900);
