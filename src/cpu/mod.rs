@@ -39,7 +39,7 @@ pub fn whitted(
 
     let (aa_count, max_depth) = match state.render_mode{
         RenderMode::Reduced => (1, 1),
-        _ => (state.aa_count, MAX_RENDER_DEPTH),
+        _ => (state.aa_count, state.settings.max_render_depth),
     };
 
     let threads = threads.max(1);
@@ -472,8 +472,7 @@ fn blinn_single(roughness: f32, lpos: Vec3, lpow: f32, viewdir: Vec3, hit: &RayH
     }
     // exposed to light or not
     let lray = Ray { pos: hit.pos.added(hit.nor.scaled(EPSILON)), dir: to_l };
-    let lhit = inter_scene(lray, scene);
-    if !lhit.is_null() && lhit.t < dist{
+    if is_occluded(lray, scene, dist){
         return (0.0, 0.0);
     }
     // specular
@@ -568,6 +567,21 @@ fn inter_sphere<'a>(ray: Ray, sphere: &'a Sphere, closest: &mut RayHit<'a>){
     closest.sphere = Some(sphere);
 }
 
+#[inline]
+fn dist_sphere(ray: Ray, sphere: &Sphere) -> f32{
+    let l = Vec3::subed(sphere.pos, ray.pos);
+    let tca = Vec3::dot(ray.dir, l);
+    let d = tca*tca - Vec3::dot(l, l) + sphere.rad*sphere.rad;
+    if d < 0.0 { return MAX_RENDER_DIST; }
+    let dsqrt = d.sqrt();
+    let mut t = tca - dsqrt;
+    if t < 0.0 {
+        t = tca + dsqrt;
+        if t < 0.0 { return MAX_RENDER_DIST; }
+    }
+    t
+}
+
 // ray-plane intersection
 #[inline]
 fn inter_plane<'a>(ray: Ray, plane: &'a Plane, closest: &mut RayHit<'a>){
@@ -583,6 +597,16 @@ fn inter_plane<'a>(ray: Ray, plane: &'a Plane, closest: &mut RayHit<'a>){
     closest.mat = Some(&plane.mat);
     closest.uvtype = UV_PLANE;
     closest.sphere = None;
+}
+
+#[inline]
+fn dist_plane(ray: Ray, plane: &Plane) -> f32{
+    let divisor = Vec3::dot(ray.dir, plane.nor);
+    if divisor.abs() < EPSILON { return MAX_RENDER_DIST; }
+    let planevec = Vec3::subed(plane.pos, ray.pos);
+    let t = Vec3::dot(planevec, plane.nor) / divisor;
+    if t < EPSILON { return MAX_RENDER_DIST; }
+    t
 }
 
 // ray-triangle intersection
@@ -612,7 +636,27 @@ fn inter_triangle<'a>(ray: Ray, tri: &'a Triangle, closest: &mut RayHit<'a>){
     closest.sphere = None;
 }
 
-// intersect whole scene
+#[inline]
+#[allow(clippy::many_single_char_names)]
+fn dist_triangle(ray: Ray, tri: &Triangle) -> f32{
+    let edge1 = Vec3::subed(tri.b, tri.a);
+    let edge2 = Vec3::subed(tri.c, tri.a);
+    let h = Vec3::crossed(ray.dir, edge2);
+    let a = Vec3::dot(edge1, h);
+    if a > -EPSILON && a < EPSILON { return MAX_RENDER_DIST; } // ray parallel to tri
+    let f = 1.0 / a;
+    let s = Vec3::subed(ray.pos, tri.a);
+    let u = f * Vec3::dot(s, h);
+    if !(0.0..=1.0).contains(&u) { return MAX_RENDER_DIST; }
+    let q = Vec3::crossed(s, edge1);
+    let v = f * Vec3::dot(ray.dir, q);
+    if v < 0.0 || u + v > 1.0 { return MAX_RENDER_DIST; }
+    let t = f * Vec3::dot(edge2, q);
+    if t <= EPSILON { return MAX_RENDER_DIST; }
+    t
+}
+
+// intersect whole scene, find closest hit
 #[inline]
 fn inter_scene(ray: Ray, scene: &Scene) -> RayHit{
     let mut closest = RayHit::NULL;
@@ -620,6 +664,21 @@ fn inter_scene(ray: Ray, scene: &Scene) -> RayHit{
     for sphere in &scene.spheres { inter_sphere(ray, sphere, &mut closest); }
     for tri in &scene.triangles { inter_triangle(ray, tri, &mut closest); }
     closest
+}
+
+// intersect whole scene, stop at first intersection at all
+#[inline]
+fn is_occluded(ray: Ray, scene: &Scene, ldist: f32) -> bool{
+    for plane in &scene.planes {
+        if dist_plane(ray, plane) < ldist { return true; }
+    }
+    for sphere in &scene.spheres {
+        if dist_sphere(ray, sphere) < ldist { return true; }
+    }
+    for tri in &scene.triangles {
+        if dist_triangle(ray, tri) < ldist { return true; }
+    }
+    false
 }
 
 // TEXTURES ------------------------------------------------------------

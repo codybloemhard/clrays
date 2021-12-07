@@ -37,6 +37,7 @@ pub struct Settings{
     pub aa_samples: usize,
     pub max_reduced_ms: f32,
     pub start_in_focus_mode: bool,
+    pub max_render_depth: u8,
 }
 
 impl Default for Settings{
@@ -45,6 +46,7 @@ impl Default for Settings{
             aa_samples: 4,
             max_reduced_ms: 50.0,
             start_in_focus_mode: false,
+            max_render_depth: 5,
         }
     }
 }
