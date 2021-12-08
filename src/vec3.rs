@@ -1,16 +1,15 @@
-#[derive(PartialEq, Clone, Copy, Debug, Default)]
-pub struct Vec3{
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-}
-
 #[derive(Clone, Copy, Debug)]
 pub struct Orientation {
     pub yaw: f32,
     pub roll: f32
 }
 
+#[derive(PartialEq, Clone, Copy, Debug, Default)]
+pub struct Vec3{
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
 
 impl Vec3{
     pub const ZERO: Vec3 =      Self { x:  0.0, y:  0.0, z:  0.0 };
@@ -30,6 +29,11 @@ impl Vec3{
     #[inline]
     pub fn new(x: f32, y: f32, z: f32) -> Self{
         Self { x, y, z }
+    }
+
+    #[inline]
+    pub fn uni(v: f32) -> Self{
+        Self { x: v, y: v, z: v }
     }
 
     #[inline]

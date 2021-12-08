@@ -14,7 +14,7 @@ use clr::mesh::load_model;
 use sdl2::keyboard::Keycode;
 use clrays_rs::consts::*;
 
-pub const USE_WATERFLOOR : bool = true;
+pub const USE_WATERFLOOR : bool = false;
 pub const USE_WIDE_ANGLE : bool = false;
 
 pub fn main() -> Result<(), String>{
@@ -83,7 +83,6 @@ pub fn main() -> Result<(), String>{
             pos: Vec3::new(0.0, -1.0, 0.0),
             nor: Vec3::UP,
             mat: Material::basic()
-                .as_checkerboard()
                 .with_texture(scene.get_texture("stone-alb"))
                 .with_normal_map(scene.get_texture("stone-nor"))
                 .with_roughness_map(scene.get_texture("stone-rou"))
@@ -123,14 +122,14 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     Triangle{
-        a: Vec3::new(-1.0, 1.0, -7.0),
-        b: Vec3::new( 1.0, 1.0, -7.0),
-        c: Vec3::new( 1.0, 3.0, -7.0),
+        a: Vec3::new(-1.0, 1.0, -9.0),
+        b: Vec3::new( 1.0, 1.0, -9.0),
+        c: Vec3::new( 1.0, 3.0, -9.0),
         mat: Material::basic().as_checkerboard(),
     }.add(&mut scene);
 
     // https://groups.csail.mit.edu/graphics/classes/6.837/F03/models/
-    load_model("assets/models/object-scene.obj", Material::basic(), &mut scene);
+    // load_model("assets/models/object-scene.obj", Material::basic(), &mut scene);
 
     Sphere{
         pos: Vec3::new(3.0, 3.0, -5.0),
@@ -163,7 +162,7 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     Sphere{
-        pos: Vec3::new(0.0, 2.0, 5.0),
+        pos: Vec3::new(0.0, 2.0, -10.0),
         rad: 1.0 - EPSILON,
         mat: Material::basic()
             .as_dielectric()
@@ -172,7 +171,7 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     Sphere{
-        pos: Vec3::new(-3.0, 2.0, 5.0),
+        pos: Vec3::new(-3.0, 2.0, -10.0),
         rad: 2.0 - EPSILON,
         mat: Material::basic()
             .as_dielectric()
@@ -181,7 +180,7 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     Sphere{
-        pos: Vec3::new(-10.0, 5.0, 5.0),
+        pos: Vec3::new(-10.0, 5.0, -10.0),
         rad: 5.0 - EPSILON,
         mat: Material::basic()
             .as_dielectric()
@@ -199,7 +198,7 @@ pub fn main() -> Result<(), String>{
     scene.pack_textures(&mut info);
 
     let settings = Settings{
-        aa_samples: 12,
+        aa_samples: 8,
         max_reduced_ms: 40.0,
         start_in_focus_mode: false,
         max_render_depth: 4,

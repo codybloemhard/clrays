@@ -157,10 +157,10 @@ fn u32tf01(int: u32) -> f32{
    int as f32 * 2.3283064e-10
 }
 
-
 // WHITTED ------------------------------------------------------------
 
 // trace light ray through scene
+#[inline]
 fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, contexts: Contexts) -> Vec3{
     let mut hit = inter_scene(ray, scene);
     if depth == 0 || hit.is_null() {
@@ -444,6 +444,7 @@ fn resolve_dielectric(ni: f32, nt: f32, dir: Vec3, normal: Vec3) -> (f32, Vec3){
 // SHADING ------------------------------------------------------------
 
 // get diffuse light incl colour of hit with all lights
+#[inline]
 fn blinn(hit: &RayHit, mat: &Material, roughness: f32, scene: &Scene, viewdir: Vec3) -> (Vec3, Vec3){
     let mut col = Vec3::ONE.scaled(AMBIENT);
     let mut spec = Vec3::ZERO;
@@ -456,6 +457,7 @@ fn blinn(hit: &RayHit, mat: &Material, roughness: f32, scene: &Scene, viewdir: V
 }
 
 // get diffuse light strength for hit for a light
+#[inline]
 fn blinn_single(roughness: f32, lpos: Vec3, lpow: f32, viewdir: Vec3, hit: &RayHit, scene: &Scene) -> (f32, f32){
     let mut to_l = Vec3::subed(lpos, hit.pos);
     let dist = Vec3::len(to_l);
@@ -610,6 +612,7 @@ fn dist_plane(ray: Ray, plane: &Plane) -> f32{
 }
 
 // ray-triangle intersection
+// https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm?oldformat=true
 #[inline]
 #[allow(clippy::many_single_char_names)]
 fn inter_triangle<'a>(ray: Ray, tri: &'a Triangle, closest: &mut RayHit<'a>){
