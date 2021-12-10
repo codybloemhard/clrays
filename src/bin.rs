@@ -129,7 +129,7 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     // https://groups.csail.mit.edu/graphics/classes/6.837/F03/models/
-    // load_model("assets/models/object-scene.obj", Material::basic(), &mut scene);
+    // load_model("assets/models/teapot.obj", Material::basic(), &mut scene);
 
     Sphere{
         pos: Vec3::new(3.0, 3.0, -5.0),

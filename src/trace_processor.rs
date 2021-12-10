@@ -6,6 +6,7 @@ use crate::misc::load_source;
 use crate::cpu::{ whitted };
 use crate::vec3::Vec3;
 use crate::state::{ State };
+use crate::bvh::Bvh;
 
 use ocl::{ Queue };
 
@@ -91,6 +92,7 @@ pub struct CpuWhitted{
     width: usize,
     height: usize,
     threads: usize,
+    bvh: Bvh,
     screen_buffer: Vec<u32>,
     float_buffer: Vec<Vec3>,
     texture_params: Vec<u32>,
@@ -111,6 +113,7 @@ impl CpuWhitted{
             width,
             height,
             threads,
+            bvh: Bvh::from(scene),
             screen_buffer,
             float_buffer,
             texture_params,
@@ -126,7 +129,7 @@ impl TraceProcessor for CpuWhitted{
     fn render(&mut self, scene: &mut Scene, state: &mut State) -> &[u32]{
         whitted(
             self.width, self.height, self.threads,
-            scene, &self.texture_params, &self.textures,
+            scene, &self.bvh, &self.texture_params, &self.textures,
             &mut self.screen_buffer, &mut self.float_buffer, state, &mut self.rng
         );
         &self.screen_buffer

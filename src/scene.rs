@@ -139,8 +139,8 @@ impl AABB{
     }
 
     pub fn from_points(ps: &[Vec3]) -> Self{
-        let (mut minx, mut miny, mut minz): (f32, f32, f32) = (0.0, 0.0, 0.0);
-        let (mut maxx, mut maxy, mut maxz): (f32, f32, f32) = (0.0, 0.0, 0.0);
+        let (mut minx, mut miny, mut minz): (f32, f32, f32) = (f32::MAX, f32::MAX, f32::MAX);
+        let (mut maxx, mut maxy, mut maxz): (f32, f32, f32) = (f32::MIN, f32::MIN, f32::MIN);
 
         for p in ps{
             minx = minx.min(p.x);
@@ -171,6 +171,21 @@ impl AABB{
     pub fn combined(mut self, other: Self) -> Self{
         self.combine(other);
         self
+    }
+
+    #[inline]
+    pub fn midpoint_split(self) -> (f32, Vec3){
+        let lx = self.max.x - self.min.x;
+        let ly = self.max.y - self.min.y;
+        let lz = self.max.z - self.min.z;
+        let max = lx.max(ly).max(lz);
+        if lx == max{
+            (self.min.x + lx * 0.5, Vec3::LEFT)
+        } else if ly == max{
+            (self.min.y + ly * 0.5, Vec3::UP)
+        } else {
+            (self.min.z + lz * 0.5, Vec3::FORWARD)
+        }
     }
 }
 
@@ -499,4 +514,15 @@ impl Scene{
     pub fn add_sphere(&mut self, s: Sphere){ self.spheres.push(s); }
     pub fn add_plane(&mut self, p: Plane){ self.planes.push(p); }
     pub fn add_triangle(&mut self, b: Triangle){ self.triangles.push(b); }
+
+    pub fn either_sphere_or_triangle(&self, index: usize) -> Either<&Sphere, &Triangle>{
+        let sl = self.spheres.len();
+        if index < sl{ // is sphere
+            Either::Left(&self.spheres[index])
+        } else { // is triangle
+            Either::Right(&self.triangles[index - sl])
+        }
+    }
 }
+
+pub enum Either<T, S> { Left(T), Right(S) }

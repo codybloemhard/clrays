@@ -279,6 +279,7 @@ impl Vec3{
         Self::subed(self, nor.scaled(2.0 * Self::dot(self, nor)))
     }
 
+    #[inline]
     pub fn mix(&mut self, o: Self, t: f32){
         fn lerp(a: f32, b: f32, t: f32) -> f32{
             a + t * (b - a)
@@ -288,9 +289,15 @@ impl Vec3{
         self.z = lerp(self.z, o.z, t);
     }
 
+    #[inline]
     pub fn mixed(mut self, o: Self, t: f32) -> Self{
         self.mix(o, t);
         self
+    }
+
+    #[inline]
+    pub fn less_eq(self, o: Self) -> bool{
+        self.x <= o.x && self.y <= o.y && self.z <= o.z
     }
 }
 
