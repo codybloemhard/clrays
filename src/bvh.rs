@@ -10,7 +10,7 @@ fn gamma(n: i32) -> f32 {
 
 // ray-sphere intersection
 #[inline]
-fn inter_sphere<'a>(ray: Ray, sphere: &'a Sphere, closest: &mut RayHit<'a>){
+pub fn inter_sphere<'a>(ray: Ray, sphere: &'a Sphere, closest: &mut RayHit<'a>){
     let l = Vec3::subed(sphere.pos, ray.pos);
     let tca = Vec3::dot(ray.dir, l);
     let d = tca*tca - Vec3::dot(l, l) + sphere.rad*sphere.rad;
@@ -33,7 +33,7 @@ fn inter_sphere<'a>(ray: Ray, sphere: &'a Sphere, closest: &mut RayHit<'a>){
 
 // ray-plane intersection
 #[inline]
-fn inter_plane<'a>(ray: Ray, plane: &'a Plane, closest: &mut RayHit<'a>){
+pub fn inter_plane<'a>(ray: Ray, plane: &'a Plane, closest: &mut RayHit<'a>){
     let divisor = Vec3::dot(ray.dir, plane.nor);
     if divisor.abs() < EPSILON { return; }
     let planevec = Vec3::subed(plane.pos, ray.pos);
@@ -51,7 +51,7 @@ fn inter_plane<'a>(ray: Ray, plane: &'a Plane, closest: &mut RayHit<'a>){
 // ray-triangle intersection
 #[inline]
 #[allow(clippy::many_single_char_names)]
-fn inter_triangle<'a>(ray: Ray, tri: &'a Triangle, closest: &mut RayHit<'a>){
+pub fn inter_triangle<'a>(ray: Ray, tri: &'a Triangle, closest: &mut RayHit<'a>){
     let edge1 = Vec3::subed(tri.b, tri.a);
     let edge2 = Vec3::subed(tri.c, tri.a);
     let h = Vec3::crossed(ray.dir, edge2);
@@ -203,8 +203,22 @@ impl Primitive {
     }
 
     fn from_plane(plane: &Plane, index_plane: usize) -> Self{
+        if !(plane.nor.x == 1.0 || plane.nor.y == 1.0 || plane.nor.z == 1.0) {
+            panic!("Infinite plane with unaligned normal: Bounding box will be infinite");
+        }
         Self {
-            bounds: AABB::new(), // HELP: worth supporting plane? If the normal does not align with an axis its AABB is infinite...?
+            bounds: AABB {
+                a: Vec3 {
+                    x: -5000.0, // Using f32::INFINITY crashes my computer
+                    y: plane.pos.y,
+                    z: -5000.0 // Using f32::INFINITY crashes my computer
+                },
+                b: Vec3 {
+                    x: 5000.0, // Using f32::INFINITY crashes my computer
+                    y: plane.pos.y + EPSILON,
+                    z: 5000.0, // Using f32::INFINITY crashes my computer
+                }
+            },
             shape_type: Shape::PLANE,
             sphere: 0,
             plane: index_plane,
@@ -263,13 +277,23 @@ impl Node {
         }
     }
 
+    pub fn node_iterator_mut(self, call_on_every_node: &mut dyn FnMut(&Node)) {
+        call_on_every_node(&self);
+        if !self.is_leaf {
+            let node_left = self.left.unwrap();
+            let node_right = self.right.unwrap();
 
-    pub fn intersect<'a>(&self, ray: Ray, scene: &'a Scene, closest: &mut RayHit<'a>, inv_dir: Vec3, dir_is_neg: [usize; 3] ) -> (usize, usize) {
+            node_left.node_iterator_mut(call_on_every_node);
+            node_right.node_iterator_mut(call_on_every_node);
+        }
+    }
+
+    pub fn intersect<'a>(&self, ray: Ray, scene: &'a Scene, closest: &mut RayHit<'a>, inv_dir: Vec3, dir_is_neg: [usize; 3] ) -> (usize, usize, usize) {
         if self.is_leaf {
             for primitive in self.primitives.iter() {
                 primitive.intersect(ray, scene, closest);
             }
-            (0, self.primitives.len())
+            (0, self.primitives.len(), 1)
         } else {
             // Check which box hits first
             let node_left = self.left.as_ref().unwrap();
@@ -281,27 +305,36 @@ impl Node {
             let (tl0, tl1) = intersection_left.unwrap_or((f32::INFINITY, f32::INFINITY));
             let (tr0, tr1) = intersection_right.unwrap_or((f32::INFINITY, f32::INFINITY));
 
-            let tl = if tl0 > 0.0 { tl0 } else { tl1 };
-            let tr = if tr0 > 0.0 { tr0 } else { tr1 };
+            let tl = if let Some((tl0, tl1)) = intersection_left{
+                if tl0 > 0.0 && tl0 < f32::MAX { tl0 }
+                else if tl1 > 0.0 && tl1 < f32::MAX { tl1 }
+                else { f32::MAX }
+            } else { f32::MAX };
+            let tr = if let Some((t1r0, tr1)) = intersection_right{
+                if tr0 > 0.0 && tr0 < f32::MAX { tr0 }
+                else if tr1 > 0.0 && tr1 < f32::MAX { tr1 }
+                else { f32::MAX }
+            } else { f32::MAX };
 
-            let mut x1 = (0, 0);
-            let mut x2 = (0, 0);
+            let mut x1 = (0, 0, 0);
+            let mut x2 = (0, 0, 0);
 
-            if tl < tr {
+            if tl <= tr && tl < f32::MAX {
                 // First intersect left
                 x1 = node_left.intersect(ray, scene, closest, inv_dir, dir_is_neg);
-                if tr < closest.t {
+                if tr < closest.t && tr < f32::MAX {
                     x2 = node_right.intersect(ray, scene, closest, inv_dir, dir_is_neg);
                 }
-            } else if tr < tl {
+            }
+            else if tr < tl && tr < f32::MAX{
                 // First intersect right
                 x2 = node_right.intersect(ray, scene, closest, inv_dir, dir_is_neg);
-                if tl < closest.t {
+                if tl < closest.t && tl < f32::MAX {
                     x1 = node_left.intersect(ray, scene, closest, inv_dir, dir_is_neg);
                 }
             }
 
-            (2 + x1.0 + x2.0, x1.1 + x2.1)
+            (2 + x1.0 + x2.0, x1.1 + x2.1, 1 + x1.2.max(x2.2))
         }
     }
 
@@ -363,9 +396,9 @@ pub fn build_bvh(scene: &Scene) -> BVH {
     for i in 0..scene.spheres.len() {
         primitives.push(Primitive::from_sphere(&scene.spheres[i], i));
     };
-    for i in 0..scene.planes.len() {
-        primitives.push(Primitive::from_plane(&scene.planes[i], i));
-    };
+    // for i in 0..scene.planes.len() {
+    //     primitives.push(Primitive::from_plane(&scene.planes[i], i));
+    // };
     for i in 0..scene.triangles.len() {
         primitives.push(Primitive::from_triangle(&scene.triangles[i], i));
     };
@@ -459,7 +492,7 @@ fn build_subnode(primitives: &Vec<Primitive>, depth: usize) -> Node {
 }
 
 impl BVH {
-    pub fn intersect<'a>(&self, ray: Ray, scene: &'a Scene, closest: &mut RayHit<'a>) -> (usize, usize) {
+    pub fn intersect<'a>(&self, ray: Ray, scene: &'a Scene, closest: &mut RayHit<'a>) -> (usize, usize, usize) {
         let inv_dir = ray.inverted().dir;
         let dir_is_neg : [usize; 3] = ray.direction_negations();
         self.node.intersect(ray, scene, closest, inv_dir, dir_is_neg)
@@ -725,5 +758,19 @@ mod test {
                 }
             }
         );
+    }
+
+    #[test]
+    fn primitives_in_bvh_equal_scene() {
+        let mut scene = Scene::new();
+        load_model("assets/models/teapot.obj", Material::basic(), &mut scene);
+        let mut primitives: Vec<Primitive> = vec![];
+        for i in 0..scene.triangles.len() {
+            primitives.push(Primitive::from_triangle(&scene.triangles[i], i));
+        };
+        let root_node = build_subnode(&primitives, 0);
+        let mut prim_count = 0;
+        root_node.node_iterator_mut( &mut |s| if s.is_leaf { prim_count += s.primitives.len(); } );
+        assert_eq!(prim_count, primitives.len());
     }
 }

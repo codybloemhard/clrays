@@ -4,6 +4,7 @@ use crate::state::{ RenderMode, State };
 
 use rand::prelude::*;
 use crate::consts::*;
+use crate::bvh::{inter_plane, inter_sphere, inter_triangle};
 
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::many_single_char_names)]
@@ -163,19 +164,42 @@ fn u32tf01(int: u32) -> f32{
 // trace light ray through scene
 fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, contexts: Contexts) -> Vec3{
     let mut hit = RayHit::NULL;
-    let (bounding_boxes_intersections, primitive_intersections ) = scene.bvh.intersect(ray, scene, &mut hit);
+    if scene.use_bvh {
+        let (bounding_boxes_intersections, primitive_intersections, depth) = scene.bvh.intersect(ray, scene, &mut hit);
+        if scene.show_bvh {
+            let val = depth;
+            let lim1 = 10.0;
+            let lim2 = 30.0;
+            if bounding_boxes_intersections < lim1 as usize {
+                return Vec3 {
+                    x: val as f32 / lim1,
+                    y: val as f32 / lim1,
+                    z: val as f32 / lim1,
+                };
+            } else {
+                // zero is blue
+                // 100 is red
+                return Vec3 {
+                    x: val as f32 / lim2,
+                    y: 0.0,
+                    z: 1.0 - val as f32 / lim2,
+                };
+            }
+        }
+    } else {
+        hit = inter_scene(ray, scene);
+    };
+
     // println!("intersections: {:?}", scene.bvh.intersect(ray, scene, &mut hit));
 
-    if scene.show_bvh {
-        return Vec3 {
-            x: bounding_boxes_intersections as f32 / 80.0,
-            y: bounding_boxes_intersections as f32 / 80.0,
-            z: bounding_boxes_intersections as f32 / 80.0,
-        };
-    }
 
     if depth == 0 || hit.is_null() {
         return get_sky_col(ray.dir, scene, tps, ts);
+        // return Vec3{
+        //     x: 1.0,
+        //     y: 1.0,
+        //     z: 1.0,
+        // }
     }
 
     let absorption_context;
@@ -616,6 +640,16 @@ fn dist_triangle(ray: Ray, tri: &Triangle) -> f32{
     let t = f * Vec3::dot(edge2, q);
     if t <= EPSILON { return MAX_RENDER_DIST; }
     t
+}
+
+// intersect whole scene, find closest hit
+#[inline]
+fn inter_scene(ray: Ray, scene: &Scene) -> RayHit{
+    let mut closest = RayHit::NULL;
+    for plane in &scene.planes { inter_plane(ray, plane, &mut closest); }
+    for sphere in &scene.spheres { inter_sphere(ray, sphere, &mut closest); }
+    for tri in &scene.triangles { inter_triangle(ray, tri, &mut closest); }
+    closest
 }
 
 // intersect whole scene, stop at first intersection at all

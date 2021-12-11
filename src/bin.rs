@@ -208,7 +208,7 @@ pub fn main() -> Result<(), String>{
         start_in_focus_mode: false,
         max_render_depth: 4,
     };
-    let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O, T), settings);
+    let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O, T, Y), settings);
     // let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O, F, B), settings);
 
     // let (w, h) = (960, 540);

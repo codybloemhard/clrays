@@ -243,6 +243,7 @@ pub struct Scene{
     pub sky_box: u32,
     pub cam: Camera,
     pub bvh: BVH,
+    pub use_bvh: bool,
     pub show_bvh: bool
 }
 
@@ -299,7 +300,8 @@ impl Scene{
                     right: None,
                 }
             },
-            show_bvh: false
+            use_bvh: true,
+            show_bvh: true
         }
     }
 
