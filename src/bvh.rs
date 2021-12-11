@@ -89,8 +89,13 @@ impl AABB {
     }
 
     pub fn midpoint(&self) -> Vec3{
-        self.a.added(self.b).scaled(0.5)
+        self.lerp(0.5)
     }
+
+    pub fn lerp(&self, val: f32) -> Vec3{
+        self.a.added(self.b).scaled(val)
+    }
+
 
     // [source](http://www.pbr-book.org/3ed-2018/Shapes/Basic_Shape_Interface.html#Bounds3::IntersectP)
     // pub fn intersection(&self, ray: Ray, inv_dir: Vec3, dir_is_neg: [bool; 3]) -> Option<(f32,f32)> {
@@ -145,6 +150,13 @@ impl AABB {
         v.x * v.y * v.z
     }
 
+    pub fn surface_area(self) -> f32{
+        let v = self.b.subed(self.a);
+        v.x * v.y * 2.0 +
+        v.x * v.z * 2.0 +
+        v.y * v.z * 2.0
+    }
+
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -156,7 +168,7 @@ enum Shape { // ? bytes
 }
 
 #[derive(Copy, Clone, Debug)]
-enum Axis {
+pub enum Axis {
     X,
     Y,
     Z
@@ -171,15 +183,6 @@ pub struct Primitive {
     triangle: usize,
 }
 impl Primitive {
-    // fn new() -> Self {
-    //     Self {
-    //     bounds: AABB::new(),
-    //         shape_type: Shape::NONE,
-    //         sphere: 0,
-    //         plane: 0,
-    //         triangle: 0,
-    //     }
-    // }
 
     fn from_sphere(sphere: &Sphere, index_sphere: usize) -> Self{
         Self {
@@ -410,8 +413,10 @@ pub fn build_bvh(scene: &Scene) -> BVH {
 }
 
 fn build_subnode(primitives: &Vec<Primitive>, depth: usize) -> Node {
+    // apply SAH
+    // make 12 splits
 
-    // Find bounds
+    // find bounds
     let mut bounds = AABB::new();
     for primitive in primitives.iter() {
         bounds.a.x = bounds.a.x.min( primitive.bounds.a.x );
@@ -423,38 +428,105 @@ fn build_subnode(primitives: &Vec<Primitive>, depth: usize) -> Node {
         bounds.b.z = bounds.b.z.max( primitive.bounds.b.z );
     }
 
-    // Find dominant axis
-    let diff_x = bounds.b.x - bounds.a.x;
-    let diff_y = bounds.b.y - bounds.a.y;
-    let diff_z = bounds.b.z - bounds.a.z;
-    let axis = if diff_x > diff_y && diff_x > diff_z {
-        Axis::X
-    } else if diff_y > diff_z {
-        Axis::Y
-    } else {
-        Axis::Z
-    };
-
-    // Find midpoint
-    let mut val: f32 = 0.0;
-    let mut first : f32 = f32::MIN;
-    let mut is_all_the_same = true;
-    for primitive in primitives.iter() {
-        let tmp = match axis {
-            Axis::X => primitive.bounds.midpoint().x,
-            Axis::Y => primitive.bounds.midpoint().y,
-            Axis::Z => primitive.bounds.midpoint().z,
-        };
-        if first != f32::MIN && (first - tmp).abs() > EPSILON {
-            is_all_the_same = false;
-        }
-        first = tmp;
-        val += tmp;
+    // precompute lerps
+    let mut lerps = [Vec3::DOWN; 12];
+    for i in 0..12{
+        lerps[i] = bounds.lerp(i as f32 / 12.0 );
     }
-    val /= primitives.len() as f32;
 
-    // Decide whether we apply the primitives into a leaf node
-    if primitives.len() < 5 || is_all_the_same {
+    // precompute midpoints
+    let mid_points_prims: Vec<Vec3> = primitives.into_iter().map(|prim| prim.bounds.midpoint()).collect();
+    let n = mid_points_prims.len();
+
+    // compute best combination; minimal cost
+    let mut best : (f32, Axis, usize) = (f32::MAX, Axis::X, 0); // (cost, axis, i_lerp)
+    for axis in [Axis::X, Axis::Y, Axis::Z] {
+        let mut index_reshuffled = vec![0; n];
+        for i in 0..n{
+            index_reshuffled[i] = i;
+        }
+
+        // TODO: improve algorithm
+        // sort primitives for axis
+        for i in 0..n{
+            let val = mid_points_prims[i].fake_arr(axis);
+            let mut x = 0;
+            for j in 0..n{
+                if mid_points_prims[j].fake_arr(axis) < val {
+                    x += 1;
+                } else if mid_points_prims[j].fake_arr(axis) == val {
+                    if j < i {
+                        x += 1;
+                    }
+                }
+            }
+            index_reshuffled[i] = x;
+        }
+
+        let mut sides  : [Vec<&Primitive>;2] = [vec![],vec![]];
+        let mut side_bounds : [AABB; 2] = [AABB::new(); 2];
+        for i in 0..n{
+            // initially all prims on the right
+            sides[1].push(&primitives[index_reshuffled[n-i-1]]);
+        }
+        let mut i_split: usize = n-1;
+        for i_lerp in 0..12{
+            let tmp = lerps[i_lerp].fake_arr(axis);
+
+            // place over prims from right split to left split
+            while i_split < n && mid_points_prims[index_reshuffled[i_split]].fake_arr(axis) > tmp{
+                let prim = sides[1].pop().unwrap();
+                sides[0].push(prim);
+                i_split -= 1;
+
+                // update bounds of left
+                side_bounds[0].a.x = side_bounds[0].a.x.min( prim.bounds.a.x );
+                side_bounds[0].a.y = side_bounds[0].a.y.min( prim.bounds.a.y );
+                side_bounds[0].a.z = side_bounds[0].a.z.min( prim.bounds.a.z );
+
+                side_bounds[0].b.x = side_bounds[0].b.x.max( prim.bounds.b.x );
+                side_bounds[0].b.y = side_bounds[0].b.y.max( prim.bounds.b.y );
+                side_bounds[0].b.z = side_bounds[0].b.z.max( prim.bounds.b.z );
+            }
+
+            // recompute bounds for right
+            for prim in sides[1].iter() {
+                side_bounds[1].a.x = side_bounds[1].a.x.min( prim.bounds.a.x );
+                side_bounds[1].a.y = side_bounds[1].a.y.min( prim.bounds.a.y );
+                side_bounds[1].a.z = side_bounds[1].a.z.min( prim.bounds.a.z );
+
+                side_bounds[1].b.x = side_bounds[1].b.x.max( prim.bounds.b.x );
+                side_bounds[1].b.y = side_bounds[1].b.y.max( prim.bounds.b.y );
+                side_bounds[1].b.z = side_bounds[1].b.z.max( prim.bounds.b.z );
+            }
+
+            // get cost
+            let cost = side_bounds[0].surface_area()*sides[0].len() as f32 + side_bounds[1].surface_area()*sides[1].len() as f32;
+            if cost < best.0 {
+                best = (cost, axis, i_lerp);
+            }
+        }
+    }
+
+    // apply best
+    let (cost, axis, i_lerp) = best;
+    let val = lerps[i_lerp].fake_arr(axis);
+
+    // Define primitives for left and right
+    let mut left  : Vec<Primitive> = vec![];
+    let mut right : Vec<Primitive> = vec![];
+    for i in 0..n {
+        if mid_points_prims[i].fake_arr(axis) < val {
+            left.push(primitives[i]);
+        } else {
+            right.push(primitives[i]);
+        }
+    }
+
+    // TODO: improve cost function
+    // decide whether we apply the primitives into a leaf node
+    if left.len() == 0 || right.len() == 0 { //|| is_all_the_same {
+        // no cost gain
         let node = Node {
             bounds,
             primitives: primitives.clone(),
@@ -464,6 +536,92 @@ fn build_subnode(primitives: &Vec<Primitive>, depth: usize) -> Node {
         };
         return node;
     }
+
+    println!("depth: {}", depth);
+    println!("len left: {}", left.len());
+    println!("len right: {}", right.len());
+
+    // Build left subnode and right subnode
+    let node = Node {
+        bounds,
+        primitives: primitives.clone(),
+        is_leaf: false,
+        left: Some(Box::new(build_subnode(&left, depth + 1))),
+        right: Some(Box::new(build_subnode(&right, depth + 1)))
+    };
+    return node;
+
+
+    // // for x-axis
+    // for lerp in 0..12 {
+    //     // lerp over axis
+    //     let tmp = primitive.bounds.lerp(i as f32 / 12.0).x;
+    //     let mut sides  : [Vec<Primitive>;2] = [vec![];2];
+    //     // separate primitives over
+    //     for primitive in primitives.iter() {
+    //         if primitive.bounds.midpoint().x < tmp {
+    //             sides[0].push(*primitive);
+    //         } else {
+    //             sides[1].push(*primitive);
+    //         }
+    //     }
+    //     // get bounds
+    //     let mut bounds: [AABB; 2] = [AABB::new();2];
+    //     for i in 0..1 {
+    //         for primitive in sides[i].iter() {
+    //             bounds[i].a.x = bounds[i].a.x.min( primitive.bounds.a.x );
+    //             bounds[i].a.y = bounds[i].a.y.min( primitive.bounds.a.y );
+    //             bounds[i].a.z = bounds[i].a.z.min( primitive.bounds.a.z );
+    //
+    //             bounds[i].b.x = bounds[i].b.x.max( primitive.bounds.b.x );
+    //             bounds[i].b.y = bounds[i].b.y.max( primitive.bounds.b.y );
+    //             bounds[i].b.z = bounds[i].b.z.max( primitive.bounds.b.z );
+    //         }
+    //     }
+    //     // add costs
+    // }
+
+    // // Find dominant axis
+    // let diff_x = bounds.b.x - bounds.a.x;
+    // let diff_y = bounds.b.y - bounds.a.y;
+    // let diff_z = bounds.b.z - bounds.a.z;
+    // let axis = if diff_x > diff_y && diff_x > diff_z {
+    //     Axis::X
+    // } else if diff_y > diff_z {
+    //     Axis::Y
+    // } else {
+    //     Axis::Z
+    // };
+    //
+    // // Find midpoint
+    // let mut val: f32 = 0.0;
+    // let mut first : f32 = f32::MIN;
+    // let mut is_all_the_same = true;
+    // for primitive in primitives.iter() {
+    //     let tmp = match axis {
+    //         Axis::X => primitive.bounds.midpoint().x,
+    //         Axis::Y => primitive.bounds.midpoint().y,
+    //         Axis::Z => primitive.bounds.midpoint().z,
+    //     };
+    //     if first != f32::MIN && (first - tmp).abs() > EPSILON {
+    //         is_all_the_same = false;
+    //     }
+    //     first = tmp;
+    //     val += tmp;
+    // }
+    // val /= primitives.len() as f32;
+
+    // // Decide whether we apply the primitives into a leaf node
+    // if primitives.len() < 3 { //|| is_all_the_same {
+    //     let node = Node {
+    //         bounds,
+    //         primitives: primitives.clone(),
+    //         is_leaf: true,
+    //         left: None,
+    //         right: None
+    //     };
+    //     return node;
+    // }
 
     // Define primitives for left and right
     let mut left  : Vec<Primitive> = vec![];

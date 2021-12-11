@@ -1,4 +1,6 @@
 use crate::consts::EPSILON;
+use crate::bvh::Axis;
+
 
 #[derive(PartialEq, Clone, Copy, Debug, Default)]
 pub struct Vec3{ // 12 bytes
@@ -39,6 +41,15 @@ impl Vec3{
         let a = ori.roll;  // Up/Down
         let b = ori.yaw;   // Left/Right
         Self { x: a.cos() * b.sin(), y: a.sin(), z: a.cos() * -b.cos() }
+    }
+
+    #[inline]
+    pub fn fake_arr(self, axis: Axis) -> f32 {
+        match axis {
+            Axis::X => self.x,
+            Axis::Y => self.y,
+            Axis::Z => self.z,
+        }
     }
 
     #[inline]
