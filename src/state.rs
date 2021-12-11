@@ -13,15 +13,17 @@ pub enum LoopRequest{
     Export,
 }
 
-const KEYS_AMOUNT: usize = 12;
+const KEYS_AMOUNT: usize = 13;
 pub type Keymap = [Keycode; KEYS_AMOUNT];
 
 #[macro_export]
 macro_rules! build_keymap{
     ($mfo:ident,$mba:ident,$mle:ident,$mri:ident,$mup:ident,$mdo:ident,
-     $lup:ident,$ldo:ident,$lle:ident,$lri:ident,$foc:ident,$scr:ident) => {
+     $lup:ident,$ldo:ident,$lle:ident,$lri:ident,$foc:ident,$scr:ident,
+     $lol:ident) => {
         [Keycode::$mfo, Keycode::$mba, Keycode::$mle, Keycode::$mri, Keycode::$mup, Keycode::$mdo,
-         Keycode::$lup, Keycode::$ldo, Keycode::$lle, Keycode::$lri, Keycode::$foc, Keycode::$scr]
+         Keycode::$lup, Keycode::$ldo, Keycode::$lle, Keycode::$lri, Keycode::$foc, Keycode::$scr,
+         Keycode::$lol]
     }
 }
 
@@ -208,6 +210,9 @@ pub fn fps_input_fn(events: &[Event], scene: &mut Scene, state: &mut State) -> L
                     cam.ori.yaw -= 2.0 * PI;
                 }
                 cam.dir = Vec3::new_dir(&cam.ori);
+            },
+            12 => { // Toggle BVH rendering
+                scene.show_bvh = !scene.show_bvh;
             },
             _ => {},
         }

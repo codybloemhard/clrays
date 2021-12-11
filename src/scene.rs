@@ -242,7 +242,8 @@ pub struct Scene{
     pub sky_intensity: f32,
     pub sky_box: u32,
     pub cam: Camera,
-    pub bvh: BVH
+    pub bvh: BVH,
+    pub show_bvh: bool
 }
 
 impl Default for Scene {
@@ -297,7 +298,8 @@ impl Scene{
                     left: None,
                     right: None,
                 }
-            }
+            },
+            show_bvh: false
         }
     }
 

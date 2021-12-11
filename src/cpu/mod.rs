@@ -163,7 +163,16 @@ fn u32tf01(int: u32) -> f32{
 // trace light ray through scene
 fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, contexts: Contexts) -> Vec3{
     let mut hit = RayHit::NULL;
-    scene.bvh.node.intersect(ray, scene, &mut hit);
+    let (bounding_boxes_intersections, primitive_intersections ) = scene.bvh.intersect(ray, scene, &mut hit);
+    // println!("intersections: {:?}", scene.bvh.intersect(ray, scene, &mut hit));
+
+    if scene.show_bvh {
+        return Vec3 {
+            x: bounding_boxes_intersections as f32 / 80.0,
+            y: bounding_boxes_intersections as f32 / 80.0,
+            z: bounding_boxes_intersections as f32 / 80.0,
+        };
+    }
 
     if depth == 0 || hit.is_null() {
         return get_sky_col(ray.dir, scene, tps, ts);
