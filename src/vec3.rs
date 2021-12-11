@@ -1,20 +1,18 @@
 use crate::consts::EPSILON;
 use crate::bvh::Axis;
 
-
-#[derive(PartialEq, Clone, Copy, Debug, Default)]
-pub struct Vec3{ // 12 bytes
-    pub x: f32, // f32: 4 bytes
-    pub y: f32, // f32: 4 bytes
-    pub z: f32, // f32: 4 bytes
-}
-
 #[derive(Clone, Copy, Debug)]
 pub struct Orientation {
     pub yaw: f32,
     pub roll: f32
 }
 
+#[derive(PartialEq, Clone, Copy, Debug, Default)]
+pub struct Vec3{
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
 
 impl Vec3{
     pub const ZERO: Vec3 =      Self { x:  0.0, y:  0.0, z:  0.0 };
@@ -34,6 +32,11 @@ impl Vec3{
     #[inline]
     pub fn new(x: f32, y: f32, z: f32) -> Self{
         Self { x, y, z }
+    }
+
+    #[inline]
+    pub fn uni(v: f32) -> Self{
+        Self { x: v, y: v, z: v }
     }
 
     #[inline]
@@ -288,6 +291,7 @@ impl Vec3{
         Self::subed(self, nor.scaled(2.0 * Self::dot(self, nor)))
     }
 
+    #[inline]
     pub fn mix(&mut self, o: Self, t: f32){
         fn lerp(a: f32, b: f32, t: f32) -> f32{
             a + t * (b - a)
@@ -297,6 +301,7 @@ impl Vec3{
         self.z = lerp(self.z, o.z, t);
     }
 
+    #[inline]
     pub fn mixed(mut self, o: Self, t: f32) -> Self{
         self.mix(o, t);
         self
@@ -307,6 +312,10 @@ impl Vec3{
         (self.x-other.x).abs() < EPSILON &&
         (self.y-other.y).abs() < EPSILON &&
         (self.z-other.z).abs() < EPSILON
+    }
+
+    pub fn less_eq(self, o: Self) -> bool{
+        self.x <= o.x && self.y <= o.y && self.z <= o.z
     }
 }
 

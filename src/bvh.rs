@@ -1,78 +1,13 @@
 use crate::vec3::Vec3;
-use crate::consts::{EPSILON, UV_SPHERE, UV_PLANE};
-use crate::scene::{Sphere, Plane, Triangle, Scene};
-use crate::cpu::{Ray, RayHit};
+use crate::consts::{ EPSILON, UV_SPHERE, UV_PLANE };
+use crate::scene::{ Sphere, Plane, Triangle, Scene };
+use crate::cpu::inter::*;
+
+// use crate::scene::{ Scene, AABB, Either };
 
 #[inline]
 fn gamma(n: i32) -> f32 {
     (n as f32 * EPSILON) / (1.0 - n as f32 * EPSILON)
-}
-
-// ray-sphere intersection
-#[inline]
-pub fn inter_sphere<'a>(ray: Ray, sphere: &'a Sphere, closest: &mut RayHit<'a>){
-    let l = Vec3::subed(sphere.pos, ray.pos);
-    let tca = Vec3::dot(ray.dir, l);
-    let d = tca*tca - Vec3::dot(l, l) + sphere.rad*sphere.rad;
-    if d < 0.0 { return; }
-    let dsqrt = d.sqrt();
-    let mut t = tca - dsqrt;
-    if t < 0.0 {
-        t = tca + dsqrt;
-        if t < 0.0 { return; }
-    }
-    if t > closest.t { return; }
-    closest.t = t;
-    closest.pos = ray.pos.added(ray.dir.scaled(t));
-    closest.nor = Vec3::subed(closest.pos, sphere.pos).scaled(1.0 / sphere.rad);
-    closest.mat = Some(&sphere.mat);
-    closest.uvtype = UV_SPHERE;
-    closest.sphere = Some(sphere);
-}
-
-
-// ray-plane intersection
-#[inline]
-pub fn inter_plane<'a>(ray: Ray, plane: &'a Plane, closest: &mut RayHit<'a>){
-    let divisor = Vec3::dot(ray.dir, plane.nor);
-    if divisor.abs() < EPSILON { return; }
-    let planevec = Vec3::subed(plane.pos, ray.pos);
-    let t = Vec3::dot(planevec, plane.nor) / divisor;
-    if t < EPSILON { return; }
-    if t > closest.t { return; }
-    closest.t = t;
-    closest.pos = ray.pos.added(ray.dir.scaled(t));
-    closest.nor = plane.nor;
-    closest.mat = Some(&plane.mat);
-    closest.uvtype = UV_PLANE;
-    closest.sphere = None;
-}
-
-// ray-triangle intersection
-#[inline]
-#[allow(clippy::many_single_char_names)]
-pub fn inter_triangle<'a>(ray: Ray, tri: &'a Triangle, closest: &mut RayHit<'a>){
-    let edge1 = Vec3::subed(tri.b, tri.a);
-    let edge2 = Vec3::subed(tri.c, tri.a);
-    let h = Vec3::crossed(ray.dir, edge2);
-    let a = Vec3::dot(edge1, h);
-    if a > -EPSILON && a < EPSILON { return; } // ray parallel to tri
-    let f = 1.0 / a;
-    let s = Vec3::subed(ray.pos, tri.a);
-    let u = f * Vec3::dot(s, h);
-    if !(0.0..=1.0).contains(&u) { return; }
-    let q = Vec3::crossed(s, edge1);
-    let v = f * Vec3::dot(ray.dir, q);
-    if v < 0.0 || u + v > 1.0 { return; }
-    let t = f * Vec3::dot(edge2, q);
-    if t <= EPSILON { return; }
-    if t > closest.t { return; }
-    closest.t = t;
-    closest.pos = ray.pos.added(ray.dir.scaled(t));
-    closest.nor = Vec3::crossed(edge1, edge2).normalized_fast();
-    closest.mat = Some(&tri.mat);
-    closest.uvtype = UV_PLANE;
-    closest.sphere = None;
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -80,6 +15,7 @@ pub struct AABB { // 24 bytes
     pub a: Vec3, // Vec3: 12 bytes
     pub b: Vec3, // Vec3: 12 bytes
 }
+
 impl AABB {
     pub fn new() -> Self{
         Self {
@@ -932,3 +868,172 @@ mod test {
         assert_eq!(prim_count, primitives.len());
     }
 }
+
+//
+// #[derive(Clone, PartialEq, Debug)]
+// pub struct Bvh{
+//     indices: Vec<u32>,
+//     vertices: Vec<Vertex>,
+// }
+//
+// impl Bvh{
+//     pub fn intersect<'a>(&self, scene: &'a Scene, ray: Ray) -> RayHit<'a>{
+//         fn inter<'a>(scene: &'a Scene, vs: &[Vertex], is: &[u32], ray: Ray, hit: &mut RayHit<'a>, current: usize) {
+//             let v = vs[current];
+//             if v.count == 0{ // vertex
+//                 if hit_aabb(ray, v.bound).is_some(){
+//                     inter(scene, vs, is, ray, hit, v.left_first as usize);
+//                     inter(scene, vs, is, ray, hit, v.left_first as usize + 1);
+//                 }
+//             } else { // leaf
+//                 for i in is.iter().skip(v.left_first as usize).take(v.count as usize).map(|i| *i as usize){
+//                     match scene.either_sphere_or_triangle(i){
+//                         Either::Left(s) => inter_sphere(ray, s, hit),
+//                         Either::Right(t) => inter_triangle(ray, t, hit),
+//                     }
+//                 }
+//             }
+//         }
+//         let mut closest = RayHit::NULL;
+//         inter(scene, &self.vertices, &self.indices, ray, &mut closest, 0);
+//         closest
+//     }
+//
+//     pub fn occluded(&self, scene: &Scene, ray: Ray, ldist: f32) -> bool{
+//         fn inter<'a>(scene: &'a Scene, vs: &[Vertex], is: &[u32], ray: Ray, ldist: f32, current: usize) -> bool{
+//             let v = vs[current];
+//             if v.count == 0{ // vertex
+//                 if hit_aabb(ray, v.bound).is_some(){
+//                     inter(scene, vs, is, ray, ldist, v.left_first as usize);
+//                     inter(scene, vs, is, ray, ldist, v.left_first as usize + 1);
+//                 }
+//             } else { // leaf
+//                 for i in is.iter().skip(v.left_first as usize).take(v.count as usize).map(|i| *i as usize){
+//                     if match scene.either_sphere_or_triangle(i){
+//                         Either::Left(s) => dist_sphere(ray, s),
+//                         Either::Right(t) => dist_triangle(ray, t),
+//                     } < ldist { return true }
+//                 }
+//             }
+//             false
+//         }
+//         inter(scene, &self.vertices, &self.indices, ray, ldist, 0)
+//     }
+//
+//     pub fn debug_intersect(&self, scene: &Scene, ray: Ray) -> usize{
+//         fn inter(scene: &Scene, vs: &[Vertex], is: &[u32], ray: Ray, current: usize, w: usize) -> usize{
+//             let v = vs[current];
+//             // if hit_aabb(ray, v.bound).is_none() { return 0; }
+//             let x = if hit_aabb(ray, v.bound).is_none() { 0 } else { 1 };
+//             if v.count == 0{ // vertex
+//                 w*x +
+//                     inter(scene, vs, is, ray, v.left_first as usize, w) +
+//                     inter(scene, vs, is, ray, v.left_first as usize + 1, w)
+//             } else { // leaf
+//                 let mut hit = RayHit::NULL;
+//                 for i in is.iter().skip(v.left_first as usize).take(v.count as usize).map(|i| *i as usize){
+//                     match scene.either_sphere_or_triangle(i){
+//                         Either::Left(s) => inter_sphere(ray, s, &mut hit),
+//                         Either::Right(t) => inter_triangle(ray, t, &mut hit),
+//                     };
+//                 }
+//                 if hit.is_null() {
+//                     0
+//                 } else {
+//                     w
+//                 }
+//             }
+//         }
+//         inter(scene, &self.vertices, &self.indices, ray, 0, 1)
+//     }
+//
+//     pub fn from(scene: &Scene) -> Self{
+//         let prims = scene.spheres.len() + scene.triangles.len();
+//
+//         let mut is = (0..prims as u32).into_iter().collect::<Vec<_>>();
+//         let mut vs = vec![Vertex::default(); prims * 2 - 1];
+//         let mut poolptr = 2;
+//
+//         Self::subdivide(scene, &mut is, &mut vs, 0, &mut poolptr, 0, prims);
+//
+//         // vs = vs.into_iter().filter(|v| v.bound != AABB::default()).collect::<Vec<_>>();
+//         // println!("{:#?}", vs);
+//
+//         Self{
+//             indices: is,
+//             vertices: vs,
+//         }
+//     }
+//
+//     fn subdivide(scene: &Scene, is: &mut[u32], vs: &mut[Vertex], current: usize, poolptr: &mut u32, first: usize, count: usize){
+//         let v = &mut vs[current];
+//         v.bound = Self::bound(scene, first, count);
+//
+//         if count < 3 { // leaf
+//             v.left_first = first as u32; // first
+//             v.count = count as u32;
+//             return;
+//         }
+//
+//         v.left_first = *poolptr; // left = poolptr, right = poolptr + 1
+//         *poolptr += 2;
+//
+//         let l_count = Self::partition(scene, is, v.bound, first, count);
+//
+//         if l_count == 0 || l_count == count{ // leaf
+//             v.left_first = first as u32; // first
+//             v.count = count as u32;
+//             return;
+//         }
+//
+//         v.count = 0; // internal vertex, not a leaf
+//         let lf = v.left_first as usize;
+//
+//         Self::subdivide(scene, is, vs, lf, poolptr, first, l_count);
+//         Self::subdivide(scene, is, vs, lf + 1, poolptr, first + l_count, count - l_count);
+//     }
+//
+//     fn partition(scene: &Scene, is: &mut[u32], bound: AABB, first: usize, count: usize) -> usize{
+//         fn is_left(index: usize, scene: &Scene, (plane, axis): (f32, Vec3)) -> bool{
+//             let plane_vec = axis.scaled(plane);
+//             match scene.either_sphere_or_triangle(index){
+//                 Either::Left(sphere) => sphere.pos.muled(axis).less_eq(plane_vec),
+//                 Either::Right(tri) => {
+//                     tri.a.muled(axis).less_eq(plane_vec) ||
+//                     tri.b.muled(axis).less_eq(plane_vec) ||
+//                     tri.c.muled(axis).less_eq(plane_vec)
+//                 },
+//             }
+//         }
+//         let plane_axis = bound.midpoint_split();
+//         let mut a = first; // first
+//         let mut b = first + count - 1; // last
+//         while a < b{
+//             if is_left(is[a] as usize, scene, plane_axis){
+//                 a += 1;
+//             } else {
+//                 is.swap(a, b);
+//                 b -= 1;
+//             }
+//         }
+//         a.min(count)
+//     }
+//
+//     fn bound(scene: &Scene, first: usize, count: usize) -> AABB {
+//         let mut bound = AABB::default();
+//         for i in first..first + count{
+//             bound = match scene.either_sphere_or_triangle(i){
+//                 Either::Left(s) => bound.combined(AABB::from_point_radius(s.pos, s.rad)),
+//                 Either::Right(t) => bound.combined(AABB::from_points(&[t.a, t.b, t.c])),
+//             }
+//         }
+//         bound
+//     }
+// }
+//
+// #[derive(Clone, Copy, PartialEq, Debug, Default)]
+// pub struct Vertex{
+//     bound: AABB,
+//     left_first: u32,
+//     count: u32,
+// }
