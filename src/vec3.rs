@@ -1,3 +1,5 @@
+use crate::consts::EPSILON;
+
 #[derive(PartialEq, Clone, Copy, Debug, Default)]
 pub struct Vec3{ // 12 bytes
     pub x: f32, // f32: 4 bytes
@@ -287,6 +289,13 @@ impl Vec3{
     pub fn mixed(mut self, o: Self, t: f32) -> Self{
         self.mix(o, t);
         self
+    }
+
+    #[inline]
+    pub fn equal(self, other: &Vec3) -> bool{
+        (self.x-other.x).abs() < EPSILON &&
+        (self.y-other.y).abs() < EPSILON &&
+        (self.z-other.z).abs() < EPSILON
     }
 }
 

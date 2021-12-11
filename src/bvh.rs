@@ -3,6 +3,11 @@ use crate::consts::{EPSILON, UV_SPHERE, UV_PLANE};
 use crate::scene::{Sphere, Plane, Triangle, Scene};
 use crate::cpu::{Ray, RayHit};
 
+#[inline]
+fn gamma(n: i32) -> f32 {
+    (n as f32 * EPSILON) / (1.0 - n as f32 * EPSILON)
+}
+
 // ray-sphere intersection
 #[inline]
 fn inter_sphere<'a>(ray: Ray, sphere: &'a Sphere, closest: &mut RayHit<'a>){
@@ -84,68 +89,62 @@ impl AABB {
     }
 
     pub fn midpoint(&self) -> Vec3{
-        // Vec3 {
-        //     x: 0.5 * (self.a.x + self.b.x),
-        //     y: 0.5 * (self.a.y + self.b.y),
-        //     z: 0.5 * (self.a.z + self.b.z),
-        // }
         self.a.added(self.b).scaled(0.5)
     }
 
     // [source](http://www.pbr-book.org/3ed-2018/Shapes/Basic_Shape_Interface.html#Bounds3::IntersectP)
-    pub fn intersection(&self, ray: Ray) -> Option<(f32,f32)> {
-        let inv_dir = Vec3 {
-            x: if ray.dir.x.abs() > EPSILON { 1.0 / ray.dir.x } else { f32::MAX },
-            y: if ray.dir.y.abs() > EPSILON { 1.0 / ray.dir.y } else { f32::MAX },
-            z: if ray.dir.z.abs() > EPSILON { 1.0 / ray.dir.z } else { f32::MAX },
-        };
-        let dir_is_neg : [bool; 3] = [
-            ray.dir.x < 0.0,
-            ray.dir.y < 0.0,
-            ray.dir.z < 0.0,
-        ];
-
-        let mut t_min;
-        let mut t_max;
+    // pub fn intersection(&self, ray: Ray, inv_dir: Vec3, dir_is_neg: [bool; 3]) -> Option<(f32,f32)> {
+    pub fn intersection(&self, ray: Ray, inv_dir: Vec3, dir_is_neg: [usize; 3]) -> Option<(f32,f32)> {
         let ss = [&self.a, &self.b];
 
         // Compute intersections with x and y slabs.
-        let tx_min = (ss[  dir_is_neg[0] as usize].x - ray.pos.x) * inv_dir.x;
-        let tx_max = (ss[1-dir_is_neg[0] as usize].x - ray.pos.x) * inv_dir.x;
-        let ty_min = (ss[  dir_is_neg[1] as usize].y - ray.pos.y) * inv_dir.y;
-        let ty_max = (ss[1-dir_is_neg[1] as usize].y - ray.pos.y) * inv_dir.y;
+        let mut t_min  = (ss[  dir_is_neg[0]].x - ray.pos.x) * inv_dir.x;
+        let mut t_max  = (ss[1-dir_is_neg[0]].x - ray.pos.x) * inv_dir.x;
+        let mut ty_min = (ss[  dir_is_neg[1]].y - ray.pos.y) * inv_dir.y;
+        let mut ty_max = (ss[1-dir_is_neg[1]].y - ray.pos.y) * inv_dir.y;
+
+        // t_min *= 1.0 + 2.0 * gamma(3);
+        // t_max *= 1.0 + 2.0 * gamma(3);
+        // ty_min *= 1.0 + 2.0 * gamma(3);
+        // ty_max *= 1.0 + 2.0 * gamma(3);
 
         // Check intersection within x and y bounds.
-        if (tx_min > ty_max) || (tx_max < ty_min) {
+        if (t_min > ty_max) || (t_max < ty_min) {
+            // println!("(t_min > ty_max) || (t_max < ty_min)");
             return None;
         }
-        t_min = if ty_min > tx_min { ty_min } else { tx_min };
-        t_max = if ty_max < tx_max { ty_max } else { tx_max };
+        t_min = t_min.max(ty_min);
+        t_max = t_max.min(ty_max);
 
         // Compute intersections z slab.
-        let tz_min = (ss[  dir_is_neg[2] as usize].z - ray.pos.z) * inv_dir.z;
-        let tz_max = (ss[1-dir_is_neg[2] as usize].z - ray.pos.z) * inv_dir.z;
+        let mut tz_min = (ss[  dir_is_neg[2]].z - ray.pos.z) * inv_dir.z;
+        let mut tz_max = (ss[1-dir_is_neg[2]].z - ray.pos.z) * inv_dir.z;
+        // println!("{},{}", ray.pos.z, inv_dir.z);
+        // println!("{},{}", tz_min, tz_max);
+
+        // tz_min *= 1.0 + 2.0 * gamma(3);
+        // tz_max *= 1.0 + 2.0 * gamma(3);
 
         // Check intersection within x and y and z bounds.
         if (t_min > tz_max) || (t_max < tz_min) {
+            // println!("(t_min > tz_max) || (t_max < tz_min)");
             return None;
         }
-        t_min = if tz_min > t_min { tz_min } else { t_min };
-        t_max = if tz_max < t_max { tz_max } else { t_max };
+        t_min = t_min.max(tz_min);
+        t_max = t_max.min(tz_max);
 
-        if tz_min > t_min { t_min = tz_min; }
-        if tz_max < t_max { t_max = tz_max; }
-
+        if t_min > t_max || t_min == f32::INFINITY{
+            // println!("t_min > t_max");
+            return None;
+        }
         Some((t_min, t_max))
     }
 
-    pub fn hits(&self, ray: Ray) -> bool {
-        if let Some((t_min, t_max)) = self.intersection(ray) {
-            true
-        } else {
-            false
-        }
+    pub fn volume(self) -> f32{
+        let v = self.b.subed(self.a);
+        v.x * v.y * v.z
     }
+
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -172,15 +171,15 @@ pub struct Primitive {
     triangle: usize,
 }
 impl Primitive {
-    fn new() -> Self {
-        Self {
-            bounds: AABB::new(),
-            shape_type: Shape::NONE,
-            sphere: 0,
-            plane: 0,
-            triangle: 0,
-        }
-    }
+    // fn new() -> Self {
+    //     Self {
+    //     bounds: AABB::new(),
+    //         shape_type: Shape::NONE,
+    //         sphere: 0,
+    //         plane: 0,
+    //         triangle: 0,
+    //     }
+    // }
 
     fn from_sphere(sphere: &Sphere, index_sphere: usize) -> Self{
         Self {
@@ -253,24 +252,62 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn intersect<'a>(&self, ray: Ray, scene: &'a Scene, closest: &mut RayHit<'a>) {
-        if self.bounds.hits(ray) {
-            if self.is_leaf {
-                for primitive in self.primitives.iter() {
-                    primitive.intersect(ray, scene, closest);
-                }
-            } else {
-                self.left.as_ref().unwrap().intersect(ray, scene, closest);
-                self.right.as_ref().unwrap().intersect(ray, scene, closest);
+    pub fn node_iterator(self, call_on_every_node: &dyn Fn(&Node)) {
+        call_on_every_node(&self);
+        if !self.is_leaf {
+            let node_left = self.left.unwrap();
+            let node_right = self.right.unwrap();
+
+            node_left.node_iterator(call_on_every_node);
+            node_right.node_iterator(call_on_every_node);
+        }
+    }
+
+
+    pub fn intersect<'a>(&self, ray: Ray, scene: &'a Scene, closest: &mut RayHit<'a>, inv_dir: Vec3, dir_is_neg: [usize; 3] ) -> (usize, usize) {
+        if self.is_leaf {
+            for primitive in self.primitives.iter() {
+                primitive.intersect(ray, scene, closest);
             }
+            (0, self.primitives.len())
+        } else {
+            // Check which box hits first
+            let node_left = self.left.as_ref().unwrap();
+            let node_right = self.right.as_ref().unwrap();
+
+            let intersection_left = node_left.bounds.intersection(ray, inv_dir, dir_is_neg);
+            let intersection_right = node_right.bounds.intersection(ray, inv_dir, dir_is_neg);
+
+            let (tl0, tl1) = intersection_left.unwrap_or((f32::INFINITY, f32::INFINITY));
+            let (tr0, tr1) = intersection_right.unwrap_or((f32::INFINITY, f32::INFINITY));
+
+            let tl = if tl0 > 0.0 { tl0 } else { tl1 };
+            let tr = if tr0 > 0.0 { tr0 } else { tr1 };
+
+            let mut x1 = (0, 0);
+            let mut x2 = (0, 0);
+
+            if tl < tr {
+                // First intersect left
+                x1 = node_left.intersect(ray, scene, closest, inv_dir, dir_is_neg);
+                if tr < closest.t {
+                    x2 = node_right.intersect(ray, scene, closest, inv_dir, dir_is_neg);
+                }
+            } else if tr < tl {
+                // First intersect right
+                x2 = node_right.intersect(ray, scene, closest, inv_dir, dir_is_neg);
+                if tl < closest.t {
+                    x1 = node_left.intersect(ray, scene, closest, inv_dir, dir_is_neg);
+                }
+            }
+
+            (2 + x1.0 + x2.0, x1.1 + x2.1)
         }
     }
 
     pub fn print(&self, depth: usize) {
-        println!("test");
         println!("{}", format!("{:>width$}", self.get_primitives_count(), width = 2*depth));
         if !self.is_leaf {
-            println!("{}", format!("{:>width$}", self.get_primitives_count(), width = 2*depth));
             self.left.as_ref().unwrap().print(depth + 1);
             self.right.as_ref().unwrap().print(depth + 1);
         }
@@ -281,6 +318,35 @@ impl Node {
             self.primitives.len()
         } else {
             self.left.as_ref().unwrap().get_primitives_count() + self.right.as_ref().unwrap().get_primitives_count()
+        }
+    }
+
+    pub fn print_as_tree(&self) {
+        let depth : usize = self.get_max_depth();
+        let mut strings : Vec<String> = vec!["".parse().unwrap(); depth];
+        self.print_get_subtree(&mut strings, 0);
+        for string in strings.iter() {
+            println!("{}", format!("{:^width$}", string, width = 400));
+        }
+    }
+    pub fn print_get_subtree(&self, strings: &mut Vec<String>, depth: usize){
+        if self.is_leaf {
+            strings[depth] += &*format!("{:^width$}", self.get_primitives_count(), width = 5);
+        } else {
+            strings[depth] += &*format!("{:^width$}", self.get_primitives_count(), width = 5);
+            let node_left = self.left.as_ref().unwrap();
+            let node_right = self.left.as_ref().unwrap();
+
+            node_left.print_get_subtree(strings, depth + 1);
+            node_right.print_get_subtree(strings, depth + 1);
+        }
+    }
+
+    pub fn get_max_depth(&self) -> usize {
+        if self.is_leaf {
+            1
+        } else {
+            1 + self.left.as_ref().unwrap().get_max_depth().max(self.right.as_ref().unwrap().get_max_depth())
         }
     }
 
@@ -311,9 +377,6 @@ pub fn build_bvh(scene: &Scene) -> BVH {
 }
 
 fn build_subnode(primitives: &Vec<Primitive>, depth: usize) -> Node {
-
-    println!("dep: {}", depth);
-    println!("len: {}", primitives.len());
 
     // Find bounds
     let mut bounds = AABB::new();
@@ -351,7 +414,6 @@ fn build_subnode(primitives: &Vec<Primitive>, depth: usize) -> Node {
         };
         if first != f32::MIN && (first - tmp).abs() > EPSILON {
             is_all_the_same = false;
-            println!("{}, {}", first, tmp);
         }
         first = tmp;
         val += tmp;
@@ -360,7 +422,6 @@ fn build_subnode(primitives: &Vec<Primitive>, depth: usize) -> Node {
 
     // Decide whether we apply the primitives into a leaf node
     if primitives.len() < 5 || is_all_the_same {
-        println!("Returnin early");
         let node = Node {
             bounds,
             primitives: primitives.clone(),
@@ -370,9 +431,6 @@ fn build_subnode(primitives: &Vec<Primitive>, depth: usize) -> Node {
         };
         return node;
     }
-
-    println!("mid_val: {}", val);
-    println!("bounds: {:?}", bounds);
 
     // Define primitives for left and right
     let mut left  : Vec<Primitive> = vec![];
@@ -387,12 +445,7 @@ fn build_subnode(primitives: &Vec<Primitive>, depth: usize) -> Node {
         } else {
             right.push(*primitive);
         }
-        // println!("bounds: {:?}; midpoint: {:?}; val: {}", primitive.bounds, primitive.bounds.midpoint(), val);
-        // println!("bounds: {:?}", primitive.bounds);
-        println!("midpoint: {:?}", primitive.bounds.midpoint());
     }
-    println!("left: {}", left.len());
-    println!("right: {}", right.len());
 
     // Build left subnode and right subnode
     let node = Node {
@@ -406,7 +459,271 @@ fn build_subnode(primitives: &Vec<Primitive>, depth: usize) -> Node {
 }
 
 impl BVH {
-    pub fn intersect<'a>(&self, ray: Ray, scene: &'a Scene, closest: &mut RayHit<'a>) {
-        self.node.intersect(ray, scene, closest);
+    pub fn intersect<'a>(&self, ray: Ray, scene: &'a Scene, closest: &mut RayHit<'a>) -> (usize, usize) {
+        let inv_dir = ray.inverted().dir;
+        let dir_is_neg : [usize; 3] = ray.direction_negations();
+        self.node.intersect(ray, scene, closest, inv_dir, dir_is_neg)
+    }
+}
+
+
+#[cfg(test)]
+mod test {
+    use crate::cpu::{Ray, RayHit};
+    use crate::vec3::Vec3;
+    use crate::bvh::{AABB, Primitive, build_subnode};
+    use crate::consts::EPSILON;
+    use crate::scene::{Triangle, Material, Scene};
+    use crate::mesh::load_model;
+
+    #[test]
+    fn unaligned_ray_bounding_boxes() {
+        // In between
+        let ray = Ray {
+            pos: Vec3::ZERO,
+            dir: Vec3::ONE.normalized()
+        };
+        let aabb = AABB {
+            a: Vec3::ONE.neged(),
+            b: Vec3::ONE
+        };
+        let intersection = aabb.intersection(ray, ray.inverted().dir, ray.direction_negations());
+        assert!(intersection.is_some());
+        let (t0, t1) = intersection.unwrap();
+        assert!(t0 < 0.0 && t0 > -2.0 && t1 > 0.0 && t1 < 2.0);
+        assert!(t0 < t1);
+
+        // Before
+        let ray = Ray {
+            pos: Vec3::ONE.neged().scaled(5.0),
+            dir: Vec3::ONE.normalized()
+        };
+        let aabb = AABB {
+            a: Vec3::ONE.neged(),
+            b: Vec3::ONE
+        };
+        let intersection = aabb.intersection(ray, ray.inverted().dir, ray.direction_negations());
+        assert!(intersection.is_some());
+        let (t0, t1) = intersection.unwrap();
+        println!("{},{}", t0,t1);
+        assert!(t0 > 5.0 && t1 > 9.0 && t1 < 11.0);
+        assert!(t0 < t1);
+
+        // After
+        let ray = Ray {
+            pos: Vec3::ONE.scaled(5.0),
+            dir: Vec3::ONE.normalized()
+        };
+        let aabb = AABB {
+            a: Vec3::ONE.neged(),
+            b: Vec3::ONE
+        };
+        let intersection = aabb.intersection(ray, ray.inverted().dir, ray.direction_negations());
+        assert!(intersection.is_some());
+        let (t0, t1) = intersection.unwrap();
+        assert!(t1 < -5.0 && t0 < -9.0 && t0 > -11.0);
+        assert!(t0 < t1);
+
+    }
+
+    #[inline]
+    fn assert_small(a:f32,b:f32) {
+        if (a-b).abs() > EPSILON { panic!("{} != {}", a,b); }
+    }
+
+    #[test]
+    fn aligned_ray_bounding_boxes() {
+        // In between
+        let ray = Ray {
+            pos: Vec3::ZERO,
+            dir: Vec3::FORWARD.normalized()
+        };
+        let aabb = AABB {
+            a: Vec3::ONE.neged(),
+            b: Vec3::ONE
+        };
+        // let intersection = aabb.intersection(ray, ray.inverted().dir, ray.direction_negations());
+        let (t0, t1) = aabb.intersection(ray, ray.inverted().dir, ray.direction_negations()).unwrap();
+        assert_small(t0, -1.0);
+        assert_small(t1,  1.0);
+
+        // Before
+        let ray = Ray {
+            pos: Vec3::FORWARD.neged().scaled(5.0),
+            dir: Vec3::FORWARD.normalized()
+        };
+        let aabb = AABB {
+            a: Vec3::ONE.neged(),
+            b: Vec3::ONE
+        };
+        let (t0, t1) = aabb.intersection(ray, ray.inverted().dir, ray.direction_negations()).unwrap();
+        assert_small(t0, 4.0);
+        assert_small(t1, 6.0);
+
+        // After
+        let ray = Ray {
+            pos: Vec3::FORWARD.scaled(5.0),
+            dir: Vec3::FORWARD.normalized()
+        };
+        let aabb = AABB {
+            a: Vec3::ONE.neged(),
+            b: Vec3::ONE
+        };
+        let (t0, t1) = aabb.intersection(ray, ray.inverted().dir, ray.direction_negations()).unwrap();
+        assert_small(t0, -6.0);
+        assert_small(t1, -4.0);
+
+    }
+
+    #[test]
+    fn aligned_ray_bounding_boxes_miss() {
+        // In between
+        let ray = Ray {
+            pos: Vec3::ZERO.added(Vec3::UP.scaled(1.2) ),
+            dir: Vec3::FORWARD.normalized()
+        };
+        let aabb = AABB {
+            a: Vec3::ONE.neged(),
+            b: Vec3::ONE
+        };
+        let intersection = aabb.intersection(ray, ray.inverted().dir, ray.direction_negations());
+        assert!(intersection.is_none());
+
+        // Before
+        let ray = Ray {
+            pos: Vec3::FORWARD.neged().scaled(5.0).added(Vec3::UP.scaled(1.2) ),
+            dir: Vec3::FORWARD.normalized()
+        };
+        let aabb = AABB {
+            a: Vec3::ONE.neged(),
+            b: Vec3::ONE
+        };
+        let intersection = aabb.intersection(ray, ray.inverted().dir, ray.direction_negations());
+        assert!(intersection.is_none());
+
+        // After
+        let ray = Ray {
+            pos: Vec3::FORWARD.scaled(5.0).added(Vec3::UP.scaled(1.2) ),
+            dir: Vec3::FORWARD.normalized()
+        };
+        let aabb = AABB {
+            a: Vec3::ONE.neged(),
+            b: Vec3::ONE
+        };
+        let intersection = aabb.intersection(ray, ray.inverted().dir, ray.direction_negations());
+        assert!(intersection.is_none());
+    }
+
+    #[test]
+    fn aligned_ray_bounding_boxes_miss_exact_same_position() {
+        // In between
+        let ray = Ray {
+            pos: Vec3::ZERO.added(Vec3::UP ),
+            dir: Vec3::FORWARD.normalized()
+        };
+        let aabb = AABB {
+            a: Vec3::ONE.neged(),
+            b: Vec3::ONE
+        };
+        let intersection = aabb.intersection(ray, ray.inverted().dir, ray.direction_negations());
+        let (t0, t1) = aabb.intersection(ray, ray.inverted().dir, ray.direction_negations()).unwrap();
+        assert_small(t0, -1.0);
+        assert_small(t1,  1.0);
+
+        // Before
+        let ray = Ray {
+            pos: Vec3::FORWARD.neged().scaled(5.0).added(Vec3::UP ),
+            dir: Vec3::FORWARD.normalized()
+        };
+        let aabb = AABB {
+            a: Vec3::ONE.neged(),
+            b: Vec3::ONE
+        };
+        let intersection = aabb.intersection(ray, ray.inverted().dir, ray.direction_negations());
+        let (t0, t1) = aabb.intersection(ray, ray.inverted().dir, ray.direction_negations()).unwrap();
+        assert_small(t0, 4.0);
+        assert_small(t1, 6.0);
+
+        // After
+        let ray = Ray {
+            pos: Vec3::FORWARD.scaled(5.0).added(Vec3::UP ),
+            dir: Vec3::FORWARD.normalized()
+        };
+        let aabb = AABB {
+            a: Vec3::ONE.neged(),
+            b: Vec3::ONE
+        };
+        let intersection = aabb.intersection(ray, ray.inverted().dir, ray.direction_negations());
+        let (t0, t1) = aabb.intersection(ray, ray.inverted().dir, ray.direction_negations()).unwrap();
+        assert_small(t0, -6.0);
+        assert_small(t1, -4.0);
+    }
+
+    #[test]
+    fn bounding_box_triangle() {
+        let triangle = Triangle{
+            a: Vec3{ x: 0.0, y: 0.0, z: 0.0 },
+            b: Vec3{ x: 1.0, y: 0.0, z: 0.0 },
+            c: Vec3{ x: 0.0, y: 1.0, z: 0.0 },
+            mat: Material::basic()
+        };
+        let prim = Primitive::from_triangle(&triangle, 0);
+        assert!(prim.bounds.a.equal(&triangle.a));
+        assert!(prim.bounds.b.equal(&triangle.b.added(triangle.c)));
+    }
+
+    #[test]
+    fn ensure_aabb_has_volume(){
+        let mut scene = Scene::new();
+        load_model("assets/models/teapot.obj", Material::basic(), &mut scene);
+        let mut primitives: Vec<Primitive> = vec![];
+        for i in 0..scene.triangles.len() {
+            primitives.push(Primitive::from_triangle(&scene.triangles[i], i));
+        };
+        let root_node = build_subnode(&primitives, 0);
+        root_node.node_iterator(&|s| assert!(s.bounds.volume() > 0.0) );
+    }
+
+    #[test]
+    fn test_all_primitives_bound_within_node() {
+        let mut scene = Scene::new();
+        load_model("assets/models/teapot.obj", Material::basic(), &mut scene);
+        let mut primitives: Vec<Primitive> = vec![];
+        for i in 0..scene.triangles.len() {
+            primitives.push(Primitive::from_triangle(&scene.triangles[i], i));
+        };
+        let root_node = build_subnode(&primitives, 0);
+        root_node.node_iterator(
+            &|s| for prim in &s.primitives {
+                assert!(prim.bounds.a.x >= s.bounds.a.x && prim.bounds.b.x <= s.bounds.b.x &&
+                    prim.bounds.a.y >= s.bounds.a.y && prim.bounds.b.y <= s.bounds.b.y &&
+                    prim.bounds.a.z >= s.bounds.a.z && prim.bounds.b.z <= s.bounds.b.z)
+            }
+        );
+    }
+
+    #[test]
+    fn test_subnodes_bound_within_node() {
+        let mut scene = Scene::new();
+        load_model("assets/models/teapot.obj", Material::basic(), &mut scene);
+        let mut primitives: Vec<Primitive> = vec![];
+        for i in 0..scene.triangles.len() {
+            primitives.push(Primitive::from_triangle(&scene.triangles[i], i));
+        };
+        let root_node = build_subnode(&primitives, 0);
+        root_node.node_iterator(
+            &|s| for prim in &s.primitives {
+                if !s.is_leaf {
+                    let node_left_bounds = s.left.as_ref().unwrap().bounds;
+                    let node_right_bounds = s.right.as_ref().unwrap().bounds;
+                    assert!(node_left_bounds.a.x >= s.bounds.a.x && node_left_bounds.b.x <= s.bounds.b.x &&
+                        node_left_bounds.a.y >= s.bounds.a.y && node_left_bounds.b.y <= s.bounds.b.y &&
+                        node_left_bounds.a.z >= s.bounds.a.z && node_left_bounds.b.z <= s.bounds.b.z);
+                    assert!(node_right_bounds.a.x >= s.bounds.a.x && node_right_bounds.b.x <= s.bounds.b.x &&
+                        node_right_bounds.a.y >= s.bounds.a.y && node_right_bounds.b.y <= s.bounds.b.y &&
+                        node_right_bounds.a.z >= s.bounds.a.z && node_right_bounds.b.z <= s.bounds.b.z);
+                }
+            }
+        );
     }
 }

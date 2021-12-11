@@ -517,6 +517,26 @@ pub struct Ray{
     pub pos: Vec3,
     pub dir: Vec3,
 }
+impl Ray {
+    #[inline]
+    pub fn inverted(mut self) -> Self{
+        self.dir = Vec3 {
+            x: if self.dir.x.abs() > EPSILON { 1.0 / self.dir.x } else { self.dir.x.signum() * f32::INFINITY },
+            y: if self.dir.y.abs() > EPSILON { 1.0 / self.dir.y } else { self.dir.y.signum() * f32::INFINITY },
+            z: if self.dir.z.abs() > EPSILON { 1.0 / self.dir.z } else { self.dir.z.signum() * f32::INFINITY },
+        };
+        self
+    }
+
+    #[inline]
+    pub fn direction_negations(self) -> [usize; 3]{
+        [
+            (self.dir.x < 0.0) as usize,
+            (self.dir.y < 0.0) as usize,
+            (self.dir.z < 0.0) as usize,
+        ]
+    }
+}
 
 #[derive(Clone)]
 pub struct RayHit<'a>{
@@ -587,14 +607,6 @@ fn dist_triangle(ray: Ray, tri: &Triangle) -> f32{
     let t = f * Vec3::dot(edge2, q);
     if t <= EPSILON { return MAX_RENDER_DIST; }
     t
-}
-
-// intersect whole scene, find closest hit
-#[inline]
-fn inter_scene(ray: Ray, scene: &Scene) -> RayHit{
-    let mut closest = RayHit::NULL;
-    scene.bvh.intersect(ray, scene, &mut closest);
-    closest
 }
 
 // intersect whole scene, stop at first intersection at all
@@ -720,7 +732,7 @@ fn get_tex_scalar(tex: u32, uv: (f32, f32), tps: &[u32], ts: &[u8]) -> f32{
 #[cfg(test)]
 mod test {
     use crate::vec3::Vec3;
-    use crate::cpu::{ resolve_dielectric, EPSILON, FRAC_4_PI };
+    use crate::cpu::{resolve_dielectric, EPSILON, FRAC_4_PI, Ray};
     use crate::consts::{ FRAC_2_PI, PI };
 
     fn assert_small(a:f32,b:f32) {
@@ -966,5 +978,41 @@ mod test {
         let offset_len = (offset_x*offset_x + offset_y*offset_y).sqrt();
         let is_black = offset_len > radius;
         assert_eq!(is_black, false);
+    }
+
+    #[test]
+    fn ray_negated_dir() {
+        let ray = Ray {
+            pos: Vec3::ZERO,
+            dir: Vec3::ONE.normalized()
+        };
+        assert_eq!(ray.direction_negations(), [0,0,0]);
+
+        let ray = Ray {
+            pos: Vec3::ZERO,
+            dir: Vec3::ONE.neged().normalized()
+        };
+        assert_eq!(ray.direction_negations(), [1,1,1]);
+    }
+
+    #[test]
+    fn ray_inv_dir() {
+        let ray = Ray {
+            pos: Vec3::ZERO,
+            dir: Vec3::ONE.normalized()
+        };
+        let inv_dir = ray.inverted().dir;
+        assert!(inv_dir.x > 1.0 && inv_dir.x < 2.0);
+        assert!(inv_dir.y > 1.0 && inv_dir.y < 2.0);
+        assert!(inv_dir.z > 1.0 && inv_dir.z < 2.0);
+
+        let ray = Ray {
+            pos: Vec3::ZERO,
+            dir: Vec3::FORWARD
+        };
+        let inv_dir = ray.inverted().dir;
+        assert!(inv_dir.x > 1.0 && inv_dir.x == f32::INFINITY);
+        assert!(inv_dir.y > 1.0 && inv_dir.y == f32::INFINITY);
+        assert!(inv_dir.z == 1.0);
     }
 }
