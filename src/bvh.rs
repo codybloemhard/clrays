@@ -93,7 +93,7 @@ impl AABB {
     }
 
     pub fn lerp(&self, val: f32) -> Vec3{
-        self.a.added(self.b).scaled(val)
+        self.a.added(self.b.subed(self.a).scaled(val))
     }
 
 
@@ -446,47 +446,88 @@ fn build_subnode(primitives: &Vec<Primitive>, depth: usize) -> Node {
             index_reshuffled[i] = i;
         }
 
-        // TODO: improve algorithm
+        // TODO: improve algorithm to O(n*log(n))
         // sort primitives for axis
+        let vals : Vec<f32> = mid_points_prims.iter().map(|point| point.fake_arr(axis)).collect();
         for i in 0..n{
-            let val = mid_points_prims[i].fake_arr(axis);
+            let val = vals[i];
             let mut x = 0;
             for j in 0..n{
-                if mid_points_prims[j].fake_arr(axis) < val {
+                if vals[j] < val {
                     x += 1;
-                } else if mid_points_prims[j].fake_arr(axis) == val {
+                } else if vals[j] == val {
                     if j < i {
                         x += 1;
                     }
                 }
             }
-            index_reshuffled[i] = x;
+            index_reshuffled[x] = i;
         }
 
-        let mut sides  : [Vec<&Primitive>;2] = [vec![],vec![]];
+        // temporarily reshuffling is ok
+        println!("{:?}",vals);
+        for a in 0..n{
+            for b in a+1..n{
+                assert!(index_reshuffled[a] != index_reshuffled[b]);
+                // println!("{},{}",vals[index_reshuffled[a]],vals[index_reshuffled[b]]);
+                assert!(vals[index_reshuffled[a]] <= vals[index_reshuffled[b]]);
+            }
+        }
+
+        let mut sides: [Vec<&Primitive>;2] = [vec![],vec![]];
         let mut side_bounds : [AABB; 2] = [AABB::new(); 2];
         for i in 0..n{
             // initially all prims on the right
+            // push them in reverse, so we can then easily pop later on
             sides[1].push(&primitives[index_reshuffled[n-i-1]]);
         }
-        let mut i_split: usize = n-1;
+        let mut i_split: usize = 0;
+
+        for i_lerp in 0..11{
+            assert!(lerps[i_lerp+1].fake_arr(axis) > lerps[i_lerp].fake_arr(axis));
+        }
+
+        // iterate over 12 bins
         for i_lerp in 0..12{
             let tmp = lerps[i_lerp].fake_arr(axis);
 
             // place over prims from right split to left split
-            while i_split < n && mid_points_prims[index_reshuffled[i_split]].fake_arr(axis) > tmp{
+            while i_split < n && mid_points_prims[index_reshuffled[i_split]].fake_arr(axis) < tmp{
                 let prim = sides[1].pop().unwrap();
+                assert_eq!(mid_points_prims[index_reshuffled[i_split]].fake_arr(axis), prim.bounds.midpoint().fake_arr(axis) );
+                assert!(prim.bounds.midpoint().fake_arr(axis) < tmp );
                 sides[0].push(prim);
-                i_split -= 1;
+                assert!(sides[0][i_split].bounds.midpoint().fake_arr(axis) < tmp);
+                i_split += 1;
+            }
 
-                // update bounds of left
-                side_bounds[0].a.x = side_bounds[0].a.x.min( prim.bounds.a.x );
-                side_bounds[0].a.y = side_bounds[0].a.y.min( prim.bounds.a.y );
-                side_bounds[0].a.z = side_bounds[0].a.z.min( prim.bounds.a.z );
+            // check all in left are smaller
+            for a in 0..sides[0].len() {
+                for b in 0..sides[1].len() {
+                    assert!(sides[0][a].bounds.midpoint().fake_arr(axis) < sides[1][b].bounds.midpoint().fake_arr(axis));
+                }
+            }
 
-                side_bounds[0].b.x = side_bounds[0].b.x.max( prim.bounds.b.x );
-                side_bounds[0].b.y = side_bounds[0].b.y.max( prim.bounds.b.y );
-                side_bounds[0].b.z = side_bounds[0].b.z.max( prim.bounds.b.z );
+            // check left is smaller than tmp
+            for a in 0..sides[0].len() {
+                println!("{} < {}?", sides[0][a].bounds.midpoint().fake_arr(axis), tmp);
+                assert!(sides[0][a].bounds.midpoint().fake_arr(axis) < tmp);
+            }
+
+            // check right is larger than tmp
+            for b in 0..sides[1].len() {
+                assert!(sides[1][b].bounds.midpoint().fake_arr(axis) >= tmp);
+            }
+
+            // update bounds of left
+            for prim in sides[0].iter() {
+                side_bounds[0].a.x = side_bounds[0].a.x.min(prim.bounds.a.x);
+                side_bounds[0].a.y = side_bounds[0].a.y.min(prim.bounds.a.y);
+                side_bounds[0].a.z = side_bounds[0].a.z.min(prim.bounds.a.z);
+
+                side_bounds[0].b.x = side_bounds[0].b.x.max(prim.bounds.b.x);
+                side_bounds[0].b.y = side_bounds[0].b.y.max(prim.bounds.b.y);
+                side_bounds[0].b.z = side_bounds[0].b.z.max(prim.bounds.b.z);
             }
 
             // recompute bounds for right
