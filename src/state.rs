@@ -184,10 +184,10 @@ pub fn fps_input_fn(events: &[Event], scene: &mut Scene, state: &mut State) -> L
                 cam.pos.add(cam.dir.crossed(Vec3::UP).scaled(ms));
             },
             4 => { // Move Up; Move camera direction crossed x-axis
-                cam.pos.add(cam.dir.crossed(Vec3::RIGHT).scaled(ms));
+                cam.pos.add(Vec3::UP.neged().scaled(ms));
             },
             5 => { // Move Down; Move camera direction crossed x-axis
-                cam.pos.add(cam.dir.crossed(Vec3::RIGHT).neged().scaled(ms));
+                cam.pos.add(Vec3::DOWN.neged().scaled(ms));
             },
             6 => { // Look Up;
                 cam.ori.roll = (cam.ori.roll + ls).min(FRAC_PI_2).max(-FRAC_PI_2);
