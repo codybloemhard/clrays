@@ -13,7 +13,7 @@ use clr::mesh::load_model;
 
 use sdl2::keyboard::Keycode;
 use clrays_rs::consts::*;
-use clrays_rs::mesh::build_triangle_wall;
+// use clrays_rs::mesh::build_triangle_wall;
 
 pub const USE_WATERFLOOR : bool = false;
 pub const USE_WIDE_ANGLE : bool = false;
@@ -59,38 +59,38 @@ pub fn main() -> Result<(), String>{
     scene.add_texture("sky", "assets/textures/sky0.jpg", TexType::Vector3c8bpc);
     scene.set_skybox("sky");
 
-    // if USE_WATERFLOOR {
-    //     Plane{
-    //         pos: Vec3::new(0.0, -4.0, 0.0),
-    //         nor: Vec3::UP,
-    //         mat: Material::basic()
-    //             .as_checkerboard()
-    //             .with_texture(scene.get_texture("stone-alb"))
-    //             .with_normal_map(scene.get_texture("stone-nor"))
-    //             .with_roughness_map(scene.get_texture("stone-rou"))
-    //             .with_tex_scale(4.0),
-    //     }.add(&mut scene);
-    //
-    //     Plane{
-    //         pos: Vec3::new(0.0, -1.0, 0.0),
-    //         nor: Vec3::UP,
-    //         mat: Material::basic()
-    //             .as_dielectric()
-    //             .with_absorption(WATER_ABSORPTION)
-    //             .with_refraction(WATER_REFRACTION)
-    //     }.add(&mut scene);
-    // } else {
-    //     Plane{
-    //         pos: Vec3::new(0.0, -1.0, 0.0),
-    //         nor: Vec3::UP,
-    //         mat: Material::basic()
-    //             .as_checkerboard()
-    //             .with_texture(scene.get_texture("stone-alb"))
-    //             .with_normal_map(scene.get_texture("stone-nor"))
-    //             .with_roughness_map(scene.get_texture("stone-rou"))
-    //             .with_tex_scale(4.0),
-    //     }.add(&mut scene);
-    // }
+    if USE_WATERFLOOR {
+        Plane{
+            pos: Vec3::new(0.0, -4.0, 0.0),
+            nor: Vec3::UP,
+            mat: Material::basic()
+                .as_checkerboard()
+                .with_texture(scene.get_texture("stone-alb"))
+                .with_normal_map(scene.get_texture("stone-nor"))
+                .with_roughness_map(scene.get_texture("stone-rou"))
+                .with_tex_scale(4.0),
+        }.add(&mut scene);
+
+        Plane{
+            pos: Vec3::new(0.0, -1.0, 0.0),
+            nor: Vec3::UP,
+            mat: Material::basic()
+                .as_dielectric()
+                .with_absorption(WATER_ABSORPTION)
+                .with_refraction(WATER_REFRACTION)
+        }.add(&mut scene);
+    } else {
+        Plane{
+            pos: Vec3::new(0.0, -1.0, 0.0),
+            nor: Vec3::UP,
+            mat: Material::basic()
+                // .as_checkerboard()
+                .with_texture(scene.get_texture("stone-alb"))
+                .with_normal_map(scene.get_texture("stone-nor"))
+                .with_roughness_map(scene.get_texture("stone-rou"))
+                .with_tex_scale(4.0),
+        }.add(&mut scene);
+    }
     //
     // Sphere{
     //     pos: Vec3::new(2.0, 0.0, -5.0),

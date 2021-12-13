@@ -2,10 +2,11 @@ use crate::vec3::{ Vec3, Orientation };
 use crate::trace_tex::{ TexType, TraceTex };
 use crate::misc::{ Incrementable, build_vec, make_nonzero_len };
 use crate::info::Info;
+use crate::bvh::{ BVH, Node };
+use crate::aabb::AABB;
+// use crate::bvh::{ AABB, BVH, build_bvh, Node };
 
 use std::collections::HashMap;
-// use crate::bvh::{ AABB, BVH, build_bvh, Node };
-use crate::bvh::{ AABB, BVH, Node };
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Material{
@@ -117,80 +118,6 @@ impl Material{
     }
 }
 
-// #[derive(Clone, Copy, PartialEq, Debug)]
-// pub struct AABB{
-//     pub min: Vec3,
-//     pub max: Vec3,
-// }
-//
-// impl Default for AABB{
-//     fn default() -> Self{
-//         Self{
-//             min: Vec3::uni(f32::MAX),
-//             max: Vec3::uni(f32::MIN),
-//         }
-//     }
-// }
-//
-// impl AABB{
-//     pub fn from_point_radius(p: Vec3, r: f32) -> Self{
-//         Self{
-//             min: p.subed(Vec3::uni(r)),
-//             max: p.added(Vec3::uni(r)),
-//         }
-//     }
-//
-//     pub fn from_points(ps: &[Vec3]) -> Self{
-//         let (mut minx, mut miny, mut minz): (f32, f32, f32) = (f32::MAX, f32::MAX, f32::MAX);
-//         let (mut maxx, mut maxy, mut maxz): (f32, f32, f32) = (f32::MIN, f32::MIN, f32::MIN);
-//
-//         for p in ps{
-//             minx = minx.min(p.x);
-//             miny = miny.min(p.y);
-//             minz = minz.min(p.z);
-//             maxx = maxx.max(p.x);
-//             maxy = maxy.max(p.y);
-//             maxz = maxz.max(p.z);
-//         }
-//
-//         Self{
-//             min: Vec3::new(minx, miny, minz),
-//             max: Vec3::new(maxx, maxy, maxz),
-//         }
-//     }
-//
-//     #[inline]
-//     pub fn combine(&mut self, other: Self){
-//         self.min.x = self.min.x.min(other.min.x);
-//         self.min.y = self.min.y.min(other.min.y);
-//         self.min.z = self.min.z.min(other.min.z);
-//         self.max.x = self.max.x.max(other.max.x);
-//         self.max.y = self.max.y.max(other.max.y);
-//         self.max.z = self.max.z.max(other.max.z);
-//     }
-//
-//     #[inline]
-//     pub fn combined(mut self, other: Self) -> Self{
-//         self.combine(other);
-//         self
-//     }
-//
-//     #[inline]
-//     pub fn midpoint_split(self) -> (f32, Vec3){
-//         let lx = self.max.x - self.min.x;
-//         let ly = self.max.y - self.min.y;
-//         let lz = self.max.z - self.min.z;
-//         let max = lx.max(ly).max(lz);
-//         if lx == max{
-//             (self.min.x + lx * 0.5, Vec3::LEFT)
-//         } else if ly == max{
-//             (self.min.y + ly * 0.5, Vec3::UP)
-//         } else {
-//             (self.min.z + lz * 0.5, Vec3::FORWARD)
-//         }
-//     }
-// }
-//
 pub trait SceneItem{
     fn get_data(&self) -> Vec<f32>;
     fn add(self, scene: &mut Scene);

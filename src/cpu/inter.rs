@@ -1,5 +1,6 @@
 use crate::scene::{ Material, Sphere, Plane, Triangle };
 use crate::vec3::Vec3;
+use crate::aabb::AABB;
 use crate::consts::*;
 
 #[derive(Clone, Copy, PartialEq, Debug, Default)]
@@ -167,49 +168,49 @@ pub fn dist_triangle(ray: Ray, tri: &Triangle) -> f32{
     t
 }
 
-// #[inline]
-// pub fn hit_aabb(ray: Ray, aabb: AABB) -> Option<(f32, f32)>{
-//     let inv_dir = Vec3 {
-//         x: if ray.dir.x.abs() > EPSILON { 1.0 / ray.dir.x } else { f32::MAX },
-//         y: if ray.dir.y.abs() > EPSILON { 1.0 / ray.dir.y } else { f32::MAX },
-//         z: if ray.dir.z.abs() > EPSILON { 1.0 / ray.dir.z } else { f32::MAX },
-//     };
-//     let dir_is_neg : [bool; 3] = [
-//         ray.dir.x < 0.0,
-//         ray.dir.y < 0.0,
-//         ray.dir.z < 0.0,
-//     ];
-//
-//     let mut t_min;
-//     let mut t_max;
-//     let ss = [&aabb.min, &aabb.max];
-//
-//     // Compute intersections with x and y slabs.
-//     let tx_min = (ss[  dir_is_neg[0] as usize].x - ray.pos.x) * inv_dir.x;
-//     let tx_max = (ss[1-dir_is_neg[0] as usize].x - ray.pos.x) * inv_dir.x;
-//     let ty_min = (ss[  dir_is_neg[1] as usize].y - ray.pos.y) * inv_dir.y;
-//     let ty_max = (ss[1-dir_is_neg[1] as usize].y - ray.pos.y) * inv_dir.y;
-//
-//     // Check intersection within x and y bounds.
-//     if (tx_min > ty_max) || (tx_max < ty_min) {
-//         return None;
-//     }
-//     t_min = if ty_min > tx_min { ty_min } else { tx_min };
-//     t_max = if ty_max < tx_max { ty_max } else { tx_max };
-//
-//     // Compute intersections z slab.
-//     let tz_min = (ss[  dir_is_neg[2] as usize].z - ray.pos.z) * inv_dir.z;
-//     let tz_max = (ss[1-dir_is_neg[2] as usize].z - ray.pos.z) * inv_dir.z;
-//
-//     // Check intersection within x and y and z bounds.
-//     if (t_min > tz_max) || (t_max < tz_min) {
-//         return None;
-//     }
-//     t_min = if tz_min > t_min { tz_min } else { t_min };
-//     t_max = if tz_max < t_max { tz_max } else { t_max };
-//
-//     if tz_min > t_min { t_min = tz_min; }
-//     if tz_max < t_max { t_max = tz_max; }
-//
-//     Some((t_min, t_max))
-// }
+#[inline]
+pub fn hit_aabb(ray: Ray, aabb: AABB) -> Option<(f32, f32)>{
+    let inv_dir = Vec3 {
+        x: if ray.dir.x.abs() > EPSILON { 1.0 / ray.dir.x } else { f32::MAX },
+        y: if ray.dir.y.abs() > EPSILON { 1.0 / ray.dir.y } else { f32::MAX },
+        z: if ray.dir.z.abs() > EPSILON { 1.0 / ray.dir.z } else { f32::MAX },
+    };
+    let dir_is_neg : [bool; 3] = [
+        ray.dir.x < 0.0,
+        ray.dir.y < 0.0,
+        ray.dir.z < 0.0,
+    ];
+
+    let mut t_min;
+    let mut t_max;
+    let ss = [&aabb.a, &aabb.b];
+
+    // Compute intersections with x and y slabs.
+    let tx_min = (ss[  dir_is_neg[0] as usize].x - ray.pos.x) * inv_dir.x;
+    let tx_max = (ss[1-dir_is_neg[0] as usize].x - ray.pos.x) * inv_dir.x;
+    let ty_min = (ss[  dir_is_neg[1] as usize].y - ray.pos.y) * inv_dir.y;
+    let ty_max = (ss[1-dir_is_neg[1] as usize].y - ray.pos.y) * inv_dir.y;
+
+    // Check intersection within x and y bounds.
+    if (tx_min > ty_max) || (tx_max < ty_min) {
+        return None;
+    }
+    t_min = if ty_min > tx_min { ty_min } else { tx_min };
+    t_max = if ty_max < tx_max { ty_max } else { tx_max };
+
+    // Compute intersections z slab.
+    let tz_min = (ss[  dir_is_neg[2] as usize].z - ray.pos.z) * inv_dir.z;
+    let tz_max = (ss[1-dir_is_neg[2] as usize].z - ray.pos.z) * inv_dir.z;
+
+    // Check intersection within x and y and z bounds.
+    if (t_min > tz_max) || (t_max < tz_min) {
+        return None;
+    }
+    t_min = if tz_min > t_min { tz_min } else { t_min };
+    t_max = if tz_max < t_max { tz_max } else { t_max };
+
+    if tz_min > t_min { t_min = tz_min; }
+    if tz_max < t_max { t_max = tz_max; }
+
+    Some((t_min, t_max))
+}

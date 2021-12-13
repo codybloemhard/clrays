@@ -1,5 +1,5 @@
 use crate::consts::EPSILON;
-use crate::bvh::Axis;
+use crate::aabb::Axis;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Orientation {

@@ -168,7 +168,7 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, con
 
     let mut hit = RayHit::NULL;
     if scene.use_bvh {
-        let (bounding_boxes_intersections, primitive_intersections, depth) = scene.bvh.intersect(ray, scene, &mut hit);
+        let (bounding_boxes_intersections, _, depth) = scene.bvh.intersect(ray, scene, &mut hit);
         if scene.show_bvh { // show boxes
             let val = depth;
             let lim1 = 10.0;

@@ -1,109 +1,15 @@
 use crate::vec3::Vec3;
-use crate::consts::{ EPSILON, UV_SPHERE, UV_PLANE, MAX_RENDER_DIST };
-use crate::scene::{ Sphere, Plane, Triangle, Scene };
+use crate::consts::{ EPSILON };
+use crate::scene::{ Sphere, Triangle, Scene };
 use crate::cpu::inter::*;
+use crate::aabb::*;
 
 // use crate::scene::{ Scene, AABB, Either };
 
-#[inline]
-fn gamma(n: i32) -> f32 {
-    (n as f32 * EPSILON) / (1.0 - n as f32 * EPSILON)
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct AABB { // 24 bytes
-    pub a: Vec3, // Vec3: 12 bytes
-    pub b: Vec3, // Vec3: 12 bytes
-}
-
-impl AABB {
-    pub fn new() -> Self{
-        Self {
-            a: Vec3 { x: f32::MAX, y: f32::MAX, z: f32::MAX, },
-            b: Vec3 { x: f32::MIN, y: f32::MIN, z: f32::MIN, },
-        }
-    }
-
-    pub fn midpoint(&self) -> Vec3{
-        self.lerp(0.5)
-    }
-
-    pub fn lerp(&self, val: f32) -> Vec3{
-        self.a.scaled(1.0-val).added(
-            self.b.scaled(val)
-        )
-    }
-
-    // intersection formula, including inv_dir and dir_is_neg taken from:
-    //  [source](http://www.pbr-book.org/3ed-2018/Shapes/Basic_Shape_Interface.html#Bounds3::IntersectP)
-    // however, it required such non-trivial changes after spending significant time debugging
-    // I feel like calling this code my own
-    pub fn intersection(&self, ray: Ray, inv_dir: Vec3, dir_is_neg: [usize; 3]) -> f32 {
-        let ss = [&self.a, &self.b];
-
-        // check inside box
-        let p0 = self.a.subed(ray.pos);
-        let p1 = self.b.subed(ray.pos);
-        let inside = [
-            p0.x <= EPSILON && p1.x >= -EPSILON,
-            p0.y <= EPSILON && p1.y >= -EPSILON,
-            p0.z <= EPSILON && p1.z >= -EPSILON
-        ];
-        // println!("{:?}", inside);
-        if inside[0] && inside[1] && inside[2] { return 0.0; };
-
-        let mut tmin = -MAX_RENDER_DIST;
-        let mut tmax = MAX_RENDER_DIST;
-        for axis in [Axis::X, Axis::Y, Axis::Z] {
-            let i = axis.as_usize();
-            if inv_dir.fake_arr(axis).abs() == f32::INFINITY && inside[i] { continue; }
-
-            let t0 = (ss[  dir_is_neg[i]].fake_arr(axis) - ray.pos.fake_arr(axis)) * inv_dir.fake_arr(axis);
-            let t1 = (ss[1-dir_is_neg[i]].fake_arr(axis) - ray.pos.fake_arr(axis)) * inv_dir.fake_arr(axis);
-            if t0 > tmax || t1 < tmin { return MAX_RENDER_DIST; }
-
-            tmin = tmin.max(t0);
-            tmax = tmax.min(t1);
-        }
-        if tmin <= 0.0 && tmax >= 0.0 { 0.0 } else if tmin >= 0.0 { tmin } else { tmax }
-    }
-
-    pub fn volume(self) -> f32{
-        let v = self.b.subed(self.a);
-        v.x * v.y * v.z
-    }
-
-    pub fn surface_area(self) -> f32{
-        let v = self.b.subed(self.a);
-        v.x * v.y * 2.0 +
-        v.x * v.z * 2.0 +
-        v.y * v.z * 2.0
-    }
-
-}
-
 #[derive(Copy, Clone, Debug)]
 enum Shape { // ? bytes
-    NONE,
-    TRIANGLE,
-    SPHERE,
-    PLANE
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum Axis {
-    X,
-    Y,
-    Z
-}
-impl Axis {
-    pub fn as_usize(&self) -> usize{
-        match self {
-            Axis::X => 0,
-            Axis::Y => 1,
-            Axis::Z => 2,
-        }
-    }
+    Triangle,
+    Sphere,
 }
 
 #[derive(Clone, Copy)]
@@ -111,83 +17,32 @@ pub struct Primitive {
     bounds: AABB,
     shape_type: Shape,
     sphere: usize,
-    plane: usize,
     triangle: usize,
 }
-impl Primitive {
 
+impl Primitive {
     fn from_sphere(sphere: &Sphere, index_sphere: usize) -> Self{
         Self {
-            bounds: AABB {
-                a: Vec3 {
-                    x: sphere.pos.x - sphere.rad,
-                    y: sphere.pos.y - sphere.rad,
-                    z: sphere.pos.z - sphere.rad,
-                },
-                b : Vec3 {
-                    x: sphere.pos.x + sphere.rad,
-                    y: sphere.pos.y + sphere.rad,
-                    z: sphere.pos.z + sphere.rad,
-                }
-            },
-            shape_type: Shape::SPHERE,
+            bounds: AABB::from_point_radius(sphere.pos, sphere.rad),
+            shape_type: Shape::Sphere,
             sphere: index_sphere,
-            plane: 0,
             triangle: 0,
-        }
-    }
-
-    fn from_plane(plane: &Plane, index_plane: usize) -> Self{
-        if !(plane.nor.x == 1.0 || plane.nor.y == 1.0 || plane.nor.z == 1.0) {
-            panic!("Infinite plane with unaligned normal: Bounding box will be infinite");
-        }
-        Self {
-            bounds: AABB {
-                a: Vec3 {
-                    x: -f32::MAX, // Using f32::INFINITY crashes my computer
-                    y: plane.pos.y,
-                    z: -f32::MAX // Using f32::INFINITY crashes my computer
-                },
-                b: Vec3 {
-                    x: f32::MAX, // Using f32::INFINITY crashes my computer
-                    y: plane.pos.y + EPSILON,
-                    z: f32::MAX, // Using f32::INFINITY crashes my computer
-                }
-            },
-            shape_type: Shape::PLANE,
-            sphere: 0,
-            plane: index_plane,
-            triangle: 0
         }
     }
 
     fn from_triangle(triangle: &Triangle, index_triangle: usize) -> Self{
         Self {
-            bounds: AABB {
-                a: Vec3 {
-                    x: triangle.a.x.min(triangle.b.x).min(triangle.c.x),
-                    y: triangle.a.y.min(triangle.b.y).min(triangle.c.y),
-                    z: triangle.a.z.min(triangle.b.z).min(triangle.c.z),
-                }.subed(Vec3::EPSILON),
-                b : Vec3 {
-                    x: triangle.a.x.max(triangle.b.x).max(triangle.c.x),
-                    y: triangle.a.y.max(triangle.b.y).max(triangle.c.y),
-                    z: triangle.a.z.max(triangle.b.z).max(triangle.c.z),
-                }.added(Vec3::EPSILON)
-            },
-            shape_type: Shape::TRIANGLE,
+            bounds: AABB::from_points(&[triangle.a, triangle.b, triangle.c]).grown(Vec3::EPSILON),
+            shape_type: Shape::Triangle,
             sphere: 0,
-            plane: 0,
             triangle: index_triangle,
         }
     }
 
     pub fn intersect<'a>(&self, ray: Ray, scene: &'a Scene, closest: &mut RayHit<'a>) {
         match self.shape_type {
-            Shape::SPHERE => inter_sphere(ray, &scene.spheres[self.sphere], closest),
-            Shape::PLANE => inter_plane(ray, &scene.planes[self.plane], closest),
-            Shape::TRIANGLE => inter_triangle(ray, &scene.triangles[self.triangle], closest),
-            Shape::NONE => {}
+            Shape::Sphere => inter_sphere(ray, &scene.spheres[self.sphere], closest),
+            Shape::Triangle => inter_triangle(ray, &scene.triangles[self.triangle], closest),
         }
     }
 }
@@ -195,14 +50,14 @@ impl Primitive {
 // #[derive(Copy, Clone, Debug)]
 pub struct Node {
     pub bounds: AABB,  // AABB: 24 bytes
-    pub is_leaf: bool, // bool: 1 bit
+    pub is_leaf: bool, // bool: 1 byte
     pub primitives: Vec<Primitive>,
     pub left: Option<Box<Node>>,
     pub right: Option<Box<Node>>,
 }
 
 impl Node {
-    pub fn build_sah(primitives: &Vec<Primitive>, depth: usize) -> Self {
+    pub fn build_sah(primitives: &[Primitive], depth: usize) -> Self {
         // apply SAH
         // make 12 splits
         // println!("build_sah at depth: {}...", depth);
@@ -223,13 +78,13 @@ impl Node {
         let axis_valid = [diff.x > 12.0*EPSILON, diff.y > 12.0*EPSILON, diff.z > 12.0*EPSILON ];
 
         // precompute lerps
-        let mut lerps = [Vec3::DOWN; 12];
-        for i in 0..12{
-            lerps[i] = bounds.lerp(i as f32 / 12.0 );
+        let mut lerps = [Vec3::ZERO; 12];
+        for (i, item) in lerps.iter_mut().enumerate(){
+            *item = bounds.lerp(i as f32 / 12.0);
         }
 
         // precompute midpoints
-        let mid_points_prims: Vec<Vec3> = primitives.into_iter().map(|prim| prim.bounds.midpoint()).collect();
+        let mid_points_prims: Vec<Vec3> = primitives.iter().map(|prim| prim.bounds.midpoint()).collect();
         let n = mid_points_prims.len();
 
         // println!("compute best bin for minimal cost...");
@@ -244,8 +99,8 @@ impl Node {
 
             // println!("reshuffling...");
             let mut index_reshuffled = vec![0; n];
-            for i in 0..n{
-                index_reshuffled[i] = i;
+            for (i, item) in index_reshuffled.iter_mut().enumerate().take(n){
+                *item = i;
             }
 
             // sort primitives for axis with quicksort O(n*log(n))
@@ -299,8 +154,8 @@ impl Node {
 
             // println!("iterate over 12 bins...");
             // iterate over 12 bins
-            for i_lerp in 0..12{
-                let tmp = lerps[i_lerp].fake_arr(axis);
+            for (i_lerp, lerp) in lerps.iter().enumerate(){
+                let tmp = lerp.fake_arr(axis);
 
                 // place over prims from right split to left split
                 while i_split < n && mid_points_prims[index_reshuffled[i_split]].fake_arr(axis) < tmp{
@@ -372,7 +227,7 @@ impl Node {
 
         // println!("apply best...");
         // apply best
-        let (cost, axis, i_lerp) = best;
+        let (_, axis, i_lerp) = best;
         let val = lerps[i_lerp].fake_arr(axis);
 
         // Define primitives for left and right
@@ -388,11 +243,11 @@ impl Node {
 
         // TODO: improve cost function
         // decide whether we apply the primitives into a leaf node
-        if left.len() == 0 || right.len() == 0 {
+        if left.is_empty() || right.is_empty() {
             // no cost gain
             let node = Node {
                 bounds,
-                primitives: primitives.clone(),
+                primitives: primitives.to_owned(),
                 is_leaf: true,
                 left: None,
                 right: None
@@ -406,17 +261,16 @@ impl Node {
 
         // println!("build left subnode and right subnode...");
         // Build left subnode and right subnode
-        let node = Node {
+        Node {
             bounds,
-            primitives: primitives.clone(),
+            primitives: primitives.to_owned(),
             is_leaf: false,
             left: Some(Box::new(Node::build_sah(&left, depth + 1))),
             right: Some(Box::new(Node::build_sah(&right, depth + 1)))
-        };
-        return node;
+        }
     }
 
-    pub fn build_mid(primitives: &Vec<Primitive>, depth: usize) -> Self {
+    pub fn build_mid(primitives: &[Primitive], depth: usize) -> Self {
         // use midpoint bvh
 
         // find bounds
@@ -447,15 +301,14 @@ impl Node {
         };
 
         // Find midpoint
-        let mid_points_prims = primitives.into_iter().map(|prim| prim.bounds.midpoint()).collect::<Vec<Vec3>>();
-        let vals = (&mid_points_prims).into_iter().map(|prim| prim.fake_arr(axis)).collect::<Vec<f32>>();
+        let mid_points_prims = primitives.iter().map(|prim| prim.bounds.midpoint()).collect::<Vec<Vec3>>();
+        let vals = (&mid_points_prims).iter().map(|prim| prim.fake_arr(axis)).collect::<Vec<f32>>();
         let n = mid_points_prims.len();
 
         let mut val: f32 = 0.0;
         let mut first : f32 = f32::MIN;
         let mut is_all_the_same = true;
-        for i in 0..n {
-            let tmp = vals[i];
+        for tmp in vals.iter().take(n).copied() {
             if first != f32::MIN && (first - tmp).abs() > EPSILON {
                 is_all_the_same = false;
             }
@@ -468,7 +321,7 @@ impl Node {
         if primitives.len() < 5 || is_all_the_same {
             let node = Node {
                 bounds,
-                primitives: primitives.clone(),
+                primitives: primitives.to_owned(),
                 is_leaf: true,
                 left: None,
                 right: None
@@ -489,18 +342,17 @@ impl Node {
         }
 
         // Build left subnode and right subnode
-        let node = Node {
+        Node {
             bounds,
-            primitives: primitives.clone(),
+            primitives: primitives.to_owned(),
             is_leaf: false,
             left: Some(Box::new(Node::build_mid(&left, depth + 1))),
             right: Some(Box::new(Node::build_mid(&right, depth + 1)))
-        };
-        return node;
+        }
     }
 
     pub fn node_iterator(&self, call_on_every_node: &dyn Fn(&Node)) {
-        call_on_every_node(&self);
+        call_on_every_node(self);
         if !self.is_leaf {
             let node_left = self.left.as_deref().unwrap();
             node_left.node_iterator(call_on_every_node);
@@ -510,7 +362,7 @@ impl Node {
     }
 
     pub fn node_iterator_mut(&self, call_on_every_node: &mut dyn FnMut(&Node)) {
-        call_on_every_node(&self);
+        call_on_every_node(self);
         if !self.is_leaf {
             let node_left = self.left.as_deref().unwrap();
             node_left.node_iterator_mut(call_on_every_node);
@@ -605,16 +457,12 @@ impl BVH {
     pub fn build(scene: &Scene, is_sah: bool) -> BVH {
         let mut primitives: Vec<Primitive> = vec![];
 
-        let mut n = scene.spheres.len() + scene.planes.len() + scene.triangles.len();
+        let n = scene.spheres.len() + scene.planes.len() + scene.triangles.len();
 
         // Build primitives
         println!("spheres...");
         for i in 0..scene.spheres.len() {
             primitives.push(Primitive::from_sphere(&scene.spheres[i], i));
-        };
-        println!("planes...");
-        for i in 0..scene.planes.len() {
-            primitives.push(Primitive::from_plane(&scene.planes[i], i));
         };
         println!("triangles...");
         for i in 0..scene.triangles.len() {
@@ -627,12 +475,42 @@ impl BVH {
     }
 
     pub fn intersect<'a>(&self, ray: Ray, scene: &'a Scene, closest: &mut RayHit<'a>) -> (usize, usize, usize) {
+        // TODO: doesn't work anymore with bvh? Problem in texture code
+        // for plane in &scene.planes { inter_plane(ray, plane, closest); }
         let inv_dir = ray.inverted().dir;
         let dir_is_neg : [usize; 3] = ray.direction_negations();
         self.node.intersect(ray, scene, closest, inv_dir, dir_is_neg)
     }
 }
 
+pub fn my_little_sorter<T: std::cmp::PartialOrd>(vals: &[T], index_reshuffled: &mut [usize]){
+
+    fn quicksort<T: std::cmp::PartialOrd>(p: usize, r: usize, index_reshuffled: &mut [usize], vals: &[T]) {
+        if p < r {
+            let q = partition(p, r, index_reshuffled, vals);
+            if q > 0 { quicksort(p, q-1, index_reshuffled, vals); }
+            quicksort(q, r, index_reshuffled, vals);
+        }
+    }
+
+    fn partition<T: std::cmp::PartialOrd>(p: usize, r: usize, index_reshuffled: &mut [usize], vals: &[T]) -> usize {
+        let x = &vals[index_reshuffled[r]];
+        let mut i: i32 = p as i32;
+        assert!(i >= 0);
+        i -= 1 ;
+        for j in p..r {
+            if vals[index_reshuffled[j]] <= *x {
+                i += 1;
+                // exchange A[i] with A[j]
+                index_reshuffled.swap(i as usize, j);
+            }
+        }
+        // exchange A[i+1] with A[r]
+        index_reshuffled.swap((i + 1) as usize, r);
+        (i + 1) as usize
+    }
+    quicksort(0, vals.len()-1, index_reshuffled, vals);
+}
 
 #[cfg(test)]
 mod test {
@@ -1095,207 +973,3 @@ mod test {
 
 }
 
-pub fn my_little_sorter<T: std::cmp::PartialOrd>(vals: &Vec<T>, index_reshuffled: &mut Vec<usize>){
-
-    fn exchange(a: usize, b: usize, index_reshuffled: &mut Vec<usize>) {
-        let tmp = index_reshuffled[a];
-        index_reshuffled[a] = index_reshuffled[b];
-        index_reshuffled[b] = tmp;
-    }
-
-    fn quicksort<T: std::cmp::PartialOrd>(p: usize, r: usize, index_reshuffled: &mut Vec<usize>, vals: &Vec<T> ) {
-        if p < r {
-            let q = partition(p, r, index_reshuffled, vals);
-            if q > 0 { quicksort(p, q-1, index_reshuffled, vals); }
-            quicksort(q, r, index_reshuffled, vals);
-        }
-    }
-
-    fn partition<T: std::cmp::PartialOrd>(p: usize, r: usize, index_reshuffled: &mut Vec<usize>, vals: &Vec<T>) -> usize {
-        let x = &vals[index_reshuffled[r]];
-        assert!(p >= 0);
-        let mut i: i32 = (p as i32);
-        assert!(i >= 0);
-        i -= 1 ;
-        for j in p..r {
-            if vals[index_reshuffled[j]] <= *x {
-                i += 1;
-                // exchange A[i] with A[j]
-                exchange(i as usize,j, index_reshuffled);
-            }
-        }
-        // exchange A[i+1] with A[r]
-        exchange((i + 1) as usize,r, index_reshuffled);
-        return (i + 1) as usize;
-    }
-    quicksort(0, vals.len()-1, index_reshuffled, &vals);
-}
-
-//
-// #[derive(Clone, PartialEq, Debug)]
-// pub struct Bvh{
-//     indices: Vec<u32>,
-//     vertices: Vec<Vertex>,
-// }
-//
-// impl Bvh{
-//     pub fn intersect<'a>(&self, scene: &'a Scene, ray: Ray) -> RayHit<'a>{
-//         fn inter<'a>(scene: &'a Scene, vs: &[Vertex], is: &[u32], ray: Ray, hit: &mut RayHit<'a>, current: usize) {
-//             let v = vs[current];
-//             if v.count == 0{ // vertex
-//                 if hit_aabb(ray, v.bound).is_some(){
-//                     inter(scene, vs, is, ray, hit, v.left_first as usize);
-//                     inter(scene, vs, is, ray, hit, v.left_first as usize + 1);
-//                 }
-//             } else { // leaf
-//                 for i in is.iter().skip(v.left_first as usize).take(v.count as usize).map(|i| *i as usize){
-//                     match scene.either_sphere_or_triangle(i){
-//                         Either::Left(s) => inter_sphere(ray, s, hit),
-//                         Either::Right(t) => inter_triangle(ray, t, hit),
-//                     }
-//                 }
-//             }
-//         }
-//         let mut closest = RayHit::NULL;
-//         inter(scene, &self.vertices, &self.indices, ray, &mut closest, 0);
-//         closest
-//     }
-//
-//     pub fn occluded(&self, scene: &Scene, ray: Ray, ldist: f32) -> bool{
-//         fn inter<'a>(scene: &'a Scene, vs: &[Vertex], is: &[u32], ray: Ray, ldist: f32, current: usize) -> bool{
-//             let v = vs[current];
-//             if v.count == 0{ // vertex
-//                 if hit_aabb(ray, v.bound).is_some(){
-//                     inter(scene, vs, is, ray, ldist, v.left_first as usize);
-//                     inter(scene, vs, is, ray, ldist, v.left_first as usize + 1);
-//                 }
-//             } else { // leaf
-//                 for i in is.iter().skip(v.left_first as usize).take(v.count as usize).map(|i| *i as usize){
-//                     if match scene.either_sphere_or_triangle(i){
-//                         Either::Left(s) => dist_sphere(ray, s),
-//                         Either::Right(t) => dist_triangle(ray, t),
-//                     } < ldist { return true }
-//                 }
-//             }
-//             false
-//         }
-//         inter(scene, &self.vertices, &self.indices, ray, ldist, 0)
-//     }
-//
-//     pub fn debug_intersect(&self, scene: &Scene, ray: Ray) -> usize{
-//         fn inter(scene: &Scene, vs: &[Vertex], is: &[u32], ray: Ray, current: usize, w: usize) -> usize{
-//             let v = vs[current];
-//             // if hit_aabb(ray, v.bound).is_none() { return 0; }
-//             let x = if hit_aabb(ray, v.bound).is_none() { 0 } else { 1 };
-//             if v.count == 0{ // vertex
-//                 w*x +
-//                     inter(scene, vs, is, ray, v.left_first as usize, w) +
-//                     inter(scene, vs, is, ray, v.left_first as usize + 1, w)
-//             } else { // leaf
-//                 let mut hit = RayHit::NULL;
-//                 for i in is.iter().skip(v.left_first as usize).take(v.count as usize).map(|i| *i as usize){
-//                     match scene.either_sphere_or_triangle(i){
-//                         Either::Left(s) => inter_sphere(ray, s, &mut hit),
-//                         Either::Right(t) => inter_triangle(ray, t, &mut hit),
-//                     };
-//                 }
-//                 if hit.is_null() {
-//                     0
-//                 } else {
-//                     w
-//                 }
-//             }
-//         }
-//         inter(scene, &self.vertices, &self.indices, ray, 0, 1)
-//     }
-//
-//     pub fn from(scene: &Scene) -> Self{
-//         let prims = scene.spheres.len() + scene.triangles.len();
-//
-//         let mut is = (0..prims as u32).into_iter().collect::<Vec<_>>();
-//         let mut vs = vec![Vertex::default(); prims * 2 - 1];
-//         let mut poolptr = 2;
-//
-//         Self::subdivide(scene, &mut is, &mut vs, 0, &mut poolptr, 0, prims);
-//
-//         // vs = vs.into_iter().filter(|v| v.bound != AABB::default()).collect::<Vec<_>>();
-//         // println!("{:#?}", vs);
-//
-//         Self{
-//             indices: is,
-//             vertices: vs,
-//         }
-//     }
-//
-//     fn subdivide(scene: &Scene, is: &mut[u32], vs: &mut[Vertex], current: usize, poolptr: &mut u32, first: usize, count: usize){
-//         let v = &mut vs[current];
-//         v.bound = Self::bound(scene, first, count);
-//
-//         if count < 3 { // leaf
-//             v.left_first = first as u32; // first
-//             v.count = count as u32;
-//             return;
-//         }
-//
-//         v.left_first = *poolptr; // left = poolptr, right = poolptr + 1
-//         *poolptr += 2;
-//
-//         let l_count = Self::partition(scene, is, v.bound, first, count);
-//
-//         if l_count == 0 || l_count == count{ // leaf
-//             v.left_first = first as u32; // first
-//             v.count = count as u32;
-//             return;
-//         }
-//
-//         v.count = 0; // internal vertex, not a leaf
-//         let lf = v.left_first as usize;
-//
-//         Self::subdivide(scene, is, vs, lf, poolptr, first, l_count);
-//         Self::subdivide(scene, is, vs, lf + 1, poolptr, first + l_count, count - l_count);
-//     }
-//
-//     fn partition(scene: &Scene, is: &mut[u32], bound: AABB, first: usize, count: usize) -> usize{
-//         fn is_left(index: usize, scene: &Scene, (plane, axis): (f32, Vec3)) -> bool{
-//             let plane_vec = axis.scaled(plane);
-//             match scene.either_sphere_or_triangle(index){
-//                 Either::Left(sphere) => sphere.pos.muled(axis).less_eq(plane_vec),
-//                 Either::Right(tri) => {
-//                     tri.a.muled(axis).less_eq(plane_vec) ||
-//                     tri.b.muled(axis).less_eq(plane_vec) ||
-//                     tri.c.muled(axis).less_eq(plane_vec)
-//                 },
-//             }
-//         }
-//         let plane_axis = bound.midpoint_split();
-//         let mut a = first; // first
-//         let mut b = first + count - 1; // last
-//         while a < b{
-//             if is_left(is[a] as usize, scene, plane_axis){
-//                 a += 1;
-//             } else {
-//                 is.swap(a, b);
-//                 b -= 1;
-//             }
-//         }
-//         a.min(count)
-//     }
-//
-//     fn bound(scene: &Scene, first: usize, count: usize) -> AABB {
-//         let mut bound = AABB::default();
-//         for i in first..first + count{
-//             bound = match scene.either_sphere_or_triangle(i){
-//                 Either::Left(s) => bound.combined(AABB::from_point_radius(s.pos, s.rad)),
-//                 Either::Right(t) => bound.combined(AABB::from_points(&[t.a, t.b, t.c])),
-//             }
-//         }
-//         bound
-//     }
-// }
-//
-// #[derive(Clone, Copy, PartialEq, Debug, Default)]
-// pub struct Vertex{
-//     bound: AABB,
-//     left_first: u32,
-//     count: u32,
-// }
