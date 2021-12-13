@@ -270,6 +270,7 @@ impl Node {
     pub fn build_sah(primitives: &Vec<Primitive>, depth: usize) -> Self {
         // apply SAH
         // make 12 splits
+        // println!("build_sah at depth: {}...", depth);
 
         // find bounds
         let mut bounds = AABB::new();
@@ -296,6 +297,7 @@ impl Node {
         let mid_points_prims: Vec<Vec3> = primitives.into_iter().map(|prim| prim.bounds.midpoint()).collect();
         let n = mid_points_prims.len();
 
+        // println!("compute best bin for minimal cost...");
         // compute best combination; minimal cost
         let mut best : (f32, Axis, usize) = (f32::MAX, Axis::X, 0); // (cost, axis, i_lerp)
         for axis in [Axis::X, Axis::Y, Axis::Z] {
@@ -305,39 +307,44 @@ impl Node {
                 continue;
             }
 
+            // println!("reshuffling...");
             let mut index_reshuffled = vec![0; n];
             for i in 0..n{
                 index_reshuffled[i] = i;
             }
 
-            // TODO: improve algorithm to O(n*log(n))
-            // sort primitives for axis
+            // sort primitives for axis with quicksort O(n*log(n))
             let vals : Vec<f32> = mid_points_prims.iter().map(|point| point.fake_arr(axis)).collect();
-            for i in 0..n{
-                let val = vals[i];
-                let mut x = 0;
-                for j in 0..n{
-                    if vals[j] < val {
-                        x += 1;
-                    } else if vals[j] == val {
-                        if j < i {
-                            x += 1;
-                        }
-                    }
-                }
-                index_reshuffled[x] = i;
-            }
+            my_little_sorter(&vals, &mut index_reshuffled);
+
+
+            // for i in 0..n{
+            //     let val = vals[i];
+            //     let mut x = 0;
+            //     for j in 0..n{
+            //         if vals[j] < val {
+            //             x += 1;
+            //         } else if vals[j] == val {
+            //             if j < i {
+            //                 x += 1;
+            //             }
+            //         }
+            //     }
+            //     index_reshuffled[x] = i;
+            // }
 
             // temporarily reshuffling is ok
             // println!("{:?}",vals);
-            for a in 0..n{
-                for b in a+1..n{
-                    assert!(index_reshuffled[a] != index_reshuffled[b]);
-                    // println!("{},{}",vals[index_reshuffled[a]],vals[index_reshuffled[b]]);
-                    assert!(vals[index_reshuffled[a]] <= vals[index_reshuffled[b]]);
-                }
-            }
+            // println!("test reshuffling...");
+            // for a in 0..n{
+            //     for b in a+1..n{
+            //         assert!(index_reshuffled[a] != index_reshuffled[b]);
+            //         // println!("{},{}",vals[index_reshuffled[a]],vals[index_reshuffled[b]]);
+            //         assert!(vals[index_reshuffled[a]] <= vals[index_reshuffled[b]]);
+            //     }
+            // }
 
+            // println!("split over sides...");
             let mut sides: [Vec<&Primitive>;2] = [vec![],vec![]];
             let mut side_bounds : [AABB; 2] = [AABB::new(); 2];
             for i in 0..n{
@@ -347,14 +354,15 @@ impl Node {
             }
             let mut i_split: usize = 0;
 
-            for i_lerp in 0..11{
+            // for i_lerp in 0..11{
                 // println!("{:?}", i_lerp);
                 // println!("{:?}", axis.as_usize());
                 // println!("{:?}", lerps);
                 // println!("{:?}>{:?}", lerps[i_lerp+1].fake_arr(axis), lerps[i_lerp].fake_arr(axis));
-                assert!(lerps[i_lerp+1].fake_arr(axis) > lerps[i_lerp].fake_arr(axis));
-            }
+                // assert!(lerps[i_lerp+1].fake_arr(axis) > lerps[i_lerp].fake_arr(axis));
+            // }
 
+            // println!("iterate over 12 bins...");
             // iterate over 12 bins
             for i_lerp in 0..12{
                 let tmp = lerps[i_lerp].fake_arr(axis);
@@ -362,33 +370,10 @@ impl Node {
                 // place over prims from right split to left split
                 while i_split < n && mid_points_prims[index_reshuffled[i_split]].fake_arr(axis) < tmp{
                     let prim = sides[1].pop().unwrap();
-                    assert_eq!(mid_points_prims[index_reshuffled[i_split]].fake_arr(axis), prim.bounds.midpoint().fake_arr(axis) );
-                    assert!(prim.bounds.midpoint().fake_arr(axis) < tmp );
+                    // assert_eq!(mid_points_prims[index_reshuffled[i_split]].fake_arr(axis), prim.bounds.midpoint().fake_arr(axis) );
+                    // assert!(prim.bounds.midpoint().fake_arr(axis) < tmp );
                     sides[0].push(prim);
-                    assert!(sides[0][i_split].bounds.midpoint().fake_arr(axis) < tmp);
-                    i_split += 1;
-                }
 
-                // check all in left are smaller
-                for a in 0..sides[0].len() {
-                    for b in 0..sides[1].len() {
-                        assert!(sides[0][a].bounds.midpoint().fake_arr(axis) < sides[1][b].bounds.midpoint().fake_arr(axis));
-                    }
-                }
-
-                // check left is smaller than tmp
-                for a in 0..sides[0].len() {
-                    // println!("{} < {}?", sides[0][a].bounds.midpoint().fake_arr(axis), tmp);
-                    assert!(sides[0][a].bounds.midpoint().fake_arr(axis) < tmp);
-                }
-
-                // check right is larger than tmp
-                for b in 0..sides[1].len() {
-                    assert!(sides[1][b].bounds.midpoint().fake_arr(axis) >= tmp);
-                }
-
-                // update bounds of left
-                for prim in sides[0].iter() {
                     side_bounds[0].a.x = side_bounds[0].a.x.min(prim.bounds.a.x);
                     side_bounds[0].a.y = side_bounds[0].a.y.min(prim.bounds.a.y);
                     side_bounds[0].a.z = side_bounds[0].a.z.min(prim.bounds.a.z);
@@ -396,9 +381,42 @@ impl Node {
                     side_bounds[0].b.x = side_bounds[0].b.x.max(prim.bounds.b.x);
                     side_bounds[0].b.y = side_bounds[0].b.y.max(prim.bounds.b.y);
                     side_bounds[0].b.z = side_bounds[0].b.z.max(prim.bounds.b.z);
+
+                    // assert!(sides[0][i_split].bounds.midpoint().fake_arr(axis) < tmp);
+                    i_split += 1;
                 }
 
+                // check all in left are smaller
+                // for a in 0..sides[0].len() {
+                //     for b in 0..sides[1].len() {
+                //         assert!(sides[0][a].bounds.midpoint().fake_arr(axis) < sides[1][b].bounds.midpoint().fake_arr(axis));
+                //     }
+                // }
+
+                // check left is smaller than tmp
+                // for a in 0..sides[0].len() {
+                    // println!("{} < {}?", sides[0][a].bounds.midpoint().fake_arr(axis), tmp);
+                    // assert!(sides[0][a].bounds.midpoint().fake_arr(axis) < tmp);
+                // }
+
+                // check right is larger than tmp
+                // for b in 0..sides[1].len() {
+                //     assert!(sides[1][b].bounds.midpoint().fake_arr(axis) >= tmp);
+                // }
+
+                // update bounds of left
+                // for prim in sides[0].iter() {
+                //     side_bounds[0].a.x = side_bounds[0].a.x.min(prim.bounds.a.x);
+                //     side_bounds[0].a.y = side_bounds[0].a.y.min(prim.bounds.a.y);
+                //     side_bounds[0].a.z = side_bounds[0].a.z.min(prim.bounds.a.z);
+                //
+                //     side_bounds[0].b.x = side_bounds[0].b.x.max(prim.bounds.b.x);
+                //     side_bounds[0].b.y = side_bounds[0].b.y.max(prim.bounds.b.y);
+                //     side_bounds[0].b.z = side_bounds[0].b.z.max(prim.bounds.b.z);
+                // }
+
                 // recompute bounds for right
+                side_bounds[1] = AABB::new();
                 for prim in sides[1].iter() {
                     side_bounds[1].a.x = side_bounds[1].a.x.min( prim.bounds.a.x );
                     side_bounds[1].a.y = side_bounds[1].a.y.min( prim.bounds.a.y );
@@ -410,13 +428,14 @@ impl Node {
                 }
 
                 // get cost
-                let cost = side_bounds[0].surface_area()*sides[0].len() as f32 + side_bounds[1].surface_area()*sides[1].len() as f32;
+                let cost = 3.0 + 1.0 + side_bounds[0].surface_area()*sides[0].len() as f32 + 1.0 + side_bounds[1].surface_area()*sides[1].len() as f32;
                 if cost < best.0 {
                     best = (cost, axis, i_lerp);
                 }
             }
         }
 
+        // println!("apply best...");
         // apply best
         let (cost, axis, i_lerp) = best;
         let val = lerps[i_lerp].fake_arr(axis);
@@ -450,6 +469,7 @@ impl Node {
         // println!("len left: {}", left.len());
         // println!("len right: {}", right.len());
 
+        // println!("build left subnode and right subnode...");
         // Build left subnode and right subnode
         let node = Node {
             bounds,
@@ -650,14 +670,20 @@ impl BVH {
     pub fn build(scene: &Scene, is_sah: bool) -> BVH {
         let mut primitives: Vec<Primitive> = vec![];
 
+        let mut n = scene.spheres.len() + scene.planes.len() + scene.triangles.len();
+
         // Build primitives
+        println!("spheres...");
         for i in 0..scene.spheres.len() {
             primitives.push(Primitive::from_sphere(&scene.spheres[i], i));
         };
+        println!("planes...");
         for i in 0..scene.planes.len() {
             primitives.push(Primitive::from_plane(&scene.planes[i], i));
         };
+        println!("triangles...");
         for i in 0..scene.triangles.len() {
+            println!("{}:{}",n,i);
             primitives.push(Primitive::from_triangle(&scene.triangles[i], i));
         };
 
@@ -677,7 +703,7 @@ impl BVH {
 mod test {
     use crate::cpu::{Ray, RayHit, inter_scene};
     use crate::vec3::Vec3;
-    use crate::bvh::{AABB, Primitive, Node};
+    use crate::bvh::{AABB, Primitive, Node, my_little_sorter};
     use crate::consts::{EPSILON, MAX_RENDER_DIST};
     use crate::scene::{Triangle, Material, Scene};
     use crate::mesh::{load_model, build_triangle_wall};
@@ -1035,7 +1061,6 @@ mod test {
             let mut hit = RayHit::NULL;
             let (aabb_hits, prim_hits, depth) = scene.bvh.intersect(*ray, &scene, &mut hit);
             if ray.dir.z.abs() > EPSILON && (hit.t-1.0).abs() > EPSILON {
-            // if hit.t != 0.0 && (hit.t-1.0).abs() > EPSILON {
                 // println!("{:?}", i);
                 // println!("{:?}", (aabb_hits, prim_hits, depth));
                 println!("{:?}", ray);
@@ -1098,4 +1123,75 @@ mod test {
         //     let dir = Vec3 { x: random::<f32>(), y: random::<f32>(), z: random::<f32>() }.normalized_fast();
         //     let ray = Ray { pos: pos.subed(dir), dir };
     }
+
+    #[test]
+    fn reshuffling() {
+        const n : usize = 200;
+        let mut vals = vec![0; n];
+        for i in 0..n{
+            vals[i] = random::<u8>();
+        }
+
+        let mut index_reshuffled = vec![0; n];
+        for i in 0..n{
+            index_reshuffled[i] = i;
+        }
+        let mut result : Vec<u8> = vec![0; n];
+        for i in 0..n {
+            result[i] = vals[index_reshuffled[i]];
+        }
+        println!("{:?}", result);
+
+        my_little_sorter(&vals, &mut index_reshuffled);
+        for i in 0..n {
+            result[i] = vals[index_reshuffled[i]];
+        }
+
+        for a in 0..n{
+            for b in a+1..n{
+                // assert!(index_reshuffled[a] <= index_reshuffled[b]);
+                // println!("{},{}",vals[index_reshuffled[a]],vals[index_reshuffled[b]]);
+                assert!(vals[index_reshuffled[a]] <= vals[index_reshuffled[b]]);
+            }
+        }
+        println!("{:?}", result);
+        panic!();
+    }
+
+}
+
+pub fn my_little_sorter<T: std::cmp::PartialOrd>(vals: &Vec<T>, index_reshuffled: &mut Vec<usize>){
+
+    fn exchange(a: usize, b: usize, index_reshuffled: &mut Vec<usize>) {
+        let tmp = index_reshuffled[a];
+        index_reshuffled[a] = index_reshuffled[b];
+        index_reshuffled[b] = tmp;
+    }
+
+    fn quicksort<T: std::cmp::PartialOrd>(p: usize, r: usize, index_reshuffled: &mut Vec<usize>, vals: &Vec<T> ) {
+        if p < r {
+            let q = partition(p, r, index_reshuffled, vals);
+            if q > 0 { quicksort(p, q-1, index_reshuffled, vals); }
+            quicksort(q, r, index_reshuffled, vals);
+        }
+    }
+
+    fn partition<T: std::cmp::PartialOrd>(p: usize, r: usize, index_reshuffled: &mut Vec<usize>, vals: &Vec<T>) -> usize {
+        let x = &vals[index_reshuffled[r]];
+        assert!(p >= 0);
+        let mut i: i32 = (p as i32);
+        assert!(i >= 0);
+        i -= 1 ;
+        for j in p..r {
+            if vals[index_reshuffled[j]] <= *x {
+                i += 1;
+                // exchange A[i] with A[j]
+                exchange(i as usize,j, index_reshuffled);
+            }
+        }
+        // exchange A[i+1] with A[r]
+        exchange((i + 1) as usize,r, index_reshuffled);
+        return (i + 1) as usize;
+    }
+    quicksort(0, vals.len()-1, index_reshuffled, &vals);
 }
