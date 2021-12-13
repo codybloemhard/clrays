@@ -4,8 +4,6 @@ use crate::scene::{ Sphere, Triangle, Scene };
 use crate::cpu::inter::*;
 use crate::aabb::*;
 
-// use crate::scene::{ Scene, AABB, Either };
-
 #[derive(Copy, Clone, Debug)]
 enum Shape { // ? bytes
     Triangle,
