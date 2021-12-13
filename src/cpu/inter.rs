@@ -128,7 +128,7 @@ pub fn inter_triangle<'a>(ray: Ray, tri: &'a Triangle, closest: &mut RayHit<'a>)
     let edge2 = Vec3::subed(tri.c, tri.a);
     let h = Vec3::crossed(ray.dir, edge2);
     let a = Vec3::dot(edge1, h);
-    if a > -EPSILON && a < EPSILON { return; } // ray parallel to tri
+    if a > -EPSILON * 0.01 && a < EPSILON * 0.01 { return; } // ray parallel to tri
     let f = 1.0 / a;
     let s = Vec3::subed(ray.pos, tri.a);
     let u = f * Vec3::dot(s, h);
