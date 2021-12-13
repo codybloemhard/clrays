@@ -48,3 +48,44 @@ pub fn load_model(file_path: &str, mat: Material, scene: &mut Scene){
         }.add(scene);
     }
 }
+pub fn build_triangle_wall(mat: Material, scene: &mut Scene, diff: f32, offset: f32) {
+    let z = 0.0;
+    let mut x = -offset;
+    let mut total = 0;
+    while x < offset { // (2.0*offset)/diff
+        let mut y = -offset;
+        while y < offset { // 2.0*(2.0*offset)/diff
+            let x0 = x;
+            let y0 = y;
+            let z0 = z;
+
+            let x1 = x;
+            let y1 = y + diff;
+            let z1 = z;
+
+            let x2 = x + diff;
+            let y2 = y;
+            let z2 = z;
+
+            let x3 = x + diff;
+            let y3 = y + diff;
+            let z3 = z;
+            Triangle{
+                a: Vec3::new(x0, y0, z0),
+                b: Vec3::new(x1, y1, z1),
+                c: Vec3::new(x2, y2, z2),
+                mat: mat.clone(),
+            }.add(scene);
+            Triangle{
+                a: Vec3::new(x1, y1, z1),
+                b: Vec3::new(x2, y2, z2),
+                c: Vec3::new(x3, y3, z3),
+                mat: mat.clone(),
+            }.add(scene);
+            total += 2;
+            y += diff;
+        }
+        x += diff;
+    }
+    println!("total:{}", total);
+}

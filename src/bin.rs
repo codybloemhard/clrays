@@ -13,6 +13,7 @@ use clr::mesh::load_model;
 
 use sdl2::keyboard::Keycode;
 use clrays_rs::consts::*;
+use clrays_rs::mesh::build_triangle_wall;
 
 pub const USE_WATERFLOOR : bool = true;
 pub const USE_WIDE_ANGLE : bool = false;
@@ -58,69 +59,69 @@ pub fn main() -> Result<(), String>{
     scene.add_texture("sky", "assets/textures/sky0.jpg", TexType::Vector3c8bpc);
     scene.set_skybox("sky");
 
-    if USE_WATERFLOOR {
-        Plane{
-            pos: Vec3::new(0.0, -4.0, 0.0),
-            nor: Vec3::UP,
-            mat: Material::basic()
-                .as_checkerboard()
-                .with_texture(scene.get_texture("stone-alb"))
-                .with_normal_map(scene.get_texture("stone-nor"))
-                .with_roughness_map(scene.get_texture("stone-rou"))
-                .with_tex_scale(4.0),
-        }.add(&mut scene);
-
-        Plane{
-            pos: Vec3::new(0.0, -1.0, 0.0),
-            nor: Vec3::UP,
-            mat: Material::basic()
-                .as_dielectric()
-                .with_absorption(WATER_ABSORPTION)
-                .with_refraction(WATER_REFRACTION)
-        }.add(&mut scene);
-    } else {
-        Plane{
-            pos: Vec3::new(0.0, -1.0, 0.0),
-            nor: Vec3::UP,
-            mat: Material::basic()
-                .as_checkerboard()
-                .with_texture(scene.get_texture("stone-alb"))
-                .with_normal_map(scene.get_texture("stone-nor"))
-                .with_roughness_map(scene.get_texture("stone-rou"))
-                .with_tex_scale(4.0),
-        }.add(&mut scene);
-    }
-
-    Sphere{
-        pos: Vec3::new(2.0, 0.0, -5.0),
-        rad: 1.0 - EPSILON,
-        mat: Material::basic()
-            .with_texture(scene.get_texture("tiles-alb"))
-            .with_normal_map(scene.get_texture("tiles-nor"))
-            .with_roughness_map(scene.get_texture("tiles-rou")),
-    }.add(&mut scene);
-
-    Sphere{
-        pos: Vec3::new(0.0, 0.0, -5.0),
-        rad: 1.0 - EPSILON,
-        mat: Material::basic()
-            .with_reflectivity(0.3)
-            .with_texture(scene.get_texture("solar-alb"))
-            .with_normal_map(scene.get_texture("solar-nor"))
-            .with_roughness_map(scene.get_texture("solar-rou"))
-            .with_metalic_map(scene.get_texture("solar-met")),
-    }.add(&mut scene);
-
-    Sphere{
-        pos: Vec3::new(-2.0, 0.1, -5.0),
-        rad: 1.0 - EPSILON,
-        mat: Material::basic()
-            .with_texture(scene.get_texture("scifi-alb"))
-            .with_normal_map(scene.get_texture("scifi-nor"))
-            .with_roughness_map(scene.get_texture("scifi-rou"))
-            .with_metalic_map(scene.get_texture("scifi-met"))
-            .with_reflectivity(0.9),
-    }.add(&mut scene);
+    // if USE_WATERFLOOR {
+    //     Plane{
+    //         pos: Vec3::new(0.0, -4.0, 0.0),
+    //         nor: Vec3::UP,
+    //         mat: Material::basic()
+    //             .as_checkerboard()
+    //             .with_texture(scene.get_texture("stone-alb"))
+    //             .with_normal_map(scene.get_texture("stone-nor"))
+    //             .with_roughness_map(scene.get_texture("stone-rou"))
+    //             .with_tex_scale(4.0),
+    //     }.add(&mut scene);
+    //
+    //     Plane{
+    //         pos: Vec3::new(0.0, -1.0, 0.0),
+    //         nor: Vec3::UP,
+    //         mat: Material::basic()
+    //             .as_dielectric()
+    //             .with_absorption(WATER_ABSORPTION)
+    //             .with_refraction(WATER_REFRACTION)
+    //     }.add(&mut scene);
+    // } else {
+    //     Plane{
+    //         pos: Vec3::new(0.0, -1.0, 0.0),
+    //         nor: Vec3::UP,
+    //         mat: Material::basic()
+    //             .as_checkerboard()
+    //             .with_texture(scene.get_texture("stone-alb"))
+    //             .with_normal_map(scene.get_texture("stone-nor"))
+    //             .with_roughness_map(scene.get_texture("stone-rou"))
+    //             .with_tex_scale(4.0),
+    //     }.add(&mut scene);
+    // }
+    //
+    // Sphere{
+    //     pos: Vec3::new(2.0, 0.0, -5.0),
+    //     rad: 1.0 - EPSILON,
+    //     mat: Material::basic()
+    //         .with_texture(scene.get_texture("tiles-alb"))
+    //         .with_normal_map(scene.get_texture("tiles-nor"))
+    //         .with_roughness_map(scene.get_texture("tiles-rou")),
+    // }.add(&mut scene);
+    //
+    // Sphere{
+    //     pos: Vec3::new(0.0, 0.0, -5.0),
+    //     rad: 1.0 - EPSILON,
+    //     mat: Material::basic()
+    //         .with_reflectivity(0.3)
+    //         .with_texture(scene.get_texture("solar-alb"))
+    //         .with_normal_map(scene.get_texture("solar-nor"))
+    //         .with_roughness_map(scene.get_texture("solar-rou"))
+    //         .with_metalic_map(scene.get_texture("solar-met")),
+    // }.add(&mut scene);
+    //
+    // Sphere{
+    //     pos: Vec3::new(-2.0, 0.1, -5.0),
+    //     rad: 1.0 - EPSILON,
+    //     mat: Material::basic()
+    //         .with_texture(scene.get_texture("scifi-alb"))
+    //         .with_normal_map(scene.get_texture("scifi-nor"))
+    //         .with_roughness_map(scene.get_texture("scifi-rou"))
+    //         .with_metalic_map(scene.get_texture("scifi-met"))
+    //         .with_reflectivity(0.9),
+    // }.add(&mut scene);
 
     // Triangle{
     //     a: Vec3::new(-1.0, 1.0, -7.0),
@@ -189,6 +190,9 @@ pub fn main() -> Result<(), String>{
             .with_absorption(Vec3 { x: 0.8, y: 0.3, z: 0.3 })
             .with_refraction(AIR_REFRACTION)
     }.add(&mut scene);
+    // println!("build wall...");
+    // build_triangle_wall(Material::basic(), &mut scene, 0.5, 10.0,);
+    // println!("wall is build");
 
     Light{
         pos: Vec3::new(0.0, 2.0, -3.0),
@@ -196,7 +200,10 @@ pub fn main() -> Result<(), String>{
         col: Vec3::ONE,
     }.add(&mut scene);
 
-    scene.generate_bvh();
+    println!("build bvh...");
+    scene.generate_bvh_sah();
+    scene.generate_bvh_mid();
+    println!("bvh is build");
     scene.bvh.node.print(0);
 
     info.set_time_point("Setting up scene");

@@ -163,13 +163,15 @@ fn u32tf01(int: u32) -> f32{
 
 // trace light ray through scene
 fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, contexts: Contexts) -> Vec3{
+
     let mut hit = RayHit::NULL;
     if scene.use_bvh {
         let (bounding_boxes_intersections, primitive_intersections, depth) = scene.bvh.intersect(ray, scene, &mut hit);
-        if scene.show_bvh {
+        if scene.show_bvh { // show boxes
             let val = depth;
             let lim1 = 10.0;
-            let lim2 = 30.0;
+            let lim2 = 100.0;
+
             if bounding_boxes_intersections < lim1 as usize {
                 return Vec3 {
                     x: val as f32 / lim1,
@@ -185,7 +187,7 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, con
                     z: 1.0 - val as f32 / lim2,
                 };
             }
-        }
+        };
     } else {
         hit = inter_scene(ray, scene);
     };

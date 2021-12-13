@@ -4,7 +4,7 @@ use crate::misc::{ Incrementable, build_vec, make_nonzero_len };
 use crate::info::Info;
 
 use std::collections::HashMap;
-use crate::bvh::{AABB, BVH, build_bvh, Node};
+use crate::bvh::{AABB, BVH, Node};
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Material{
@@ -243,6 +243,7 @@ pub struct Scene{
     pub sky_box: u32,
     pub cam: Camera,
     pub bvh: BVH,
+    pub bvh_mid: BVH,
     pub use_bvh: bool,
     pub show_bvh: bool
 }
@@ -300,8 +301,17 @@ impl Scene{
                     right: None,
                 }
             },
-            use_bvh: true,
-            show_bvh: true
+            bvh_mid: BVH {
+                node: Node {
+                    bounds: AABB::new(),
+                    is_leaf: true,
+                    primitives: vec![],
+                    left: None,
+                    right: None,
+                }
+            },
+            show_bvh: true, // show boxes
+            use_bvh: true,  // show pixel differences
         }
     }
 
@@ -439,7 +449,10 @@ impl Scene{
     pub fn add_plane(&mut self, p: Plane){ self.planes.push(p); }
     pub fn add_triangle(&mut self, b: Triangle){ self.triangles.push(b); }
 
-    pub fn generate_bvh(&mut self) {
-        self.bvh = build_bvh(self);
+    pub fn generate_bvh_sah(&mut self) {
+        self.bvh = BVH::build(self, true);
+    }
+    pub fn generate_bvh_mid(&mut self) {
+        self.bvh_mid = BVH::build(self, false);
     }
 }
