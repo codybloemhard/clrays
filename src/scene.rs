@@ -4,6 +4,7 @@ use crate::misc::{ Incrementable, build_vec, make_nonzero_len };
 use crate::info::Info;
 use crate::bvh::{ BVH, Node };
 use crate::aabb::AABB;
+use crate::bvh_nightly::Bvh;
 // use crate::bvh::{ AABB, BVH, build_bvh, Node };
 
 use std::collections::HashMap;
@@ -263,6 +264,7 @@ pub struct Scene{
     pub cam: Camera,
     pub bvh: BVH,
     pub bvh_mid: BVH,
+    pub bvh_nightly: Bvh,
     pub use_bvh: bool,
     pub show_bvh: bool
 }
@@ -329,6 +331,7 @@ impl Scene{
                     right: None,
                 }
             },
+            bvh_nightly: Bvh::default(),
             show_bvh: true, // show boxes
             use_bvh: true,  // show pixel differences
         }
@@ -473,6 +476,9 @@ impl Scene{
     }
     pub fn generate_bvh_mid(&mut self) {
         self.bvh_mid = BVH::build(self, false);
+    }
+    pub fn generate_bvh_nightly(&mut self){
+        self.bvh_nightly = Bvh::from(self);
     }
 
     pub fn either_sphere_or_triangle(&self, index: usize) -> Either<&Sphere, &Triangle>{

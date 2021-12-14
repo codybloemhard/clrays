@@ -205,9 +205,17 @@ pub fn main() -> Result<(), String>{
 
     println!("build bvh...");
     scene.generate_bvh_sah();
-    scene.generate_bvh_mid();
+    //scene.generate_bvh_mid();
     println!("bvh is build");
-    scene.bvh.node.print(0);
+    //scene.bvh.node.print(0);
+    let mut v = Vec::new();
+    scene.bvh.node.get_prim_counts(&mut v);
+    println!("{:?}", v);
+
+    scene.generate_bvh_nightly();
+    let mut v = Vec::new();
+    scene.bvh_nightly.get_prim_counts(0, &mut v);
+    println!("{:?}", v);
 
     info.set_time_point("Setting up scene");
     scene.pack_textures(&mut info);

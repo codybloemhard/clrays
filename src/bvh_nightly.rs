@@ -4,7 +4,7 @@ use crate::aabb::*;
 use crate::vec3::Vec3;
 use crate::consts::{ EPSILON };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Bvh{
     indices: Vec<u32>,
     vertices: Vec<Vertex>,
@@ -18,75 +18,82 @@ pub struct Vertex{
 }
 
 impl Bvh{
-    pub fn intersect<'a>(&self, scene: &'a Scene, ray: Ray) -> RayHit<'a>{
-        fn inter<'a>(scene: &'a Scene, vs: &[Vertex], is: &[u32], ray: Ray, hit: &mut RayHit<'a>, current: usize) {
-            let v = vs[current];
-            if v.count == 0{ // vertex
-                if hit_aabb(ray, v.bound).is_some(){
-                    inter(scene, vs, is, ray, hit, v.left_first as usize);
-                    inter(scene, vs, is, ray, hit, v.left_first as usize + 1);
-                }
-            } else { // leaf
-                for i in is.iter().skip(v.left_first as usize).take(v.count as usize).map(|i| *i as usize){
-                    match scene.either_sphere_or_triangle(i){
-                        Either::Left(s) => inter_sphere(ray, s, hit),
-                        Either::Right(t) => inter_triangle(ray, t, hit),
-                    }
-                }
-            }
+    pub fn get_prim_counts(&self, current: usize, vec: &mut Vec<usize>){
+        let vs = &self.vertices;
+        let v = vs[current];
+        if v.count > 0{ // leaf
+            vec.push(v.count as usize);
+        } else { // vertex
+            self.get_prim_counts(v.left_first as usize, vec);
+            self.get_prim_counts(v.left_first as usize + 1, vec);
         }
-        let mut closest = RayHit::NULL;
-        inter(scene, &self.vertices, &self.indices, ray, &mut closest, 0);
-        closest
+    }
+    // (aabb hits, hits, depth)
+    pub fn intersect<'a>(&self, ray: Ray, scene: &'a Scene, closest: &mut RayHit<'a>) -> (usize, usize, usize){
+        // TODO: doesn't work anymore with bvh? Problem in texture code
+        // for plane in &scene.planes { inter_plane(ray, plane, closest); }
+        let inv_dir = ray.inverted().dir;
+        let dir_is_neg : [usize; 3] = ray.direction_negations();
+        self.internal_intersect(0, scene, ray, closest, inv_dir, dir_is_neg)
     }
 
-    pub fn occluded(&self, scene: &Scene, ray: Ray, ldist: f32) -> bool{
-        fn inter<'a>(scene: &'a Scene, vs: &[Vertex], is: &[u32], ray: Ray, ldist: f32, current: usize) -> bool{
-            let v = vs[current];
-            if v.count == 0{ // vertex
-                if hit_aabb(ray, v.bound).is_some(){
-                    inter(scene, vs, is, ray, ldist, v.left_first as usize);
-                    inter(scene, vs, is, ray, ldist, v.left_first as usize + 1);
-                }
-            } else { // leaf
-                for i in is.iter().skip(v.left_first as usize).take(v.count as usize).map(|i| *i as usize){
-                    if match scene.either_sphere_or_triangle(i){
-                        Either::Left(s) => dist_sphere(ray, s),
-                        Either::Right(t) => dist_triangle(ray, t),
-                    } < ldist { return true }
+    fn internal_intersect<'a>(&self, current: usize, scene: &'a Scene, ray: Ray, closest: &mut RayHit<'a>, inv_dir: Vec3, dir_is_neg: [usize; 3]) -> (usize, usize, usize){
+        let vs = &self.vertices;
+        let is = &self.indices;
+        let v = vs[current];
+        if v.count > 0{ // leaf
+            for i in is.iter().skip(v.left_first as usize).take(v.count as usize).map(|i| *i as usize){
+                match scene.either_sphere_or_triangle(i){
+                    Either::Left(s) => inter_sphere(ray, s, closest),
+                    Either::Right(t) => inter_triangle(ray, t, closest),
                 }
             }
-            false
+            (0, v.count as usize, 1)
+        } else { // vertex
+            let nodes = [
+                v.left_first as usize,
+                v.left_first as usize + 1,
+            ];
+
+            let ts = [
+                vs[nodes[0]].bound.intersection(ray, inv_dir, dir_is_neg),
+                vs[nodes[1]].bound.intersection(ray, inv_dir, dir_is_neg),
+            ];
+
+            let order = if ts[0] <= ts[1] { [0, 1] } else { [1, 0] };
+            let mut x1: (usize, usize, usize) = (0, 0, 0);
+            let mut x2: (usize, usize, usize) = (0, 0, 0);
+
+            if ts[order[0]] < closest.t {
+                x1 = self.internal_intersect(nodes[order[0]], scene, ray, closest, inv_dir, dir_is_neg);
+                if ts[order[1]] < closest.t {
+                    x2 = self.internal_intersect(nodes[order[1]], scene, ray, closest, inv_dir, dir_is_neg);
+                }
+            }
+            (2 + x1.0 + x2.0, x1.1 + x2.1, 1 + x1.2.max(x2.2))
         }
-        inter(scene, &self.vertices, &self.indices, ray, ldist, 0)
     }
 
-    pub fn debug_intersect(&self, scene: &Scene, ray: Ray) -> usize{
-        fn inter(scene: &Scene, vs: &[Vertex], is: &[u32], ray: Ray, current: usize, w: usize) -> usize{
-            let v = vs[current];
-            // if hit_aabb(ray, v.bound).is_none() { return 0; }
-            let x = if hit_aabb(ray, v.bound).is_none() { 0 } else { 1 };
-            if v.count == 0{ // vertex
-                w*x +
-                    inter(scene, vs, is, ray, v.left_first as usize, w) +
-                    inter(scene, vs, is, ray, v.left_first as usize + 1, w)
-            } else { // leaf
-                let mut hit = RayHit::NULL;
-                for i in is.iter().skip(v.left_first as usize).take(v.count as usize).map(|i| *i as usize){
-                    match scene.either_sphere_or_triangle(i){
-                        Either::Left(s) => inter_sphere(ray, s, &mut hit),
-                        Either::Right(t) => inter_triangle(ray, t, &mut hit),
-                    };
-                }
-                if hit.is_null() {
-                    0
-                } else {
-                    w
-                }
-            }
-        }
-        inter(scene, &self.vertices, &self.indices, ray, 0, 1)
-    }
+    // pub fn occluded(&self, scene: &Scene, ray: Ray, ldist: f32) -> bool{
+    //     fn inter<'a>(scene: &'a Scene, vs: &[Vertex], is: &[u32], ray: Ray, ldist: f32, current: usize) -> bool{
+    //         let v = vs[current];
+    //         if v.count == 0{ // vertex
+    //             if hit_aabb(ray, v.bound).is_some(){
+    //                 inter(scene, vs, is, ray, ldist, v.left_first as usize);
+    //                 inter(scene, vs, is, ray, ldist, v.left_first as usize + 1);
+    //             }
+    //         } else { // leaf
+    //             for i in is.iter().skip(v.left_first as usize).take(v.count as usize).map(|i| *i as usize){
+    //                 if match scene.either_sphere_or_triangle(i){
+    //                     Either::Left(s) => dist_sphere(ray, s),
+    //                     Either::Right(t) => dist_triangle(ray, t),
+    //                 } < ldist { return true }
+    //             }
+    //         }
+    //         false
+    //     }
+    //     inter(scene, &self.vertices, &self.indices, ray, ldist, 0)
+    // }
 
     pub fn from(scene: &Scene) -> Self{
         let prims = scene.spheres.len() + scene.triangles.len();
@@ -122,49 +129,38 @@ impl Bvh{
             return;
         }
 
-        v.left_first = *poolptr; // left = poolptr, right = poolptr + 1
-        *poolptr += 2;
-
         let l_count = Self::partition(bounds, is, v.bound, first, count);
 
         if l_count == 0 || l_count == count{ // leaf
             v.left_first = first as u32; // first
             v.count = count as u32;
+            println!("OOF leaf: {}, {}", l_count, count);
             return;
         }
 
         v.count = 0; // internal vertex, not a leaf
+        v.left_first = *poolptr; // left = poolptr, right = poolptr + 1
+        *poolptr += 2;
         let lf = v.left_first as usize;
 
         Self::subdivide(bounds, is, vs, lf, poolptr, first, l_count);
         Self::subdivide(bounds, is, vs, lf + 1, poolptr, first + l_count, count - l_count);
     }
 
-    fn partition(_bounds: &[AABB], _is: &mut[u32], _bound: AABB, _first: usize, _count: usize) -> usize{
-        // fn is_left(index: usize, scene: &Scene, (plane, axis): (f32, Vec3)) -> bool{
-        //     let plane_vec = axis.scaled(plane);
-        //     match scene.either_sphere_or_triangle(index){
-        //         Either::Left(sphere) => sphere.pos.muled(axis).less_eq(plane_vec),
-        //         Either::Right(tri) => {
-        //             tri.a.muled(axis).less_eq(plane_vec) ||
-        //             tri.b.muled(axis).less_eq(plane_vec) ||
-        //             tri.c.muled(axis).less_eq(plane_vec)
-        //         },
-        //     }
-        // }
-        // let plane_axis = bound.midpoint_split();
-        // let mut a = first; // first
-        // let mut b = first + count - 1; // last
-        // while a < b{
-        //     if is_left(is[a] as usize, scene, plane_axis){
-        //         a += 1;
-        //     } else {
-        //         is.swap(a, b);
-        //         b -= 1;
-        //     }
-        // }
+    fn partition(bounds: &[AABB], is: &mut[u32], bound: AABB, first: usize, count: usize) -> usize{
+        let (axis, split) = Self::sah_binned(bounds, &is[first..first + count], bound);
+        let mut a = first; // first
+        let mut b = first + count - 1; // last
+        while a < b{
+            if bounds[is[a] as usize].midpoint().fake_arr(axis) < split{
+                a += 1;
+            } else {
+                is.swap(a, b);
+                b -= 1;
+            }
+        }
         // a.min(count)
-        0
+        a - first
     }
 
     fn bound(is: &[u32], bounds: &[AABB]) -> AABB {
@@ -175,14 +171,14 @@ impl Bvh{
         bound
     }
 
-    fn sah_binned(bounds: &[AABB], bound: AABB) -> (Axis, f32) {
-        let diff = bound.b.subed(bound.a);
+    fn sah_binned(bounds: &[AABB], is: &[u32], top_bound: AABB) -> (Axis, f32) {
+        let diff = top_bound.b.subed(top_bound.a);
         let axis_valid = [diff.x > 12.0 * EPSILON, diff.y > 12.0 * EPSILON, diff.z > 12.0 * EPSILON];
 
         // precompute lerps
         let mut lerps = [Vec3::ZERO; 12];
         for (i, item) in lerps.iter_mut().enumerate(){
-            *item = bound.lerp(i as f32 / 12.0);
+            *item = top_bound.lerp(i as f32 / 12.0);
         }
 
         // precompute midpoints
@@ -220,13 +216,14 @@ impl Bvh{
             // iterate over 12 bins
             for (i_lerp, lerp) in lerps.iter().enumerate(){
                 let split = lerp.fake_arr(axis);
-                for bound in bounds.iter(){
+                for i in is{
+                    let bound = bounds[*i as usize];
                     if bound.midpoint().fake_arr(axis) < split{
                         ls += 1;
-                        lb.combine(*bound);
+                        lb.combine(bound);
                     } else {
                         rs += 1;
-                        rb.combine(*bound);
+                        rb.combine(bound);
                     }
                 }
 
@@ -269,6 +266,7 @@ impl Bvh{
         // apply best
         let (_, axis, i_lerp) = best;
         let val = lerps[i_lerp].fake_arr(axis);
+        // println!("NSPLIT: {}", val);
         (axis, val)
 
         // Define primitives for left and right
@@ -279,10 +277,6 @@ impl Bvh{
         //         right.push(primitives[i]);
         //     }
         // }
-
-        // TODO: improve cost function
-        // decide whether we apply the primitives into a leaf node
-        // if left.is_empty() || right.is_empty() => leaf
     }
 }
 

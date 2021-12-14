@@ -227,6 +227,7 @@ impl Node {
         // apply best
         let (_, axis, i_lerp) = best;
         let val = lerps[i_lerp].fake_arr(axis);
+        println!("SPLIT: {}", val);
 
         // Define primitives for left and right
         let mut left  : Vec<Primitive> = vec![];
@@ -412,6 +413,15 @@ impl Node {
             self.primitives.len()
         } else {
             self.left.as_ref().unwrap().get_primitives_count() + self.right.as_ref().unwrap().get_primitives_count()
+        }
+    }
+
+    pub fn get_prim_counts(&self, v: &mut Vec<usize>){
+        if self.is_leaf {
+            v.push(self.primitives.len());
+        } else {
+            self.left.as_ref().unwrap().get_prim_counts(v);
+            self.right.as_ref().unwrap().get_prim_counts(v);
         }
     }
 
