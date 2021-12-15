@@ -154,8 +154,9 @@ impl TraceKernelReal{
         Ok(Self{ kernel, dirty, buffer, scene_params, res: (w,h) })
     }
 
-    pub fn update(&mut self, queue: &Queue) -> Result<(), ocl::Error>{
-        self.scene_params.upload(queue)?;
+    pub fn update(&mut self, queue: &Queue, scene: &mut Scene) -> Result<(), ocl::Error>{
+        let scene_params_raw = scene.get_params_buffer();
+        self.scene_params.upload_new(queue, &scene_params_raw)?;
         Ok(())
     }
 
