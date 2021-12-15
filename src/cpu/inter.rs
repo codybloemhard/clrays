@@ -1,4 +1,4 @@
-use crate::scene::{ Material, Sphere, Plane, Triangle };
+use crate::scene::{Material, Sphere, Plane, Triangle, ModelIndex};
 use crate::vec3::Vec3;
 use crate::aabb::AABB;
 use crate::consts::*;
@@ -31,100 +31,100 @@ impl Ray{
 }
 
 #[derive(Clone)]
-pub struct RayHit<'a>{
+pub struct RayHit{
     pub pos: Vec3,
     pub nor: Vec3,
     pub t: f32,
-    pub mat: Option<u8>,
     pub uvtype: u8,
-    pub sphere: Option<&'a Sphere>,
+    pub mat: u8,
+    pub model: ModelIndex
 }
 
-impl RayHit<'_>{
+impl RayHit{
     pub const NULL: Self = RayHit{
         pos: Vec3::ZERO,
         nor: Vec3::ZERO,
         t: MAX_RENDER_DIST,
-        mat: None,
         uvtype: 255,
-        sphere: None,
+        mat: 0,
+        model: 0
     };
 
     #[inline]
     pub fn is_null(&self) -> bool{
-        self.uvtype == 255
+        self.t == MAX_RENDER_DIST
     }
 }
 
 // ray-sphere intersection
-#[inline]
-pub fn inter_sphere<'a>(ray: Ray, sphere: &'a Sphere, closest: &mut RayHit<'a>){
-    let l = Vec3::subed(sphere.pos, ray.pos);
-    let tca = Vec3::dot(ray.dir, l);
-    let d = tca*tca - Vec3::dot(l, l) + sphere.rad*sphere.rad;
-    if d < 0.0 { return; }
-    let dsqrt = d.sqrt();
-    let mut t = tca - dsqrt;
-    if t < 0.0 {
-        t = tca + dsqrt;
-        if t < 0.0 { return; }
-    }
-    if t > closest.t { return; }
-    closest.t = t;
-    closest.pos = ray.pos.added(ray.dir.scaled(t));
-    closest.nor = Vec3::subed(closest.pos, sphere.pos).scaled(1.0 / sphere.rad);
-    closest.mat = Some(sphere.mat);
-    closest.uvtype = UV_SPHERE;
-    closest.sphere = Some(sphere);
-}
+// #[inline]
+// pub fn inter_sphere(ray: Ray, sphere: &'a Sphere, closest: &mut RayHit){
+//     let l = Vec3::subed(sphere.pos, ray.pos);
+//     let tca = Vec3::dot(ray.dir, l);
+//     let d = tca*tca - Vec3::dot(l, l) + sphere.rad*sphere.rad;
+//     if d < 0.0 { return; }
+//     let dsqrt = d.sqrt();
+//     let mut t = tca - dsqrt;
+//     if t < 0.0 {
+//         t = tca + dsqrt;
+//         if t < 0.0 { return; }
+//     }
+//     if t > closest.t { return; }
+//     closest.t = t;
+//     closest.pos = ray.pos.added(ray.dir.scaled(t));
+//     closest.nor = Vec3::subed(closest.pos, sphere.pos).scaled(1.0 / sphere.rad);
+//     closest.mat = Some(sphere.mat);
+//     closest.uvtype = UV_SPHERE;
+//     closest.sphere = Some(sphere);
+// }
 
-#[inline]
-pub fn dist_sphere(ray: Ray, sphere: &Sphere) -> f32{
-    let l = Vec3::subed(sphere.pos, ray.pos);
-    let tca = Vec3::dot(ray.dir, l);
-    let d = tca*tca - Vec3::dot(l, l) + sphere.rad*sphere.rad;
-    if d < 0.0 { return MAX_RENDER_DIST; }
-    let dsqrt = d.sqrt();
-    let mut t = tca - dsqrt;
-    if t < 0.0 {
-        t = tca + dsqrt;
-        if t < 0.0 { return MAX_RENDER_DIST; }
-    }
-    t
-}
+// #[inline]
+// pub fn dist_sphere(ray: Ray, sphere: &Sphere) -> f32{
+//     let l = Vec3::subed(sphere.pos, ray.pos);
+//     let tca = Vec3::dot(ray.dir, l);
+//     let d = tca*tca - Vec3::dot(l, l) + sphere.rad*sphere.rad;
+//     if d < 0.0 { return MAX_RENDER_DIST; }
+//     let dsqrt = d.sqrt();
+//     let mut t = tca - dsqrt;
+//     if t < 0.0 {
+//         t = tca + dsqrt;
+//         if t < 0.0 { return MAX_RENDER_DIST; }
+//     }
+//     t
+// }
 
 // ray-plane intersection
-#[inline]
-pub fn inter_plane<'a>(ray: Ray, plane: &'a Plane, closest: &mut RayHit<'a>){
-    let divisor = Vec3::dot(ray.dir, plane.nor);
-    if divisor.abs() < EPSILON { return; }
-    let planevec = Vec3::subed(plane.pos, ray.pos);
-    let t = Vec3::dot(planevec, plane.nor) / divisor;
-    if t < EPSILON { return; }
-    if t > closest.t { return; }
-    closest.t = t;
-    closest.pos = ray.pos.added(ray.dir.scaled(t));
-    closest.nor = plane.nor;
-    closest.mat = Some(plane.mat);
-    closest.uvtype = UV_PLANE;
-    closest.sphere = None;
-}
+// #[inline]
+// pub fn inter_plane(ray: Ray, plane: &'a Plane, closest: &mut RayHit){
+//     let divisor = Vec3::dot(ray.dir, plane.nor);
+//     if divisor.abs() < EPSILON { return; }
+//     let planevec = Vec3::subed(plane.pos, ray.pos);
+//     let t = Vec3::dot(planevec, plane.nor) / divisor;
+//     if t < EPSILON { return; }
+//     if t > closest.t { return; }
+//     closest.t = t;
+//     closest.pos = ray.pos.added(ray.dir.scaled(t));
+//     closest.nor = plane.nor;
+//     closest.mat = Some(plane.mat);
+//     closest.uvtype = UV_PLANE;
+//     closest.sphere = None;
+// }
 
-#[inline]
-pub fn dist_plane(ray: Ray, plane: &Plane) -> f32{
-    let divisor = Vec3::dot(ray.dir, plane.nor);
-    if divisor.abs() < EPSILON { return MAX_RENDER_DIST; }
-    let planevec = Vec3::subed(plane.pos, ray.pos);
-    let t = Vec3::dot(planevec, plane.nor) / divisor;
-    if t < EPSILON { return MAX_RENDER_DIST; }
-    t
-}
+// #[inline]
+// pub fn dist_plane(ray: Ray, plane: &Plane) -> f32{
+//     let divisor = Vec3::dot(ray.dir, plane.nor);
+//     if divisor.abs() < EPSILON { return MAX_RENDER_DIST; }
+//     let planevec = Vec3::subed(plane.pos, ray.pos);
+//     let t = Vec3::dot(planevec, plane.nor) / divisor;
+//     if t < EPSILON { return MAX_RENDER_DIST; }
+//     t
+// }
 
 // ray-triangle intersection
 // https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm?oldformat=true
 #[inline]
 #[allow(clippy::many_single_char_names)]
-pub fn inter_triangle<'a>(ray: Ray, tri: &'a Triangle, closest: &mut RayHit<'a>){
+pub fn inter_triangle(ray: Ray, tri: &Triangle, closest: &mut RayHit){
     let edge1 = Vec3::subed(tri.b, tri.a);
     let edge2 = Vec3::subed(tri.c, tri.a);
     let h = Vec3::crossed(ray.dir, edge2);
@@ -143,9 +143,10 @@ pub fn inter_triangle<'a>(ray: Ray, tri: &'a Triangle, closest: &mut RayHit<'a>)
     closest.t = t;
     closest.pos = ray.pos.added(ray.dir.scaled(t));
     closest.nor = Vec3::crossed(edge1, edge2).normalized_fast();
-    closest.mat = Some(tri.mat);
-    closest.uvtype = UV_PLANE;
-    closest.sphere = None;
+    // todo: convert to mesh intersection...
+    // closest.mat = Some(tri.mat);
+    // closest.uvtype = UV_PLANE;
+    // closest.sphere = None;
 }
 
 #[inline]

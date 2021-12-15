@@ -22,7 +22,6 @@ pub mod cpu;
 pub mod mesh;
 pub mod consts;
 pub mod aabb;
-pub mod bvh;
 pub mod bvh_nightly;
 
 pub fn test(t: test_platform::PlatformTest){

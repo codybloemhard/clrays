@@ -169,7 +169,7 @@ fn u32tf01(int: u32) -> f32{
 
 fn debug_trace(ray: Ray, scene: &Scene) -> Vec3{
     let mut hit = RayHit::NULL;
-    let (aabb_hits, dep) = scene.bvh_nightly.intersect(ray, scene, &mut hit);
+    let (aabb_hits, dep) = scene.bvh_nightly.intersect(ray, &mut hit);
     //let (aabb_hits, _, dep) = scene.bvh.intersect(ray, scene, &mut hit);
     let lim1 = 10.0;
     let lim2 = 100.0;
@@ -189,8 +189,7 @@ fn debug_trace(ray: Ray, scene: &Scene) -> Vec3{
 // trace light ray through scene
 fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, contexts: Contexts) -> Vec3{
     let mut hit = RayHit::NULL;
-    scene.bvh_nightly.intersect(ray, scene, &mut hit);
-    // scene.bvh.intersect(ray, scene, &mut hit);
+    scene.bvh_nightly.intersect(ray, &mut hit);
 
     if depth == 0 || hit.is_null() {
         return get_sky_col(ray.dir, scene, tps, ts);
@@ -207,123 +206,124 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, con
     }
 
     let is_inbound = ray.dir.dot(hit.nor) < 0.0;
-    let mat = &scene.mats[hit.mat.unwrap() as usize];
-    let refraction = mat.refraction;
-    let absorption = mat.absorption;
+    // let mat = &scene.mats[hit.mat.unwrap() as usize];
+    // let refraction = mat.refraction;
+    // let absorption = mat.absorption;
     let normal = if is_inbound { hit.nor } else { hit.nor.neged() };
-    let mut reflectivity = mat.reflectivity;
-    let mut transparency = mat.transparency;
-
-    // texture
-    let mut texcol = Vec3::ONE;
-    let uv = if
-        mat.texture > 0 ||
-        mat.normal_map > 0 ||
-        mat.roughness_map > 0 ||
-        mat.metalic_map > 0 ||
-        mat.is_checkerboard
-    {
-        let uvtype = hit.uvtype;
-        let uv = if uvtype == UV_SPHERE{
-            sphere_uv(hit.nor)
-        } else {
-            plane_uv(hit.pos, hit.nor)
-        };
-        (uv.0 * mat.tex_scale, uv.1 * mat.tex_scale)
-    } else {
-        (0.0, 0.0)
-    };
-
-    // checkerboard custom texture
-    if mat.is_checkerboard{
-        texcol = if ((uv.0.floor()*3.0) as i32 + (uv.1.floor()*3.0) as i32) % 2 == 0 { Vec3::BLACK } else { Vec3::WHITE }
-    } else if mat.texture > 0{
-        texcol = get_tex_col(mat.texture - 1, uv, tps, ts);
-    }
-
-    // normalmap
-    if mat.normal_map > 0{
-        let mut rawnor = get_tex_val(mat.normal_map - 1, uv, tps, ts);
-        let mut t = Vec3::crossed(hit.nor, Vec3::UP);
-        if t.len() < EPSILON{
-            t = Vec3::crossed(hit.nor, Vec3::FORWARD);
-        }
-        t.normalize_fast();
-        let b = Vec3::normalized_fast(Vec3::crossed(hit.nor, t));
-        rawnor = rawnor.scaled(2.0).added_scalar(-1.0);
-        rawnor.normalize_fast();
-        let mut newnor = Vec3::ZERO;
-        let mut row = Vec3::new(t.x, b.x, hit.nor.x);
-        newnor.x = Vec3::dot(row, rawnor);
-        row = Vec3::new(t.y, b.y, hit.nor.y);
-        newnor.y = Vec3::dot(row, rawnor);
-        row = Vec3::new(t.z, b.z, hit.nor.z);
-        newnor.z = Vec3::dot(row, rawnor);
-        hit.nor = newnor.normalized_fast();
-    }
-
-    // roughnessmap
-    let mut roughness = mat.roughness;
-    if mat.roughness_map > 0{
-        let value = get_tex_scalar(mat.roughness_map - 1, uv, tps, ts);
-        roughness *= value;
-    }
-
-    // metalicmap
-    if mat.metalic_map > 0 {
-        let value = get_tex_scalar(mat.metalic_map - 1, uv, tps, ts);
-        reflectivity *= value;
-    }
-
-    // diffuse, specular
-    let (mut diff, spec) = blinn(&hit, mat, roughness, scene, ray.dir);
-    diff.mul(texcol);
-
-    // dielectric: transparency / refraction and reflection
-    let mut transparency_dir = ray.dir;
-    if mat.is_dielectric  {
-        let ni;
-        let nt;
-        if is_inbound {
-            ni = refraction_context;
-            nt = refraction;
-        } else {
-            ni = refraction;
-            nt = refraction_context;
-        }
-        let (new_ref, new_trans_dir) = resolve_dielectric(ni, nt, ray.dir, normal);
-        reflectivity = new_ref;
-        transparency_dir = new_trans_dir;
-        transparency = 1.0 - reflectivity;
-    }
-
-    // transparency / refraction
-    let tran = if transparency > EPSILON {
-        let ray_next = Ray{ pos: hit.pos.subed(normal.scaled(EPSILON)), dir: transparency_dir };
-        let contexts_next = if is_inbound {
-            contexts.pushed(Context { absorption, refraction })
-        } else {
-            contexts.popped()
-        };
-        whitted_trace(ray_next, scene, tps, ts, depth - 1, contexts_next).scaled(transparency)
-    } else { Vec3::BLACK };
-
-    // reflection
-    let refl = if reflectivity > EPSILON {
-        let ray_next = Ray{ pos: hit.pos.added(normal.scaled(EPSILON)), dir: ray.dir.reflected(normal) };
-        whitted_trace(ray_next, scene, tps, ts, depth - 1, contexts).scaled(reflectivity)
-    } else { Vec3::BLACK };
-
-    let color = (diff).scaled(1.0 - reflectivity - transparency)
-        .added(spec)
-        .added(tran)
-        .added(refl);
-
-    if is_inbound {
-        absorp(&color, &absorption_context, hit.t)
-    } else {
-        absorp(&color, &absorption, hit.t)
-    }
+    return normal;
+    // let mut reflectivity = mat.reflectivity;
+    // let mut transparency = mat.transparency;
+    //
+    // // texture
+    // let mut texcol = Vec3::ONE;
+    // let uv = if
+    //     mat.texture > 0 ||
+    //     mat.normal_map > 0 ||
+    //     mat.roughness_map > 0 ||
+    //     mat.metalic_map > 0 ||
+    //     mat.is_checkerboard
+    // {
+    //     let uvtype = hit.uvtype;
+    //     let uv = if uvtype == UV_SPHERE{
+    //         sphere_uv(hit.nor)
+    //     } else {
+    //         plane_uv(hit.pos, hit.nor)
+    //     };
+    //     (uv.0 * mat.tex_scale, uv.1 * mat.tex_scale)
+    // } else {
+    //     (0.0, 0.0)
+    // };
+    //
+    // // checkerboard custom texture
+    // if mat.is_checkerboard{
+    //     texcol = if ((uv.0.floor()*3.0) as i32 + (uv.1.floor()*3.0) as i32) % 2 == 0 { Vec3::BLACK } else { Vec3::WHITE }
+    // } else if mat.texture > 0{
+    //     texcol = get_tex_col(mat.texture - 1, uv, tps, ts);
+    // }
+    //
+    // // normalmap
+    // if mat.normal_map > 0{
+    //     let mut rawnor = get_tex_val(mat.normal_map - 1, uv, tps, ts);
+    //     let mut t = Vec3::crossed(hit.nor, Vec3::UP);
+    //     if t.len() < EPSILON{
+    //         t = Vec3::crossed(hit.nor, Vec3::FORWARD);
+    //     }
+    //     t.normalize_fast();
+    //     let b = Vec3::normalized_fast(Vec3::crossed(hit.nor, t));
+    //     rawnor = rawnor.scaled(2.0).added_scalar(-1.0);
+    //     rawnor.normalize_fast();
+    //     let mut newnor = Vec3::ZERO;
+    //     let mut row = Vec3::new(t.x, b.x, hit.nor.x);
+    //     newnor.x = Vec3::dot(row, rawnor);
+    //     row = Vec3::new(t.y, b.y, hit.nor.y);
+    //     newnor.y = Vec3::dot(row, rawnor);
+    //     row = Vec3::new(t.z, b.z, hit.nor.z);
+    //     newnor.z = Vec3::dot(row, rawnor);
+    //     hit.nor = newnor.normalized_fast();
+    // }
+    //
+    // // roughnessmap
+    // let mut roughness = mat.roughness;
+    // if mat.roughness_map > 0{
+    //     let value = get_tex_scalar(mat.roughness_map - 1, uv, tps, ts);
+    //     roughness *= value;
+    // }
+    //
+    // // metalicmap
+    // if mat.metalic_map > 0 {
+    //     let value = get_tex_scalar(mat.metalic_map - 1, uv, tps, ts);
+    //     reflectivity *= value;
+    // }
+    //
+    // // diffuse, specular
+    // let (mut diff, spec) = blinn(&hit, mat, roughness, scene, ray.dir);
+    // diff.mul(texcol);
+    //
+    // // dielectric: transparency / refraction and reflection
+    // let mut transparency_dir = ray.dir;
+    // if mat.is_dielectric  {
+    //     let ni;
+    //     let nt;
+    //     if is_inbound {
+    //         ni = refraction_context;
+    //         nt = refraction;
+    //     } else {
+    //         ni = refraction;
+    //         nt = refraction_context;
+    //     }
+    //     let (new_ref, new_trans_dir) = resolve_dielectric(ni, nt, ray.dir, normal);
+    //     reflectivity = new_ref;
+    //     transparency_dir = new_trans_dir;
+    //     transparency = 1.0 - reflectivity;
+    // }
+    //
+    // // transparency / refraction
+    // let tran = if transparency > EPSILON {
+    //     let ray_next = Ray{ pos: hit.pos.subed(normal.scaled(EPSILON)), dir: transparency_dir };
+    //     let contexts_next = if is_inbound {
+    //         contexts.pushed(Context { absorption, refraction })
+    //     } else {
+    //         contexts.popped()
+    //     };
+    //     whitted_trace(ray_next, scene, tps, ts, depth - 1, contexts_next).scaled(transparency)
+    // } else { Vec3::BLACK };
+    //
+    // // reflection
+    // let refl = if reflectivity > EPSILON {
+    //     let ray_next = Ray{ pos: hit.pos.added(normal.scaled(EPSILON)), dir: ray.dir.reflected(normal) };
+    //     whitted_trace(ray_next, scene, tps, ts, depth - 1, contexts).scaled(reflectivity)
+    // } else { Vec3::BLACK };
+    //
+    // let color = (diff).scaled(1.0 - reflectivity - transparency)
+    //     .added(spec)
+    //     .added(tran)
+    //     .added(refl);
+    //
+    // if is_inbound {
+    //     absorp(&color, &absorption_context, hit.t)
+    // } else {
+    //     absorp(&color, &absorption, hit.t)
+    // }
 }
 
 // LENS ------------------------------------------------------------
@@ -504,9 +504,9 @@ fn blinn_single(roughness: f32, lpos: Vec3, lpow: f32, viewdir: Vec3, hit: &RayH
     // exposed to light or not
     let lray = Ray { pos: hit.pos.added(hit.nor.scaled(EPSILON)), dir: to_l };
 
-    if scene.bvh_nightly.occluded(lray, scene, dist){
-        return (0.0, 0.0);
-    }
+    // if scene.bvh_nightly.occluded(lray, scene, dist){
+    //     return (0.0, 0.0);
+    // }
     // specular
     let halfdir = Vec3::normalized_fast(to_l.subed(viewdir));
     let specangle = Vec3::dot(halfdir, hit.nor).max(0.0);

@@ -1,13 +1,15 @@
-use crate::scene::{ Scene, Either };
+use crate::scene::{Scene, Either, Model, ModelIndex, MeshIndex};
 use crate::cpu::inter::*;
 use crate::aabb::*;
 use crate::vec3::Vec3;
 use crate::consts::{ EPSILON };
+use crate::mesh::Mesh;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Default)]
 pub struct Bvh{
-    indices: Vec<u32>,
+    pub indices: Vec<u32>,
     pub vertices: Vec<Vertex>,
+    pub mesh: Mesh,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -32,19 +34,17 @@ impl Bvh{
 
     // (aabb hits, depth)
     #[inline]
-    pub fn intersect<'a>(&self, ray: Ray, scene: &'a Scene, closest: &mut RayHit<'a>) -> (usize, usize){
-        fn internal_intersect<'a>(bvh: &Bvh, current: usize, scene: &'a Scene, ray: Ray, closest: &mut RayHit<'a>, inv_dir: Vec3, dir_is_neg: [usize; 3]) -> (usize, usize){
+    pub fn intersect(&self, ray: Ray, hit: &mut RayHit) -> (usize, usize){
+
+        fn internal_intersect(bvh: &Bvh, current: usize, ray: Ray, hit: &mut RayHit, inv_dir: Vec3, dir_is_neg: [usize; 3]) -> (usize, usize){
             let vs = &bvh.vertices;
             let is = &bvh.indices;
             let v = vs[current];
             if v.count > 0{ // leaf
                 for i in is.iter().skip(v.left_first as usize).take(v.count as usize).map(|i| *i as usize){
-                    match scene.either_sphere_or_triangle(i){
-                        Either::Left(s) => inter_sphere(ray, s, closest),
-                        Either::Right(t) => inter_triangle(ray, t, closest),
-                    }
+                    inter_triangle(ray, &bvh.mesh.triangles[i], hit);
                 }
-                (0, 1)
+                (0, v.count as usize)
             } else { // vertex
                 let nodes = [
                     v.left_first as usize,
@@ -60,100 +60,140 @@ impl Bvh{
                 let mut x1: (usize, usize) = (0, 0);
                 let mut x2: (usize, usize) = (0, 0);
 
-                if ts[order[0]] < closest.t {
-                    x1 = internal_intersect(bvh, nodes[order[0]], scene, ray, closest, inv_dir, dir_is_neg);
-                    if ts[order[1]] < closest.t {
-                        x2 = internal_intersect(bvh, nodes[order[1]], scene, ray, closest, inv_dir, dir_is_neg);
+                if ts[order[0]] < hit.t {
+                    x1 = internal_intersect(bvh, nodes[order[0]], ray, hit, inv_dir, dir_is_neg);
+                    if ts[order[1]] < hit.t {
+                        x2 = internal_intersect(bvh, nodes[order[1]], ray, hit, inv_dir, dir_is_neg);
                     }
                 }
                 (2 + x1.0 + x2.0, 1 + x1.1.max(x2.1))
             }
         }
+
+        // future: transform ray
+        // -> ray.transform(self.transform.inverted())
+
         // TODO: doesn't work anymore with bvh? Problem in texture code
-        // for plane in &scene.planes { inter_plane(ray, plane, closest); }
+        // for plane in &scene.planes { inter_plane(ray, plane, hit); }
         if self.vertices.is_empty() { return (0, 0); }
         let inv_dir = ray.inverted().dir;
         let dir_is_neg : [usize; 3] = ray.direction_negations();
-        internal_intersect(self, 0, scene, ray, closest, inv_dir, dir_is_neg)
+        let result = internal_intersect(self, 0, ray, hit, inv_dir, dir_is_neg);
+        result
     }
 
-    // (aabb hits, depth)
-    #[inline]
-    pub fn occluded(&self, ray: Ray, scene: &Scene, ldist: f32) -> bool{
-        #[allow(clippy::too_many_arguments)]
-        fn internal_intersect(bvh: &Bvh, current: usize, scene: &Scene, ray: Ray, closest: &mut RayHit, ldist: f32, inv_dir: Vec3, dir_is_neg: [usize; 3]) -> bool{
-            let vs = &bvh.vertices;
-            let is = &bvh.indices;
-            let v = vs[current];
-            if v.count > 0{ // leaf
-                for i in is.iter().skip(v.left_first as usize).take(v.count as usize).map(|i| *i as usize){
-                    if match scene.either_sphere_or_triangle(i){
-                        Either::Left(s) => dist_sphere(ray, s),
-                        Either::Right(t) => dist_triangle(ray, t),
-                    } < ldist { return true }
-                }
-                false
-            } else { // vertex
-                let nodes = [
-                    v.left_first as usize,
-                    v.left_first as usize + 1,
-                ];
+    // // (aabb hits, depth)
+    // #[inline]
+    // pub fn occluded(&self, ray: Ray, scene: &Scene, ldist: f32) -> bool{
+    //     #[allow(clippy::too_many_arguments)]
+    //     fn internal_intersect(bvh: &Bvh, current: usize, scene: &Scene, ray: Ray, hit: &mut RayHit, ldist: f32, inv_dir: Vec3, dir_is_neg: [usize; 3]) -> bool{
+    //         let vs = &bvh.vertices;
+    //         let is = &bvh.indices;
+    //         let v = vs[current];
+    //         if v.count > 0{ // leaf
+    //             for i in is.iter().skip(v.left_first as usize).take(v.count as usize).map(|i| *i as usize){
+    //                 if match scene.either_sphere_or_triangle(i){
+    //                     Either::Left(s) => dist_sphere(ray, s),
+    //                     Either::Right(t) => dist_triangle(ray, t),
+    //                 } < ldist { return true }
+    //             }
+    //             false
+    //         } else { // vertex
+    //             let nodes = [
+    //                 v.left_first as usize,
+    //                 v.left_first as usize + 1,
+    //             ];
+    //
+    //             let ts = [
+    //                 vs[nodes[0]].bound.intersection(ray, inv_dir, dir_is_neg),
+    //                 vs[nodes[1]].bound.intersection(ray, inv_dir, dir_is_neg),
+    //             ];
+    //
+    //             let order = if ts[0] <= ts[1] { [0, 1] } else { [1, 0] };
+    //
+    //             if ts[order[0]] < hit.t {
+    //                 if internal_intersect(bvh, nodes[order[0]], scene, ray, hit, ldist, inv_dir, dir_is_neg){
+    //                     return true;
+    //                 }
+    //                 if ts[order[1]] < hit.t {
+    //                     internal_intersect(bvh, nodes[order[1]], scene, ray, hit, ldist, inv_dir, dir_is_neg)
+    //                 } else {
+    //                     false
+    //                 }
+    //             } else {
+    //                 false
+    //             }
+    //         }
+    //     }
+    //     // TODO: doesn't work anymore with bvh? Problem in texture code
+    //     // for plane in &scene.planes { inter_plane(ray, plane, hit); }
+    //     let inv_dir = ray.inverted().dir;
+    //     let dir_is_neg : [usize; 3] = ray.direction_negations();
+    //     let mut hit = RayHit::NULL;
+    //     internal_intersect(self, 0, scene, ray, &mut hit, ldist, inv_dir, dir_is_neg)
+    // }
 
-                let ts = [
-                    vs[nodes[0]].bound.intersection(ray, inv_dir, dir_is_neg),
-                    vs[nodes[1]].bound.intersection(ray, inv_dir, dir_is_neg),
-                ];
-
-                let order = if ts[0] <= ts[1] { [0, 1] } else { [1, 0] };
-
-                if ts[order[0]] < closest.t {
-                    if internal_intersect(bvh, nodes[order[0]], scene, ray, closest, ldist, inv_dir, dir_is_neg){
-                        return true;
-                    }
-                    if ts[order[1]] < closest.t {
-                        internal_intersect(bvh, nodes[order[1]], scene, ray, closest, ldist, inv_dir, dir_is_neg)
-                    } else {
-                        false
-                    }
-                } else {
-                    false
-                }
-            }
-        }
-        // TODO: doesn't work anymore with bvh? Problem in texture code
-        // for plane in &scene.planes { inter_plane(ray, plane, closest); }
-        let inv_dir = ray.inverted().dir;
-        let dir_is_neg : [usize; 3] = ray.direction_negations();
-        let mut closest = RayHit::NULL;
-        internal_intersect(self, 0, scene, ray, &mut closest, ldist, inv_dir, dir_is_neg)
-    }
-
-    pub fn from(scene: &Scene, bins: usize) -> Self{
-        let prims = scene.spheres.len() + scene.triangles.len();
+    pub fn from_mesh(mesh: &Mesh, bins: usize) -> Self{
+        let mesh = Mesh::load_model(&mesh.name);
+        let prims = mesh.triangles.len();
         if prims == 0 {
-            return Self{ indices: vec![], vertices: vec![] };
+            return Self{ indices: vec![], vertices: vec![], mesh};
         }
-
         let mut is = (0..prims as u32).into_iter().collect::<Vec<_>>();
         let mut vs = vec![Vertex::default(); prims * 2];
         let bounds = (0..prims).into_iter().map(|i|
-            match scene.either_sphere_or_triangle(i){
-                Either::Left(sphere) => AABB::from_point_radius(sphere.pos, sphere.rad),
-                Either::Right(tri) => AABB::from_points(&[tri.a, tri.b, tri.c]),
-            }
+            AABB::from_points(&[mesh.triangles[i].a, mesh.triangles[i].b, mesh.triangles[i].c])
         ).collect::<Vec<_>>();
         let mut poolptr = 2;
-
         Self::subdivide(&bounds, &mut is, &mut vs, 0, &mut poolptr, 0, prims, bins);
-
-        // vs = vs.into_iter().filter(|v| v.bound != AABB::default()).collect::<Vec<_>>();
-        // println!("{:#?}", vs);
-
         Self{
             indices: is,
             vertices: vs,
+            mesh
         }
     }
+
+    // pub fn from(scene: &Scene, bins: usize) -> Self{
+    //     // let mut sub_bvhs = vec![];
+    //     // for mesh in &scene.meshes {
+    //     //     sub_bvhs.push(Self::from_mesh(mesh, bins));
+    //     // }
+    //     // let sub_bvhs : Vec<Self> = scene.meshes.into_iter().map(|mesh| Self::from_mesh(&mesh, bins)).collect();
+    //     // sub_bvhs[0]
+    //     Self::from_mesh(&scene.meshes[0], bins)
+    //
+    //     // let prims = scene.spheres.len() + scene.triangles.len();
+    //     // if prims == 0 {
+    //     //     return Self{ indices: vec![], vertices: vec![] };
+    //     // }
+    //     //
+    //     // // compute bvh for models
+    //     // let sub_bvhs = scene.meshes.into_iter().map(|mesh| Self::from_mesh(&mesh, bins)).collect();
+    //     //
+    //     // assert_eq!(sub_bvhs.len(), 1);
+    //     //
+    //     // // let mut is = (0..prims as u32).into_iter().collect::<Vec<_>>();
+    //     // // let mut vs = vec![Vertex::default(); prims * 2];
+    //     // // let bounds = (0..prims).into_iter().map(|i|
+    //     // //     match scene.either_sphere_or_triangle(i){
+    //     // //         Either::Left(sphere) => AABB::from_point_radius(sphere.pos, sphere.rad),
+    //     // //         Either::Right(tri) => AABB::from_points(&[tri.a, tri.b, tri.c]),
+    //     // //     }
+    //     // // ).collect::<Vec<_>>();
+    //     // // let mut poolptr = 2;
+    //     //
+    //     // // Self::subdivide(&bounds, &mut is, &mut vs, 0, &mut poolptr, 0, prims, bins);
+    //     //
+    //     // // vs = vs.into_iter().filter(|v| v.bound != AABB::default()).collect::<Vec<_>>();
+    //     // // println!("{:#?}", vs);
+    //     //
+    //     // sub_bvhs[0]
+    //     //
+    //     // // Self{
+    //     // //     indices: is,
+    //     // //     vertices: vs,
+    //     // // }
+    // }
 
     #[allow(clippy::too_many_arguments)]
     fn subdivide(bounds: &[AABB], is: &mut[u32], vs: &mut[Vertex], current: usize, poolptr: &mut u32, first: usize, count: usize, bins: usize){

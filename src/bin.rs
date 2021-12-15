@@ -4,15 +4,15 @@ extern crate clrays_rs;
 use clrays_rs as clr;
 use clr::window;
 use clr::trace_processor;
-use clr::scene::{ Scene, Camera, SceneItem, Material, Plane, Triangle, Sphere, Light };
+use clr::scene::{ Scene, Camera, Material, Plane, Triangle, Sphere, Light };
 use clr::vec3::{ Vec3 };
 use clr::info::{ Info };
 use clr::trace_tex::{ TexType };
 use clr::state::{ State, Settings, log_update_fn, fps_input_fn };
-use clr::mesh::load_model;
 
 use sdl2::keyboard::Keycode;
 use clrays_rs::consts::*;
+use clrays_rs::scene::{Model, SceneItem};
 // use clrays_rs::mesh::build_triangle_wall;
 
 pub const USE_WATERFLOOR : bool = false;
@@ -205,14 +205,21 @@ pub fn main() -> Result<(), String>{
 
     // https://groups.csail.mit.edu/graphics/classes/6.837/F03/models/
     // load_model("assets/models/object-scene.obj", Material::basic(), &mut scene);
-    let model_mat = Material::basic()
-            .with_reflectivity(0.3);
+    // let model_mat = Material::basic();
+            // .with_reflectivity(0.3);
             // .as_dielectric()
             // .with_refraction(2.0);
-    load_model("assets/models/teapot.obj", model_mat.add_to_scene(&mut scene), &mut scene);
+    // load_model("assets/models/teapot.obj", model_mat.add_to_scene(&mut scene), &mut scene);
+    // let dragon = Model{
+    //     pos: Default::default(),
+    //     rot: Default::default(),
+    //     mat: scene.add_material(Material::basic()),
+    //     mesh: scene.add_mesh("assets/models/dragon.obj".parse().unwrap())
+    // };
+    // scene.add_model(dragon);
 
     Light{
-        pos: Vec3::new(0.0, 2.0, -3.0),
+        pos: Vec3::new(0.0, 3.0, -5.0),
         intensity: 100.0,
         col: Vec3::ONE,
     }.add(&mut scene);

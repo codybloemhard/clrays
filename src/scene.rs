@@ -2,17 +2,16 @@ use crate::vec3::{ Vec3, Orientation };
 use crate::trace_tex::{ TexType, TraceTex };
 use crate::misc::{ Incrementable, build_vec, make_nonzero_len };
 use crate::info::Info;
-use crate::bvh::{ BVH, Node };
 use crate::aabb::AABB;
 use crate::bvh_nightly::Bvh;
-// use crate::bvh::{ AABB, BVH, build_bvh, Node };
 
 use std::collections::HashMap;
+use crate::mesh::Mesh;
 
 type MaterialIndex = u8;
 
 #[derive(Clone, PartialEq, Debug)]
-pub struct Material{
+pub struct Material{ // 62 bytes =  2*12 + 9*4 + 2
     pub col: Vec3,
     pub absorption: Vec3,
     pub reflectivity: f32,
@@ -38,7 +37,7 @@ impl Material{
     }
 
     pub fn add_to_scene(self, scene: &mut Scene) -> MaterialIndex{
-        scene.get_mat_index(self)
+        scene.add_material(self)
     }
 
     pub fn basic() -> Self{
@@ -125,8 +124,11 @@ impl Material{
     }
 }
 
-pub trait SceneItem{
+pub trait Bufferizable{
     fn get_data(&self) -> Vec<f32>;
+}
+
+pub trait SceneItem{
     fn add(self, scene: &mut Scene);
     // fn bound(&self) -> AABB;
 }
@@ -137,15 +139,17 @@ pub struct Plane{
     pub mat: MaterialIndex,
 }
 
-impl SceneItem for Plane{
-    fn get_data(&self) -> Vec<f32>{
+impl Bufferizable for Plane {
+    fn get_data(&self) -> Vec<f32> {
         vec![
             self.pos.x, self.pos.y, self.pos.z,
             self.nor.x, self.nor.y, self.nor.z,
             self.mat as f32
         ]
     }
+}
 
+impl SceneItem for Plane{
     fn add(self, scene: &mut Scene){
         scene.add_plane(self);
     }
@@ -161,11 +165,12 @@ pub struct Sphere{
     pub mat: MaterialIndex,
 }
 
-impl SceneItem for Sphere{
-    fn get_data(&self) -> Vec<f32>{
-        vec![ self.pos.x, self.pos.y, self.pos.z, self.rad, self.mat as f32 ]
+impl Bufferizable for Sphere {
+    fn get_data(&self) -> Vec<f32> {
+        vec![self.pos.x, self.pos.y, self.pos.z, self.rad, self.mat as f32]
     }
-
+}
+impl SceneItem for Sphere{
     fn add(self, scene: &mut Scene){
         scene.add_sphere(self);
     }
@@ -179,26 +184,47 @@ pub struct Triangle{ // 37 byte
     pub a: Vec3, // Vec3: 12 byte
     pub b: Vec3, // Vec3: 12 byte
     pub c: Vec3, // Vec3: 12 byte
-    pub mat: MaterialIndex, // u8: 1 byte
 }
-
-impl SceneItem for Triangle{
-    fn get_data(&self) -> Vec<f32>{
+impl Bufferizable for Triangle {
+    fn get_data(&self) -> Vec<f32> {
         vec![
             self.a.x, self.a.y, self.a.z,
             self.b.x, self.b.y, self.b.z,
             self.c.x, self.c.y, self.c.z,
-            self.mat as f32
         ]
     }
+}
 
-    fn add(self, scene: &mut Scene){
-        scene.add_triangle(self);
+pub type MeshIndex = u8;
+pub type ModelIndex = u8;
+
+impl Bufferizable for Mesh{
+    fn get_data(&self) -> Vec<f32>{
+        self.triangles.iter().map(|triangle| triangle.get_data()).flatten().collect()
     }
+}
 
-    // fn bound(&self) -> AABB{
-    //     AABB::from_points(&[self.a, self.b, self.c])
-    // }
+#[derive(Clone)]
+pub struct Model{
+    pub pos: Vec3,
+    // pub scale: Vec3,
+    pub rot: Vec3,
+    pub mat: MaterialIndex,
+    pub mesh: MeshIndex
+}
+impl Bufferizable for Model{
+    fn get_data(&self) -> Vec<f32>{
+        // let t = vec![self.pos.get_data(),self.rot.get_data()].into_iter().flatten().collect();
+        // t.push(self.mat as f32);
+        // t.push(self.mesh as f32);
+        // t
+        vec![]
+    }
+}
+impl SceneItem for Model{
+    fn add(self, scene: &mut Scene){
+        scene.add_model(self);
+    }
 }
 
 pub struct Light{
@@ -207,14 +233,15 @@ pub struct Light{
     pub col: Vec3,
 }
 
-impl SceneItem for Light{
+impl Bufferizable for Light{
     fn get_data(&self) -> Vec<f32>{
         vec![
             self.pos.x, self.pos.y, self.pos.z,
             self.intensity, self.col.x, self.col.y, self.col.z
         ]
     }
-
+}
+impl SceneItem for Light{
     fn add(self, scene: &mut Scene){
         scene.add_light(self);
     }
@@ -245,6 +272,8 @@ pub struct Scene{
     pub triangles: Vec<Triangle>,
     pub lights: Vec<Light>,
     pub mats: Vec<Material>,
+    pub meshes: Vec<Mesh>,
+    pub models: Vec<Model>,
     scene_params: [u32; Self::SCENE_PARAM_SIZE],
     next_texture: u32,
     ghost_textures: HashMap<String, (String, TexType)>,
@@ -256,8 +285,6 @@ pub struct Scene{
     pub sky_intensity: f32,
     pub sky_box: u32,
     pub cam: Camera,
-    pub bvh: BVH,
-    pub bvh_mid: BVH,
     pub bvh_nightly: Bvh,
 }
 
@@ -282,6 +309,8 @@ impl Scene{
             planes: Vec::new(),
             triangles: Vec::new(),
             mats: Vec::new(),
+            meshes: Vec::new(),
+            models: Vec::new(),
             lights: Vec::new(),
             scene_params: [0; Self::SCENE_PARAM_SIZE],
             next_texture: 0,
@@ -305,24 +334,6 @@ impl Scene{
                 vignette_strength: 0.1,
                 angle_radius: 0.0,
                 distortion_coefficient: 1.0
-            },
-            bvh: BVH {
-                node: Node {
-                    bounds: AABB::new(),
-                    is_leaf: true,
-                    primitives: vec![],
-                    left: None,
-                    right: None,
-                }
-            },
-            bvh_mid: BVH {
-                node: Node {
-                    bounds: AABB::new(),
-                    is_leaf: true,
-                    primitives: vec![],
-                    left: None,
-                    right: None,
-                }
             },
             bvh_nightly: Bvh::default(),
         }
@@ -402,7 +413,7 @@ impl Scene{
         res
     }
 
-    pub fn bufferize<T: SceneItem>(vec: &mut Vec<f32>, start: &mut usize, list: &[T], stride: usize){
+    pub fn bufferize<T: Bufferizable>(vec: &mut Vec<f32>, start: &mut usize, list: &[T], stride: usize){
         for (i, item) in list.iter().enumerate(){
             let off = i * stride;
             let data = item.get_data();
@@ -421,7 +432,7 @@ impl Scene{
         self.ghost_textures.insert(name.to_string(), (path.to_string(), ttype));
     }
 
-    pub fn get_mat_index(&mut self, mat: Material) -> MaterialIndex {
+    pub fn add_material(&mut self, mat: Material) -> MaterialIndex {
         if let Some(i) = self.mats.iter().position(|m| *m == mat) {
             i as MaterialIndex
         } else {
@@ -429,6 +440,21 @@ impl Scene{
             assert!(self.mats.len() < 255);
             (self.mats.len() - 1) as MaterialIndex
         }
+    }
+
+    pub fn add_mesh(&mut self, mesh_name: String) -> MeshIndex {
+        if let Some(i) = self.meshes.iter().position(|m| *m.name == mesh_name) {
+            i as u8
+        } else {
+            let mesh= Mesh::load_model(&*mesh_name);
+            self.meshes.push(mesh);
+            assert!(self.meshes.len() < 255);
+            (self.meshes.len() - 1) as u8
+        }
+    }
+
+    pub fn add_model(&mut self, model: Model) {
+        self.models.push(model);
     }
 
     pub fn get_texture(&mut self, name: &str) -> u32{
@@ -472,14 +498,8 @@ impl Scene{
     pub fn add_plane(&mut self, p: Plane){ self.planes.push(p); }
     pub fn add_triangle(&mut self, b: Triangle){ self.triangles.push(b); }
 
-    pub fn generate_bvh_sah(&mut self) {
-        self.bvh = BVH::build(self, true);
-    }
-    pub fn generate_bvh_mid(&mut self) {
-        self.bvh_mid = BVH::build(self, false);
-    }
     pub fn generate_bvh_nightly(&mut self, bins: usize){
-        self.bvh_nightly = Bvh::from(self, bins);
+        self.bvh_nightly = Bvh::from_mesh(&Mesh::dragon(), bins);
     }
 
     pub fn either_sphere_or_triangle(&self, index: usize) -> Either<&Sphere, &Triangle>{
@@ -487,6 +507,7 @@ impl Scene{
         if index < sl{ // is sphere
             Either::Left(&self.spheres[index])
         } else { // is triangle
+            // figure out which model
             Either::Right(&self.triangles[index - sl])
         }
     }

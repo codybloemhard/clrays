@@ -1,5 +1,6 @@
 use crate::consts::EPSILON;
 use crate::aabb::Axis;
+use crate::scene::Bufferizable;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Orientation {
@@ -8,10 +9,16 @@ pub struct Orientation {
 }
 
 #[derive(PartialEq, Clone, Copy, Debug, Default)]
-pub struct Vec3{
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
+pub struct Vec3{ // 12 byte
+    pub x: f32, // f32: 4 byte
+    pub y: f32, // f32: 4 byte
+    pub z: f32, // f32: 4 byte
+}
+
+impl Bufferizable for Vec3{
+    fn get_data(&self) -> Vec<f32>{
+        vec![ self.x, self.y, self.z ]
+    }
 }
 
 impl Vec3{
