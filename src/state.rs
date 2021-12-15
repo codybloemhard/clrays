@@ -83,7 +83,7 @@ impl State{
             keys: [false; KEYS_AMOUNT],
             render_mode: RenderMode::Reduced,
             last_frame: RenderMode::None,
-            reduced_rate: 20,
+            reduced_rate: 4,
             aa: settings.start_aa(),
             aa_count: 0,
             settings,

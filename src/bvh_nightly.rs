@@ -19,6 +19,7 @@ pub struct Vertex{
 
 impl Bvh{
     pub fn get_prim_counts(&self, current: usize, vec: &mut Vec<usize>){
+        if current >= self.vertices.len() { return; }
         let vs = &self.vertices;
         let v = vs[current];
         if v.count > 0{ // leaf
@@ -70,6 +71,7 @@ impl Bvh{
         }
         // TODO: doesn't work anymore with bvh? Problem in texture code
         // for plane in &scene.planes { inter_plane(ray, plane, closest); }
+        if self.vertices.is_empty() { return (0, 0); }
         let inv_dir = ray.inverted().dir;
         let dir_is_neg : [usize; 3] = ray.direction_negations();
         internal_intersect(self, 0, scene, ray, closest, inv_dir, dir_is_neg)
@@ -128,6 +130,9 @@ impl Bvh{
 
     pub fn from(scene: &Scene, bins: usize) -> Self{
         let prims = scene.spheres.len() + scene.triangles.len();
+        if prims == 0 {
+            return Self{ indices: vec![], vertices: vec![] };
+        }
 
         let mut is = (0..prims as u32).into_iter().collect::<Vec<_>>();
         let mut vs = vec![Vertex::default(); prims * 2];
@@ -150,6 +155,7 @@ impl Bvh{
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn subdivide(bounds: &[AABB], is: &mut[u32], vs: &mut[Vertex], current: usize, poolptr: &mut u32, first: usize, count: usize, bins: usize){
         let v = &mut vs[current];
         v.bound = Self::bound(&is[first..first + count], bounds);
@@ -202,7 +208,7 @@ impl Bvh{
 
     fn sah_binned(bounds: &[AABB], is: &[u32], top_bound: AABB, bins: usize) -> (Axis, f32) {
         let binsf = bins as f32;
-        let diff = top_bound.b.subed(top_bound.a);
+        let diff = top_bound.max.subed(top_bound.min);
         let axis_valid = [diff.x > binsf * EPSILON, diff.y > binsf * EPSILON, diff.z > binsf * EPSILON];
 
         // precompute lerps

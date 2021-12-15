@@ -63,16 +63,16 @@ impl Node {
         // find bounds
         let mut bounds = AABB::new();
         for primitive in primitives.iter() {
-            bounds.a.x = bounds.a.x.min( primitive.bounds.a.x );
-            bounds.a.y = bounds.a.y.min( primitive.bounds.a.y );
-            bounds.a.z = bounds.a.z.min( primitive.bounds.a.z );
+            bounds.min.x = bounds.min.x.min( primitive.bounds.min.x );
+            bounds.min.y = bounds.min.y.min( primitive.bounds.min.y );
+            bounds.min.z = bounds.min.z.min( primitive.bounds.min.z );
 
-            bounds.b.x = bounds.b.x.max( primitive.bounds.b.x );
-            bounds.b.y = bounds.b.y.max( primitive.bounds.b.y );
-            bounds.b.z = bounds.b.z.max( primitive.bounds.b.z );
+            bounds.max.x = bounds.max.x.max( primitive.bounds.max.x );
+            bounds.max.y = bounds.max.y.max( primitive.bounds.max.y );
+            bounds.max.z = bounds.max.z.max( primitive.bounds.max.z );
         }
 
-        let diff = bounds.b.subed(bounds.a);
+        let diff = bounds.max.subed(bounds.min);
         let axis_valid = [diff.x > 12.0*EPSILON, diff.y > 12.0*EPSILON, diff.z > 12.0*EPSILON ];
 
         // precompute lerps
@@ -162,13 +162,13 @@ impl Node {
                     // assert!(prim.bounds.midpoint().fake_arr(axis) < tmp );
                     sides[0].push(prim);
 
-                    side_bounds[0].a.x = side_bounds[0].a.x.min(prim.bounds.a.x);
-                    side_bounds[0].a.y = side_bounds[0].a.y.min(prim.bounds.a.y);
-                    side_bounds[0].a.z = side_bounds[0].a.z.min(prim.bounds.a.z);
+                    side_bounds[0].min.x = side_bounds[0].min.x.min(prim.bounds.min.x);
+                    side_bounds[0].min.y = side_bounds[0].min.y.min(prim.bounds.min.y);
+                    side_bounds[0].min.z = side_bounds[0].min.z.min(prim.bounds.min.z);
 
-                    side_bounds[0].b.x = side_bounds[0].b.x.max(prim.bounds.b.x);
-                    side_bounds[0].b.y = side_bounds[0].b.y.max(prim.bounds.b.y);
-                    side_bounds[0].b.z = side_bounds[0].b.z.max(prim.bounds.b.z);
+                    side_bounds[0].max.x = side_bounds[0].max.x.max(prim.bounds.max.x);
+                    side_bounds[0].max.y = side_bounds[0].max.y.max(prim.bounds.max.y);
+                    side_bounds[0].max.z = side_bounds[0].max.z.max(prim.bounds.max.z);
 
                     // assert!(sides[0][i_split].bounds.midpoint().fake_arr(axis) < tmp);
                     i_split += 1;
@@ -194,25 +194,25 @@ impl Node {
 
                 // update bounds of left
                 // for prim in sides[0].iter() {
-                //     side_bounds[0].a.x = side_bounds[0].a.x.min(prim.bounds.a.x);
-                //     side_bounds[0].a.y = side_bounds[0].a.y.min(prim.bounds.a.y);
-                //     side_bounds[0].a.z = side_bounds[0].a.z.min(prim.bounds.a.z);
+                //     side_bounds[0].min.x = side_bounds[0].min.x.min(prim.bounds.min.x);
+                //     side_bounds[0].min.y = side_bounds[0].min.y.min(prim.bounds.min.y);
+                //     side_bounds[0].min.z = side_bounds[0].min.z.min(prim.bounds.min.z);
                 //
-                //     side_bounds[0].b.x = side_bounds[0].b.x.max(prim.bounds.b.x);
-                //     side_bounds[0].b.y = side_bounds[0].b.y.max(prim.bounds.b.y);
-                //     side_bounds[0].b.z = side_bounds[0].b.z.max(prim.bounds.b.z);
+                //     side_bounds[0].max.x = side_bounds[0].max.x.max(prim.bounds.max.x);
+                //     side_bounds[0].max.y = side_bounds[0].max.y.max(prim.bounds.max.y);
+                //     side_bounds[0].max.z = side_bounds[0].max.z.max(prim.bounds.max.z);
                 // }
 
                 // recompute bounds for right
                 side_bounds[1] = AABB::new();
                 for prim in sides[1].iter() {
-                    side_bounds[1].a.x = side_bounds[1].a.x.min( prim.bounds.a.x );
-                    side_bounds[1].a.y = side_bounds[1].a.y.min( prim.bounds.a.y );
-                    side_bounds[1].a.z = side_bounds[1].a.z.min( prim.bounds.a.z );
+                    side_bounds[1].min.x = side_bounds[1].min.x.min( prim.bounds.min.x );
+                    side_bounds[1].min.y = side_bounds[1].min.y.min( prim.bounds.min.y );
+                    side_bounds[1].min.z = side_bounds[1].min.z.min( prim.bounds.min.z );
 
-                    side_bounds[1].b.x = side_bounds[1].b.x.max( prim.bounds.b.x );
-                    side_bounds[1].b.y = side_bounds[1].b.y.max( prim.bounds.b.y );
-                    side_bounds[1].b.z = side_bounds[1].b.z.max( prim.bounds.b.z );
+                    side_bounds[1].max.x = side_bounds[1].max.x.max( prim.bounds.max.x );
+                    side_bounds[1].max.y = side_bounds[1].max.y.max( prim.bounds.max.y );
+                    side_bounds[1].max.z = side_bounds[1].max.z.max( prim.bounds.max.z );
                 }
 
                 // get cost
@@ -274,16 +274,16 @@ impl Node {
         // find bounds
         let mut bounds = AABB::new();
         for primitive in primitives.iter() {
-            bounds.a.x = bounds.a.x.min( primitive.bounds.a.x );
-            bounds.a.y = bounds.a.y.min( primitive.bounds.a.y );
-            bounds.a.z = bounds.a.z.min( primitive.bounds.a.z );
+            bounds.min.x = bounds.min.x.min( primitive.bounds.min.x );
+            bounds.min.y = bounds.min.y.min( primitive.bounds.min.y );
+            bounds.min.z = bounds.min.z.min( primitive.bounds.min.z );
 
-            bounds.b.x = bounds.b.x.max( primitive.bounds.b.x );
-            bounds.b.y = bounds.b.y.max( primitive.bounds.b.y );
-            bounds.b.z = bounds.b.z.max( primitive.bounds.b.z );
+            bounds.max.x = bounds.max.x.max( primitive.bounds.max.x );
+            bounds.max.y = bounds.max.y.max( primitive.bounds.max.y );
+            bounds.max.z = bounds.max.z.max( primitive.bounds.max.z );
         }
 
-        let diff = bounds.b.subed(bounds.a);
+        let diff = bounds.max.subed(bounds.min);
 
         let axis_valid = [diff.x > 3.0*EPSILON, diff.y > 3.0*EPSILON, diff.z > 3.0*EPSILON ];
 
@@ -736,9 +736,9 @@ mod test {
         for root_node in &[root_node_mid, root_node_sah] {
             root_node.node_iterator_mut(
                 &mut |s| for prim in &s.primitives {
-                    assert!(prim.bounds.a.x >= s.bounds.a.x && prim.bounds.b.x <= s.bounds.b.x &&
-                        prim.bounds.a.y >= s.bounds.a.y && prim.bounds.b.y <= s.bounds.b.y &&
-                        prim.bounds.a.z >= s.bounds.a.z && prim.bounds.b.z <= s.bounds.b.z)
+                    assert!(prim.bounds.min.x >= s.bounds.min.x && prim.bounds.max.x <= s.bounds.max.x &&
+                        prim.bounds.min.y >= s.bounds.min.y && prim.bounds.max.y <= s.bounds.max.y &&
+                        prim.bounds.min.z >= s.bounds.min.z && prim.bounds.max.z <= s.bounds.max.z)
                 }
             );
         }
@@ -762,12 +762,12 @@ mod test {
                     if !s.is_leaf {
                         let node_left_bounds = s.left.as_ref().unwrap().bounds;
                         let node_right_bounds = s.right.as_ref().unwrap().bounds;
-                        assert!(node_left_bounds.a.x >= s.bounds.a.x && node_left_bounds.b.x <= s.bounds.b.x &&
-                            node_left_bounds.a.y >= s.bounds.a.y && node_left_bounds.b.y <= s.bounds.b.y &&
-                            node_left_bounds.a.z >= s.bounds.a.z && node_left_bounds.b.z <= s.bounds.b.z);
-                        assert!(node_right_bounds.a.x >= s.bounds.a.x && node_right_bounds.b.x <= s.bounds.b.x &&
-                            node_right_bounds.a.y >= s.bounds.a.y && node_right_bounds.b.y <= s.bounds.b.y &&
-                            node_right_bounds.a.z >= s.bounds.a.z && node_right_bounds.b.z <= s.bounds.b.z);
+                        assert!(node_left_bounds.min.x >= s.bounds.min.x && node_left_bounds.max.x <= s.bounds.max.x &&
+                            node_left_bounds.min.y >= s.bounds.min.y && node_left_bounds.max.y <= s.bounds.max.y &&
+                            node_left_bounds.min.z >= s.bounds.min.z && node_left_bounds.max.z <= s.bounds.max.z);
+                        assert!(node_right_bounds.min.x >= s.bounds.min.x && node_right_bounds.max.x <= s.bounds.max.x &&
+                            node_right_bounds.min.y >= s.bounds.min.y && node_right_bounds.max.y <= s.bounds.max.y &&
+                            node_right_bounds.min.z >= s.bounds.min.z && node_right_bounds.max.z <= s.bounds.max.z);
                     }
                 }
             );
@@ -903,15 +903,15 @@ mod test {
         scene.generate_bvh_sah();
         let mut custom_bounds = AABB::new();
         for i in 0..scene.triangles.len() {
-            custom_bounds.a.x = custom_bounds.a.x.min(scene.triangles[i].a.x).min(scene.triangles[i].b.x).min(scene.triangles[i].c.x);
-            custom_bounds.a.y = custom_bounds.a.y.min(scene.triangles[i].a.y).min(scene.triangles[i].b.y).min(scene.triangles[i].c.y);
-            custom_bounds.a.z = custom_bounds.a.z.min(scene.triangles[i].a.z).min(scene.triangles[i].b.z).min(scene.triangles[i].c.z);
-            custom_bounds.b.x = custom_bounds.b.x.max(scene.triangles[i].a.x).max(scene.triangles[i].b.x).max(scene.triangles[i].c.x);
-            custom_bounds.b.y = custom_bounds.b.y.max(scene.triangles[i].a.y).max(scene.triangles[i].b.y).max(scene.triangles[i].c.y);
-            custom_bounds.b.z = custom_bounds.b.z.max(scene.triangles[i].a.z).max(scene.triangles[i].b.z).max(scene.triangles[i].c.z);
+            custom_bounds.min.x = custom_bounds.min.x.min(scene.triangles[i].min.x).min(scene.triangles[i].max.x).min(scene.triangles[i].c.x);
+            custom_bounds.min.y = custom_bounds.min.y.min(scene.triangles[i].min.y).min(scene.triangles[i].max.y).min(scene.triangles[i].c.y);
+            custom_bounds.min.z = custom_bounds.min.z.min(scene.triangles[i].min.z).min(scene.triangles[i].max.z).min(scene.triangles[i].c.z);
+            custom_bounds.max.x = custom_bounds.max.x.max(scene.triangles[i].min.x).max(scene.triangles[i].max.x).max(scene.triangles[i].c.x);
+            custom_bounds.max.y = custom_bounds.max.y.max(scene.triangles[i].min.y).max(scene.triangles[i].max.y).max(scene.triangles[i].c.y);
+            custom_bounds.max.z = custom_bounds.max.z.max(scene.triangles[i].min.z).max(scene.triangles[i].max.z).max(scene.triangles[i].c.z);
         }
 
-        assert_eq!(scene.bvh.node.bounds.a, custom_bounds.a.subed(Vec3::EPSILON));
+        assert_eq!(scene.bvh.node.bounds.min, custom_bounds.min.subed(Vec3::EPSILON));
         assert_eq!(scene.bvh.node.bounds.b, custom_bounds.b.added(Vec3::EPSILON));
     }
 

@@ -183,7 +183,7 @@ pub fn hit_aabb(ray: Ray, aabb: AABB) -> Option<(f32, f32)>{
 
     let mut t_min;
     let mut t_max;
-    let ss = [&aabb.a, &aabb.b];
+    let ss = [&aabb.min, &aabb.max];
 
     // Compute intersections with x and y slabs.
     let tx_min = (ss[  dir_is_neg[0] as usize].x - ray.pos.x) * inv_dir.x;

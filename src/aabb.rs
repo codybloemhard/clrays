@@ -21,8 +21,8 @@ impl Axis {
 
 #[derive(Copy, Clone, Debug)]
 pub struct AABB { // 24 bytes
-    pub a: Vec3, // Vec3: 12 bytes
-    pub b: Vec3, // Vec3: 12 bytes
+    pub min: Vec3, // Vec3: 12 bytes
+    pub max: Vec3, // Vec3: 12 bytes
 }
 
 impl Default for AABB{
@@ -34,15 +34,15 @@ impl Default for AABB{
 impl AABB {
     pub fn new() -> Self{
         Self {
-            a: Vec3 { x: f32::MAX, y: f32::MAX, z: f32::MAX, },
-            b: Vec3 { x: f32::MIN, y: f32::MIN, z: f32::MIN, },
+            min: Vec3 { x: f32::MAX, y: f32::MAX, z: f32::MAX, },
+            max: Vec3 { x: f32::MIN, y: f32::MIN, z: f32::MIN, },
         }
     }
 
     pub fn from_point_radius(p: Vec3, r: f32) -> Self{
         Self{
-            a: p.subed(Vec3::uni(r)),
-            b: p.added(Vec3::uni(r)),
+            min: p.subed(Vec3::uni(r)),
+            max: p.added(Vec3::uni(r)),
         }
     }
 
@@ -60,19 +60,19 @@ impl AABB {
         }
 
         Self{
-            a: Vec3::new(minx, miny, minz),
-            b: Vec3::new(maxx, maxy, maxz),
+            min: Vec3::new(minx, miny, minz),
+            max: Vec3::new(maxx, maxy, maxz),
         }
     }
 
     #[inline]
     pub fn combine(&mut self, other: Self){
-        self.a.x = self.a.x.min(other.a.x);
-        self.a.y = self.a.y.min(other.a.y);
-        self.a.z = self.a.z.min(other.a.z);
-        self.b.x = self.b.x.max(other.b.x);
-        self.b.y = self.b.y.max(other.b.y);
-        self.b.z = self.b.z.max(other.b.z);
+        self.min.x = self.min.x.min(other.min.x);
+        self.min.y = self.min.y.min(other.min.y);
+        self.min.z = self.min.z.min(other.min.z);
+        self.max.x = self.max.x.max(other.max.x);
+        self.max.y = self.max.y.max(other.max.y);
+        self.max.z = self.max.z.max(other.max.z);
     }
 
     #[inline]
@@ -82,8 +82,8 @@ impl AABB {
     }
 
     pub fn grow(&mut self, v: Vec3){
-        self.a.sub(v);
-        self.b.add(v);
+        self.min.sub(v);
+        self.max.add(v);
     }
 
     pub fn grown(mut self, v: Vec3) -> Self{
@@ -96,7 +96,7 @@ impl AABB {
     }
 
     pub fn lerp(&self, val: f32) -> Vec3{
-        self.a.scaled(1.0 - val).added(self.b.scaled(val))
+        self.min.scaled(1.0 - val).added(self.max.scaled(val))
     }
 
     // intersection formula, including inv_dir and dir_is_neg taken from:
@@ -104,11 +104,11 @@ impl AABB {
     // however, it required such non-trivial changes after spending significant time debugging
     // I feel like calling this code my own
     pub fn intersection(&self, ray: Ray, inv_dir: Vec3, dir_is_neg: [usize; 3]) -> f32 {
-        let ss = [&self.a, &self.b];
+        let ss = [&self.min, &self.max];
 
         // check inside box
-        let p0 = self.a.subed(ray.pos);
-        let p1 = self.b.subed(ray.pos);
+        let p0 = self.min.subed(ray.pos);
+        let p1 = self.max.subed(ray.pos);
         let inside = [
             p0.x <= EPSILON && p1.x >= -EPSILON,
             p0.y <= EPSILON && p1.y >= -EPSILON,
@@ -134,12 +134,12 @@ impl AABB {
     }
 
     pub fn volume(self) -> f32{
-        let v = self.b.subed(self.a);
+        let v = self.max.subed(self.min);
         v.x * v.y * v.z
     }
 
     pub fn surface_area(self) -> f32{
-        let v = self.b.subed(self.a);
+        let v = self.max.subed(self.min);
         v.x * v.y * 2.0 +
         v.x * v.z * 2.0 +
         v.y * v.z * 2.0

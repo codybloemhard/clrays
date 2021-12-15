@@ -18,18 +18,18 @@ must be an improvement over 2-way BVH traversal (1 pt) (good for Kajiya, packets
 - [ ] Use Bvh on gpu
 ### GPU Pathtracing
 - [ ] Basic pathtracer (area lights, materials, speculars, dielectrics, beer's law)
-- [  ] Frame energy
-- [  ] Accumulator buffer
-- [  ] Movement
-- [  ] Next event estimation (NEE), 1pt
-- [  ] Russian roulette (RR), 0.5pts
-- [  ] Importance sampling of BRDF, 0.5pts
-- [  ] Importance sampling of lights, 1pt
-- [  ] Depth of field, 0.5pts
-- [  ] Blue noise, 1 pt
-- [  ] Multiple importance samplign (MIS), 1.5pts
-- [  ] Spectral rendering, 3pts
-- [  ] Motion blur (eh), 0.5pts
+- [ ] Frame energy
+- [ ] Accumulator buffer
+- [ ] Movement
+- [ ] Next event estimation (NEE), 1pt
+- [ ] Russian roulette (RR), 0.5pts
+- [ ] Importance sampling of BRDF, 0.5pts
+- [ ] Importance sampling of lights, 1pt
+- [ ] Depth of field, 0.5pts
+- [ ] Blue noise, 1 pt
+- [ ] Multiple importance samplign (MIS), 1.5pts
+- [ ] Spectral rendering, 3pts
+- [ ] Motion blur (eh), 0.5pts
 
 ## P1 Checklist: Whitted CPU
 - [x] architecture
