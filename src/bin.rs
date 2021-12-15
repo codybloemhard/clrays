@@ -68,7 +68,8 @@ pub fn main() -> Result<(), String>{
                 .with_texture(scene.get_texture("stone-alb"))
                 .with_normal_map(scene.get_texture("stone-nor"))
                 .with_roughness_map(scene.get_texture("stone-rou"))
-                .with_tex_scale(4.0),
+                .with_tex_scale(4.0)
+                .add_to_scene(&mut scene)
         }.add(&mut scene);
 
         Plane{
@@ -78,6 +79,7 @@ pub fn main() -> Result<(), String>{
                 .as_dielectric()
                 .with_absorption(WATER_ABSORPTION)
                 .with_refraction(WATER_REFRACTION)
+                .add_to_scene(&mut scene)
         }.add(&mut scene);
     } else {
         Plane{
@@ -88,7 +90,8 @@ pub fn main() -> Result<(), String>{
                 .with_texture(scene.get_texture("stone-alb"))
                 .with_normal_map(scene.get_texture("stone-nor"))
                 .with_roughness_map(scene.get_texture("stone-rou"))
-                .with_tex_scale(4.0),
+                .with_tex_scale(4.0)
+                .add_to_scene(&mut scene)
         }.add(&mut scene);
     }
     //
@@ -98,7 +101,8 @@ pub fn main() -> Result<(), String>{
     //     mat: Material::basic()
     //         .with_texture(scene.get_texture("tiles-alb"))
     //         .with_normal_map(scene.get_texture("tiles-nor"))
-    //         .with_roughness_map(scene.get_texture("tiles-rou")),
+    //         .with_roughness_map(scene.get_texture("tiles-rou"))
+    //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
     //
     // Sphere{
@@ -109,7 +113,8 @@ pub fn main() -> Result<(), String>{
     //         .with_texture(scene.get_texture("solar-alb"))
     //         .with_normal_map(scene.get_texture("solar-nor"))
     //         .with_roughness_map(scene.get_texture("solar-rou"))
-    //         .with_metalic_map(scene.get_texture("solar-met")),
+    //         .with_metalic_map(scene.get_texture("solar-met"))
+    //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
     //
     // Sphere{
@@ -120,14 +125,15 @@ pub fn main() -> Result<(), String>{
     //         .with_normal_map(scene.get_texture("scifi-nor"))
     //         .with_roughness_map(scene.get_texture("scifi-rou"))
     //         .with_metalic_map(scene.get_texture("scifi-met"))
-    //         .with_reflectivity(0.9),
+    //         .with_reflectivity(0.9)
+    //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
 
     // Triangle{
     //     a: Vec3::new(-1.0, 1.0, -7.0),
     //     b: Vec3::new( 1.0, 1.0, -7.0),
     //     c: Vec3::new( 1.0, 3.0, -7.0),
-    //     mat: Material::basic().as_checkerboard(),
+    //     mat: Material::basic().as_checkerboard().add_to_scene(&mut scene),
     // }.add(&mut scene);
 
     // Sphere{
@@ -136,6 +142,7 @@ pub fn main() -> Result<(), String>{
     //     mat: Material::basic()
     //         .as_dielectric()
     //         .with_refraction(0.7)
+    //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
     //
     // Sphere{
@@ -144,12 +151,14 @@ pub fn main() -> Result<(), String>{
     //     mat: Material::basic()
     //         .as_dielectric()
     //         .with_refraction(1.6)
+    //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
     // Sphere{
     //     pos: Vec3::new(-0.0, 3.0, -5.0),
     //     rad: 0.95 - EPSILON,
     //     mat: Material::basic()
     //         .as_dielectric()
+    //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
     //
     // Sphere{
@@ -158,6 +167,7 @@ pub fn main() -> Result<(), String>{
     //     mat: Material::basic()
     //         .as_dielectric()
     //         .with_refraction(2.0)
+    //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
     //
     // Sphere{
@@ -167,6 +177,7 @@ pub fn main() -> Result<(), String>{
     //         .as_dielectric()
     //         .with_absorption(Vec3 { x: 0.8, y: 0.3, z: 0.3 })
     //         .with_refraction(AIR_REFRACTION)
+    //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
     //
     // Sphere{
@@ -176,6 +187,7 @@ pub fn main() -> Result<(), String>{
     //         .as_dielectric()
     //         .with_absorption(Vec3 { x: 0.8, y: 0.3, z: 0.3 })
     //         .with_refraction(AIR_REFRACTION)
+    //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
     //
     // Sphere{
@@ -185,6 +197,7 @@ pub fn main() -> Result<(), String>{
     //         .as_dielectric()
     //         .with_absorption(Vec3 { x: 0.8, y: 0.3, z: 0.3 })
     //         .with_refraction(AIR_REFRACTION)
+    //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
     // // println!("build wall...");
     // // build_triangle_wall(Material::basic(), &mut scene, 0.5, 10.0,);
@@ -196,7 +209,7 @@ pub fn main() -> Result<(), String>{
             .with_reflectivity(0.3);
             // .as_dielectric()
             // .with_refraction(2.0);
-    load_model("assets/models/teapot.obj", model_mat, &mut scene);
+    load_model("assets/models/teapot.obj", model_mat.add_to_scene(&mut scene), &mut scene);
 
     Light{
         pos: Vec3::new(0.0, 2.0, -3.0),

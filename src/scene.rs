@@ -9,6 +9,8 @@ use crate::bvh_nightly::Bvh;
 
 use std::collections::HashMap;
 
+type MaterialIndex = u8;
+
 #[derive(Clone, PartialEq, Debug)]
 pub struct Material{
     pub col: Vec3,
@@ -33,6 +35,10 @@ impl Material{
 
     pub fn set_tex_scale(&mut self, v: f32){
         self.tex_scale = 1.0 / v;
+    }
+
+    pub fn add_to_scene(self, scene: &mut Scene) -> MaterialIndex{
+        scene.get_mat_index(self)
     }
 
     pub fn basic() -> Self{
@@ -128,7 +134,7 @@ pub trait SceneItem{
 pub struct Plane{
     pub pos: Vec3,
     pub nor: Vec3,
-    pub mat: Material,
+    pub mat: MaterialIndex,
 }
 
 impl SceneItem for Plane{
@@ -136,11 +142,7 @@ impl SceneItem for Plane{
         vec![
             self.pos.x, self.pos.y, self.pos.z,
             self.nor.x, self.nor.y, self.nor.z,
-            self.mat.col.x, self.mat.col.y, self.mat.col.z,
-            self.mat.reflectivity, self.mat.roughness,
-            self.mat.texture as f32, self.mat.normal_map as f32,
-            self.mat.roughness_map as f32, self.mat.metalic_map as f32,
-            self.mat.tex_scale
+            self.mat as f32
         ]
     }
 
@@ -156,19 +158,12 @@ impl SceneItem for Plane{
 pub struct Sphere{
     pub pos: Vec3,
     pub rad: f32,
-    pub mat: Material,
+    pub mat: MaterialIndex,
 }
 
 impl SceneItem for Sphere{
     fn get_data(&self) -> Vec<f32>{
-        vec![
-            self.pos.x, self.pos.y, self.pos.z, self.rad,
-            self.mat.col.x, self.mat.col.y, self.mat.col.z,
-            self.mat.reflectivity, self.mat.roughness,
-            self.mat.texture as f32, self.mat.normal_map as f32,
-            self.mat.roughness_map as f32, self.mat.metalic_map as f32,
-            self.mat.tex_scale
-        ]
+        vec![ self.pos.x, self.pos.y, self.pos.z, self.rad, self.mat as f32 ]
     }
 
     fn add(self, scene: &mut Scene){
@@ -180,11 +175,11 @@ impl SceneItem for Sphere{
     // }
 }
 
-pub struct Triangle{
-    pub a: Vec3,
-    pub b: Vec3,
-    pub c: Vec3,
-    pub mat: Material,
+pub struct Triangle{ // 37 byte
+    pub a: Vec3, // Vec3: 12 byte
+    pub b: Vec3, // Vec3: 12 byte
+    pub c: Vec3, // Vec3: 12 byte
+    pub mat: MaterialIndex, // u8: 1 byte
 }
 
 impl SceneItem for Triangle{
@@ -193,9 +188,7 @@ impl SceneItem for Triangle{
             self.a.x, self.a.y, self.a.z,
             self.b.x, self.b.y, self.b.z,
             self.c.x, self.c.y, self.c.z,
-            self.mat.texture as f32, self.mat.normal_map as f32,
-            self.mat.roughness_map as f32, self.mat.metalic_map as f32,
-            self.mat.tex_scale
+            self.mat as f32
         ]
     }
 
@@ -251,6 +244,7 @@ pub struct Scene{
     pub planes: Vec<Plane>,
     pub triangles: Vec<Triangle>,
     pub lights: Vec<Light>,
+    pub mats: Vec<Material>,
     scene_params: [u32; Self::SCENE_PARAM_SIZE],
     next_texture: u32,
     ghost_textures: HashMap<String, (String, TexType)>,
@@ -287,6 +281,7 @@ impl Scene{
             spheres: Vec::new(),
             planes: Vec::new(),
             triangles: Vec::new(),
+            mats: Vec::new(),
             lights: Vec::new(),
             scene_params: [0; Self::SCENE_PARAM_SIZE],
             next_texture: 0,
@@ -424,6 +419,16 @@ impl Scene{
             return;
         }
         self.ghost_textures.insert(name.to_string(), (path.to_string(), ttype));
+    }
+
+    pub fn get_mat_index(&mut self, mat: Material) -> MaterialIndex {
+        if let Some(i) = self.mats.iter().position(|m| *m == mat) {
+            i as MaterialIndex
+        } else {
+            self.mats.push(mat);
+            assert!(self.mats.len() < 255);
+            (self.mats.len() - 1) as MaterialIndex
+        }
     }
 
     pub fn get_texture(&mut self, name: &str) -> u32{

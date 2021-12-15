@@ -3,7 +3,7 @@ use crate::vec3::Vec3;
 
 use obj::*;
 
-pub fn load_model(file_path: &str, mat: Material, scene: &mut Scene){
+pub fn load_model(file_path: &str, mat: u8, scene: &mut Scene){
     let obj = if let Ok(o) = Obj::load(file_path){ o }
     else { println!("Could not load file: {}!", file_path); return; };
 
@@ -48,7 +48,7 @@ pub fn load_model(file_path: &str, mat: Material, scene: &mut Scene){
         }.add(scene);
     }
 }
-pub fn build_triangle_wall(mat: Material, scene: &mut Scene, diff: f32, offset: f32) {
+pub fn build_triangle_wall(mat: u8, scene: &mut Scene, diff: f32, offset: f32) {
     let z = 0.0;
     let mut x = -offset;
     let mut total = 0;
