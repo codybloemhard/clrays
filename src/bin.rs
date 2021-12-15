@@ -27,7 +27,7 @@ pub fn main() -> Result<(), String>{
     scene.cam = Camera{
         // pos: Vec3::new(0.0, 5.0, -8.0),
         // dir: Vec3::new(0.0, -1.0, 2.0).normalized(),
-        pos: Vec3::ZERO,
+        pos: Vec3::new(0.0, 1.5, 6.0),
         dir: Vec3::BACKWARD,
         ori: Vec3::BACKWARD.normalized().orientation(),
         move_sensitivity: 0.1,
@@ -213,7 +213,7 @@ pub fn main() -> Result<(), String>{
     // scene.bvh.node.get_prim_counts(&mut v0);
     // println!("{:?}, {}, {}", v0, v0.len(), v0.iter().sum::<usize>());
 
-    scene.generate_bvh_nightly();
+    scene.generate_bvh_nightly(16);
     // let mut v1 = Vec::new();
     // scene.bvh_nightly.get_prim_counts(0, &mut v1);
     // println!("{:?}, {}, {}", v1, v1.len(), v1.iter().sum::<usize>());

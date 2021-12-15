@@ -72,6 +72,7 @@ pub struct State{
     pub reduced_rate: usize,
     pub aa: usize,
     pub aa_count: usize,
+    pub show_bvh: bool,
     pub settings: Settings,
 }
 
@@ -86,6 +87,7 @@ impl State{
             aa: settings.start_aa(),
             aa_count: 0,
             settings,
+            show_bvh: false,
         }
     }
 
@@ -97,6 +99,12 @@ impl State{
         } else {
             1
         }
+    }
+
+    pub fn toggle_show_bvh(&mut self){
+        self.show_bvh = !self.show_bvh;
+        self.render_mode = RenderMode::Reduced;
+        self.aa_count = 0;
     }
 }
 
@@ -151,7 +159,7 @@ pub fn fps_input_fn(events: &[Event], scene: &mut Scene, state: &mut State) -> L
             },
             Event::KeyDown { keycode: Some(x), .. } if *x == state.key_map[12] => {
                 print!("Toggle BVH rendering");
-                scene.show_bvh = !scene.show_bvh;
+                state.toggle_show_bvh();
             },
             Event::KeyDown { keycode: Some(x), repeat: false, .. } => {
                 for (i, binding) in state.key_map.iter().enumerate(){

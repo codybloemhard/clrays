@@ -1,5 +1,36 @@
 # clrays
 
+## P2 Checklist: GPU Pathtracing with Bvh
+### Bvh
+- [ ] Correct Bvh: 10k+ tris
+- [x] Bvh Ray/Scene intersection
+- [x] Bvh Ray/Scene occlusion test
+- [x] Bvh surface area heuristic
+- [x] Bvh binning
+- [?] Construct a BVH for dynamic scenery using specialized builders for various types of animation. Add a top-
+level BVH to combine the resulting sub-BVHs, and adapt your traversal code to handle rigid motion. Provide
+a demo to prove that your BVH handles animated scenes (2 pts). ??? What is?, 2pts
+- [ ] Construct Sah Bvh for 5M tris scene in less than 1 second, 1pt
+- [?] Implement packet traversal for primary and secondary rays [3] (2 pts) (warning: only helps Whitted). ??? Skip?, 2pts
+- [?] Construct a 4-way BVH by collapsing a 2-way BVH, and traverse this structure. The resulting traversal speed
+must be an improvement over 2-way BVH traversal (1 pt) (good for Kajiya, packets are better for Whitted). ??? What is? Want it!, 1pt
+- [ ] Render a 1B poly scene in 5 seconds or less, 5pts
+- [ ] Use Bvh on gpu
+### GPU Pathtracing
+- [ ] Basic pathtracer (area lights, materials, speculars, dielectrics, beer's law)
+- [  ] Frame energy
+- [  ] Accumulator buffer
+- [  ] Movement
+- [  ] Next event estimation (NEE), 1pt
+- [  ] Russian roulette (RR), 0.5pts
+- [  ] Importance sampling of BRDF, 0.5pts
+- [  ] Importance sampling of lights, 1pt
+- [  ] Depth of field, 0.5pts
+- [  ] Blue noise, 1 pt
+- [  ] Multiple importance samplign (MIS), 1.5pts
+- [  ] Spectral rendering, 3pts
+- [  ] Motion blur (eh), 0.5pts
+
 ## P1 Checklist: Whitted CPU
 - [x] architecture
 - [x] cam: pos, dir, fov, aspect
@@ -48,7 +79,6 @@ QGMLWY  |Typing | G, L, M, T, S, N                               | U, E, A, O   
 - skybox cubemap
 - procedural sky
 - use Wang hash + xor32 on gpu
-- accelerating structure
 - denoising
 - optimize pow: gamma correct images before upload
 - optimize vector loading: use vload3 and allign the buffer for it

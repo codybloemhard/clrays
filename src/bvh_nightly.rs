@@ -126,7 +126,7 @@ impl Bvh{
         internal_intersect(self, 0, scene, ray, &mut closest, ldist, inv_dir, dir_is_neg)
     }
 
-    pub fn from(scene: &Scene) -> Self{
+    pub fn from(scene: &Scene, bins: usize) -> Self{
         let prims = scene.spheres.len() + scene.triangles.len();
 
         let mut is = (0..prims as u32).into_iter().collect::<Vec<_>>();
@@ -139,7 +139,7 @@ impl Bvh{
         ).collect::<Vec<_>>();
         let mut poolptr = 2;
 
-        Self::subdivide(&bounds, &mut is, &mut vs, 0, &mut poolptr, 0, prims);
+        Self::subdivide(&bounds, &mut is, &mut vs, 0, &mut poolptr, 0, prims, bins);
 
         // vs = vs.into_iter().filter(|v| v.bound != AABB::default()).collect::<Vec<_>>();
         // println!("{:#?}", vs);
@@ -150,7 +150,7 @@ impl Bvh{
         }
     }
 
-    fn subdivide(bounds: &[AABB], is: &mut[u32], vs: &mut[Vertex], current: usize, poolptr: &mut u32, first: usize, count: usize){
+    fn subdivide(bounds: &[AABB], is: &mut[u32], vs: &mut[Vertex], current: usize, poolptr: &mut u32, first: usize, count: usize, bins: usize){
         let v = &mut vs[current];
         v.bound = Self::bound(&is[first..first + count], bounds);
 
@@ -160,7 +160,7 @@ impl Bvh{
             return;
         }
 
-        let l_count = Self::partition(bounds, is, v.bound, first, count);
+        let l_count = Self::partition(bounds, is, v.bound, first, count, bins);
 
         if l_count == 0 || l_count == count{ // leaf
             v.left_first = first as u32; // first
@@ -173,12 +173,12 @@ impl Bvh{
         *poolptr += 2;
         let lf = v.left_first as usize;
 
-        Self::subdivide(bounds, is, vs, lf, poolptr, first, l_count);
-        Self::subdivide(bounds, is, vs, lf + 1, poolptr, first + l_count, count - l_count);
+        Self::subdivide(bounds, is, vs, lf, poolptr, first, l_count, bins);
+        Self::subdivide(bounds, is, vs, lf + 1, poolptr, first + l_count, count - l_count, bins);
     }
 
-    fn partition(bounds: &[AABB], is: &mut[u32], bound: AABB, first: usize, count: usize) -> usize{
-        let (axis, split) = Self::sah_binned(bounds, &is[first..first + count], bound);
+    fn partition(bounds: &[AABB], is: &mut[u32], bound: AABB, first: usize, count: usize, bins: usize) -> usize{
+        let (axis, split) = Self::sah_binned(bounds, &is[first..first + count], bound, bins);
         let mut a = first; // first
         let mut b = first + count - 1; // last
         while a <= b{
@@ -200,14 +200,15 @@ impl Bvh{
         bound.grown(Vec3::EPSILON)
     }
 
-    fn sah_binned(bounds: &[AABB], is: &[u32], top_bound: AABB) -> (Axis, f32) {
+    fn sah_binned(bounds: &[AABB], is: &[u32], top_bound: AABB, bins: usize) -> (Axis, f32) {
+        let binsf = bins as f32;
         let diff = top_bound.b.subed(top_bound.a);
-        let axis_valid = [diff.x > 12.0 * EPSILON, diff.y > 12.0 * EPSILON, diff.z > 12.0 * EPSILON];
+        let axis_valid = [diff.x > binsf * EPSILON, diff.y > binsf * EPSILON, diff.z > binsf * EPSILON];
 
         // precompute lerps
-        let mut lerps = [Vec3::ZERO; 12];
+        let mut lerps = vec![Vec3::ZERO; bins];
         for (i, item) in lerps.iter_mut().enumerate(){
-            *item = top_bound.lerp(i as f32 / 12.0);
+            *item = top_bound.lerp(i as f32 / binsf);
         }
 
         // compute best combination; minimal cost

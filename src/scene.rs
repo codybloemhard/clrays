@@ -265,7 +265,6 @@ pub struct Scene{
     pub bvh: BVH,
     pub bvh_mid: BVH,
     pub bvh_nightly: Bvh,
-    pub show_bvh: bool
 }
 
 impl Default for Scene {
@@ -331,7 +330,6 @@ impl Scene{
                 }
             },
             bvh_nightly: Bvh::default(),
-            show_bvh: true, // show boxes
         }
     }
 
@@ -475,8 +473,8 @@ impl Scene{
     pub fn generate_bvh_mid(&mut self) {
         self.bvh_mid = BVH::build(self, false);
     }
-    pub fn generate_bvh_nightly(&mut self){
-        self.bvh_nightly = Bvh::from(self);
+    pub fn generate_bvh_nightly(&mut self, bins: usize){
+        self.bvh_nightly = Bvh::from(self, bins);
     }
 
     pub fn either_sphere_or_triangle(&self, index: usize) -> Either<&Sphere, &Triangle>{
