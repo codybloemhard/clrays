@@ -144,6 +144,5 @@ impl AABB {
         v.x * v.z * 2.0 +
         v.y * v.z * 2.0
     }
-
 }
 

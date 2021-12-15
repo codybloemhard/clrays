@@ -265,7 +265,6 @@ pub struct Scene{
     pub bvh: BVH,
     pub bvh_mid: BVH,
     pub bvh_nightly: Bvh,
-    pub use_bvh: bool,
     pub show_bvh: bool
 }
 
@@ -333,7 +332,6 @@ impl Scene{
             },
             bvh_nightly: Bvh::default(),
             show_bvh: true, // show boxes
-            use_bvh: true,  // show pixel differences
         }
     }
 

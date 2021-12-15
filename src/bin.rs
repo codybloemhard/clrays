@@ -193,8 +193,9 @@ pub fn main() -> Result<(), String>{
     // https://groups.csail.mit.edu/graphics/classes/6.837/F03/models/
     // load_model("assets/models/object-scene.obj", Material::basic(), &mut scene);
     let model_mat = Material::basic()
-            .as_dielectric()
-            .with_refraction(2.0);
+            .with_reflectivity(0.3);
+            // .as_dielectric()
+            // .with_refraction(2.0);
     load_model("assets/models/teapot.obj", model_mat, &mut scene);
 
     Light{
@@ -203,19 +204,23 @@ pub fn main() -> Result<(), String>{
         col: Vec3::ONE,
     }.add(&mut scene);
 
-    println!("build bvh...");
-    scene.generate_bvh_sah();
-    //scene.generate_bvh_mid();
-    println!("bvh is build");
-    //scene.bvh.node.print(0);
-    let mut v = Vec::new();
-    scene.bvh.node.get_prim_counts(&mut v);
-    println!("{:?}", v);
+    // println!("build bvh...");
+    // scene.generate_bvh_sah();
+    // scene.generate_bvh_mid();
+    // println!("bvh is build");
+    // scene.bvh.node.print(0);
+    // let mut v0 = Vec::new();
+    // scene.bvh.node.get_prim_counts(&mut v0);
+    // println!("{:?}, {}, {}", v0, v0.len(), v0.iter().sum::<usize>());
 
     scene.generate_bvh_nightly();
-    let mut v = Vec::new();
-    scene.bvh_nightly.get_prim_counts(0, &mut v);
-    println!("{:?}", v);
+    // let mut v1 = Vec::new();
+    // scene.bvh_nightly.get_prim_counts(0, &mut v1);
+    // println!("{:?}, {}, {}", v1, v1.len(), v1.iter().sum::<usize>());
+
+    // println!("{:?}, {:?}", scene.bvh.node.bounds, scene.bvh_nightly.vertices[0].bound);
+    // println!("{:?}, {:?}", scene.bvh.node.left.as_ref().unwrap().bounds, scene.bvh_nightly.vertices[2].bound);
+    // println!("{:?}, {:?}", scene.bvh.node.right.as_ref().unwrap().bounds, scene.bvh_nightly.vertices[3].bound);
 
     info.set_time_point("Setting up scene");
     scene.pack_textures(&mut info);
@@ -226,8 +231,8 @@ pub fn main() -> Result<(), String>{
         start_in_focus_mode: false,
         max_render_depth: 4,
     };
-    // let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O, T, Y), settings);
-    let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O, F, B, W, Y), settings);
+    // let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O, T), settings);
+    let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O, F, B, W), settings);
 
     // let (w, h) = (960, 540);
     // let (w, h) = (1600, 900);

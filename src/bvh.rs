@@ -222,12 +222,11 @@ impl Node {
                 }
             }
         }
-
         // println!("apply best...");
         // apply best
         let (_, axis, i_lerp) = best;
         let val = lerps[i_lerp].fake_arr(axis);
-        println!("SPLIT: {}", val);
+        // println!("SPLIT: {}", val);
 
         // Define primitives for left and right
         let mut left  : Vec<Primitive> = vec![];

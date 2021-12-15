@@ -13,17 +13,17 @@ pub enum LoopRequest{
     Export,
 }
 
-const KEYS_AMOUNT: usize = 14;
+const KEYS_AMOUNT: usize = 13;
 pub type Keymap = [Keycode; KEYS_AMOUNT];
 
 #[macro_export]
 macro_rules! build_keymap{
     ($mfo:ident,$mba:ident,$mle:ident,$mri:ident,$mup:ident,$mdo:ident,
      $lup:ident,$ldo:ident,$lle:ident,$lri:ident,$foc:ident,$scr:ident,
-     $lol:ident,$lmao:ident) => {
+     $bvh:ident) => {
         [Keycode::$mfo, Keycode::$mba, Keycode::$mle, Keycode::$mri, Keycode::$mup, Keycode::$mdo,
          Keycode::$lup, Keycode::$ldo, Keycode::$lle, Keycode::$lri, Keycode::$foc, Keycode::$scr,
-         Keycode::$lol, Keycode::$lmao]
+         Keycode::$bvh]
     }
 }
 
@@ -152,10 +152,6 @@ pub fn fps_input_fn(events: &[Event], scene: &mut Scene, state: &mut State) -> L
             Event::KeyDown { keycode: Some(x), .. } if *x == state.key_map[12] => {
                 print!("Toggle BVH rendering");
                 scene.show_bvh = !scene.show_bvh;
-            },
-            Event::KeyDown { keycode: Some(x), .. } if *x == state.key_map[13] => {
-                print!("Toggle BVH tracing");
-                scene.use_bvh = !scene.use_bvh;
             },
             Event::KeyDown { keycode: Some(x), repeat: false, .. } => {
                 for (i, binding) in state.key_map.iter().enumerate(){

@@ -1,7 +1,6 @@
 use crate::scene::{ Scene, Material };
 use crate::vec3::Vec3;
 use crate::state::{ RenderMode, State };
-// use crate::bvh::{ Bvh };
 use crate::consts::*;
 
 use rand::prelude::*;
@@ -13,7 +12,7 @@ use inter::*;
 #[allow(clippy::many_single_char_names)]
 pub fn whitted(
     w: usize, h: usize, threads: usize,
-    scene: &Scene, /*bvh: &Bvh,*/ tex_params: &[u32], textures: &[u8],
+    scene: &Scene, tex_params: &[u32], textures: &[u8],
     screen: &mut Vec<u32>, acc: &mut Vec<Vec3>, state: &mut State, rng: &mut ThreadRng
 ){
     let reduce = match state.render_mode{
@@ -87,7 +86,7 @@ pub fn whitted(
                     } else {
                         let ray = Ray { pos, dir };
                         let contexts = Contexts::new();
-                        let mut col = whitted_trace(ray, scene, /*bvh,*/ tex_params, textures, max_depth, contexts);
+                        let mut col = whitted_trace(ray, scene, tex_params, textures, max_depth, contexts);
                         col.pow_scalar(1.0 / GAMMA);
                         col
                     };
@@ -166,43 +165,26 @@ fn u32tf01(int: u32) -> f32{
 // trace light ray through scene
 fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, contexts: Contexts) -> Vec3{
     let mut hit = RayHit::NULL;
-    if scene.use_bvh {
-        let (bounding_boxes_intersections, _, depth) = scene.bvh_nightly.intersect(ray, scene, &mut hit);
-        //let (bounding_boxes_intersections, _, depth) = scene.bvh.intersect(ray, scene, &mut hit);
-        if scene.show_bvh { // show boxes
-            let val = depth;
-            let lim1 = 10.0;
-            let lim2 = 100.0;
+    let (aabb_hits, dep) = scene.bvh_nightly.intersect(ray, scene, &mut hit);
+    //let (aabb_hits, _, dep) = scene.bvh.intersect(ray, scene, &mut hit);
+    if scene.show_bvh { // show boxes
+        let lim1 = 10.0;
+        let lim2 = 100.0;
 
-            if bounding_boxes_intersections < lim1 as usize {
-                return Vec3 {
-                    x: val as f32 / lim1,
-                    y: val as f32 / lim1,
-                    z: val as f32 / lim1,
-                };
-            } else {
-                // zero is blue
-                // 100 is red
-                return Vec3 {
-                    x: val as f32 / lim2,
-                    y: 0.0,
-                    z: 1.0 - val as f32 / lim2,
-                };
-            }
-        };
-    } else {
-        hit = inter_scene(ray, scene);
+        if aabb_hits < lim1 as usize {
+            return Vec3::uni(dep as f32 / lim1);
+        } else {
+            // zero is blue, 100 is red
+            return Vec3 {
+                x: dep as f32 / lim2,
+                y: 0.0,
+                z: 1.0 - dep as f32 / lim2,
+            };
+        }
     };
-
-    // println!("intersections: {:?}", scene.bvh.intersect(ray, scene, &mut hit));
 
     if depth == 0 || hit.is_null() {
         return get_sky_col(ray.dir, scene, tps, ts);
-        // return Vec3{
-        //     x: 1.0,
-        //     y: 1.0,
-        //     z: 1.0,
-        // }
     }
 
     let absorption_context;
@@ -285,7 +267,7 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, con
     }
 
     // diffuse, specular
-    let (mut diff, spec) = blinn(&hit, mat, roughness, scene, /*bvh,*/ ray.dir);
+    let (mut diff, spec) = blinn(&hit, mat, roughness, scene, ray.dir);
     diff.mul(texcol);
 
     // dielectric: transparency / refraction and reflection
@@ -314,13 +296,13 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, con
         } else {
             contexts.popped()
         };
-        whitted_trace(ray_next, scene, /*bvh,*/ tps, ts, depth - 1, contexts_next).scaled(transparency)
+        whitted_trace(ray_next, scene, tps, ts, depth - 1, contexts_next).scaled(transparency)
     } else { Vec3::BLACK };
 
     // reflection
     let refl = if reflectivity > EPSILON {
         let ray_next = Ray{ pos: hit.pos.added(normal.scaled(EPSILON)), dir: ray.dir.reflected(normal) };
-        whitted_trace(ray_next, scene, /*bvh,*/ tps, ts, depth - 1, contexts).scaled(reflectivity)
+        whitted_trace(ray_next, scene, tps, ts, depth - 1, contexts).scaled(reflectivity)
     } else { Vec3::BLACK };
 
     let color = (diff).scaled(1.0 - reflectivity - transparency)
@@ -483,11 +465,11 @@ fn resolve_dielectric(ni: f32, nt: f32, dir: Vec3, normal: Vec3) -> (f32, Vec3){
 
 // get diffuse light incl colour of hit with all lights
 #[inline]
-fn blinn(hit: &RayHit, mat: &Material, roughness: f32, scene: &Scene, /*bvh: &Bvh,*/ viewdir: Vec3) -> (Vec3, Vec3){
+fn blinn(hit: &RayHit, mat: &Material, roughness: f32, scene: &Scene, viewdir: Vec3) -> (Vec3, Vec3){
     let mut col = Vec3::ONE.scaled(AMBIENT);
     let mut spec = Vec3::ZERO;
     for light in &scene.lights{
-        let res = blinn_single(roughness, light.pos, light.intensity, viewdir, hit, scene/*, bvh*/);
+        let res = blinn_single(roughness, light.pos, light.intensity, viewdir, hit, scene);
         col.add(light.col.scaled(res.0));
         spec.add(light.col.scaled(res.1));
     }
@@ -496,7 +478,7 @@ fn blinn(hit: &RayHit, mat: &Material, roughness: f32, scene: &Scene, /*bvh: &Bv
 
 // get diffuse light strength for hit for a light
 #[inline]
-fn blinn_single(roughness: f32, lpos: Vec3, lpow: f32, viewdir: Vec3, hit: &RayHit, scene: &Scene/*, bvh: &Bvh*/) -> (f32, f32){
+fn blinn_single(roughness: f32, lpos: Vec3, lpow: f32, viewdir: Vec3, hit: &RayHit, scene: &Scene) -> (f32, f32){
     let mut to_l = Vec3::subed(lpos, hit.pos);
     let dist = Vec3::len(to_l);
     to_l.scale(1.0 / (dist + EPSILON));
@@ -512,7 +494,8 @@ fn blinn_single(roughness: f32, lpos: Vec3, lpow: f32, viewdir: Vec3, hit: &RayH
     }
     // exposed to light or not
     let lray = Ray { pos: hit.pos.added(hit.nor.scaled(EPSILON)), dir: to_l };
-    if is_occluded(lray, scene, /*bvh, */dist){
+
+    if scene.bvh_nightly.occluded(lray, scene, dist){
         return (0.0, 0.0);
     }
     // specular
@@ -546,39 +529,6 @@ fn sky_sphere_uv(nor: Vec3) -> (f32, f32){
     let u = 0.5 + (f32::atan2(nor.z, nor.x) / (2.0 * PI));
     let v = 0.5 - (f32::asin(nor.y) / PI);
     (u, v)
-}
-
-// INTERSECTING ------------------------------------------------------------
-
-// intersect whole scene, find closest hit
-#[inline]
-fn inter_scene<'a>(ray: Ray, scene: &'a Scene/*, bvh: &'a Bvh*/) -> RayHit<'a>{
-    let mut closest = RayHit::NULL;
-    for plane in &scene.planes { inter_plane(ray, plane, &mut closest); }
-    for sphere in &scene.spheres { inter_sphere(ray, sphere, &mut closest); }
-    for tri in &scene.triangles { inter_triangle(ray, tri, &mut closest); }
-    closest
-
-    // let mut closest = bvh.intersect(scene, ray);
-    // for plane in &scene.planes { inter_plane(ray, plane, &mut closest); }
-    // closest
-}
-
-// intersect whole scene, stop at first intersection at all
-#[inline]
-fn is_occluded(ray: Ray, scene: &Scene, /*bvh: &Bvh,*/ ldist: f32) -> bool{
-    for plane in &scene.planes {
-        if dist_plane(ray, plane) < ldist { return true; }
-    }
-    for sphere in &scene.spheres {
-        if dist_sphere(ray, sphere) < ldist { return true; }
-    }
-    for tri in &scene.triangles {
-        if dist_triangle(ray, tri) < ldist { return true; }
-    }
-    false
-
-    // bvh.occluded(scene, ray, ldist)
 }
 
 // TEXTURES ------------------------------------------------------------
