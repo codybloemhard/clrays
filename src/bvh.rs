@@ -1,4 +1,4 @@
-use crate::scene::{Scene, Either, Model, ModelIndex, MeshIndex};
+use crate::scene::{Scene, Either, Model, ModelIndex, MeshIndex, Triangle};
 use crate::cpu::inter::*;
 use crate::aabb::*;
 use crate::vec3::Vec3;
@@ -10,7 +10,7 @@ use std::sync::Arc;
 pub struct Bvh{
     pub indices: Vec<u32>,
     pub vertices: Vec<Vertex>,
-    pub mesh: Arc<Mesh>,
+    pub mesh: Mesh
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -35,15 +35,15 @@ impl Bvh{
 
     // (aabb hits, depth)
     #[inline]
-    pub fn intersect(&self, ray: Ray, hit: &mut RayHit) -> (usize, usize){
+    pub fn intersect(&self, ray: Ray, scene: &Scene, hit: &mut RayHit) -> (usize, usize){
 
-        fn internal_intersect(bvh: &Bvh, current: usize, ray: Ray, hit: &mut RayHit, inv_dir: Vec3, dir_is_neg: [usize; 3]) -> (usize, usize){
+        fn internal_intersect(bvh: &Bvh, current: usize, ray: Ray, scene: &Scene, hit: &mut RayHit, inv_dir: Vec3, dir_is_neg: [usize; 3]) -> (usize, usize){
             let vs = &bvh.vertices;
             let is = &bvh.indices;
             let v = vs[current];
             if v.count > 0{ // leaf
                 for i in is.iter().skip(v.left_first as usize).take(v.count as usize).map(|i| *i as usize){
-                    inter_triangle(ray, &bvh.mesh.triangles[i], hit);
+                    inter_triangle(ray,scene.get_mesh_triangle(&bvh.mesh, i), hit);
                 }
                 (0, v.count as usize)
             } else { // vertex
@@ -62,9 +62,9 @@ impl Bvh{
                 let mut x2: (usize, usize) = (0, 0);
 
                 if ts[order[0]] < hit.t {
-                    x1 = internal_intersect(bvh, nodes[order[0]], ray, hit, inv_dir, dir_is_neg);
+                    x1 = internal_intersect(bvh, nodes[order[0]], ray, scene, hit, inv_dir, dir_is_neg);
                     if ts[order[1]] < hit.t {
-                        x2 = internal_intersect(bvh, nodes[order[1]], ray, hit, inv_dir, dir_is_neg);
+                        x2 = internal_intersect(bvh, nodes[order[1]], ray, scene, hit, inv_dir, dir_is_neg);
                     }
                 }
                 (2 + x1.0 + x2.0, 1 + x1.1.max(x2.1))
@@ -79,7 +79,7 @@ impl Bvh{
         if self.vertices.is_empty() { return (0, 0); }
         let inv_dir = ray.inverted().dir;
         let dir_is_neg : [usize; 3] = ray.direction_negations();
-        let result = internal_intersect(self, 0, ray, hit, inv_dir, dir_is_neg);
+        let result = internal_intersect(self, 0, ray, scene, hit, inv_dir, dir_is_neg);
         result
     }
 
@@ -134,18 +134,18 @@ impl Bvh{
     //     internal_intersect(self, 0, scene, ray, &mut hit, ldist, inv_dir, dir_is_neg)
     // }
 
-    pub fn from_mesh(mesh: Arc<Mesh>, bins: usize) -> Self{
-        let prims = mesh.triangles.len();
-        if prims == 0 {
+    pub fn from_mesh(mesh: Mesh, triangles: &Vec<Triangle>, bins: usize) -> Self{
+        let n = triangles.len();
+        if n == 0 {
             return Self{ indices: vec![], vertices: vec![], mesh };
         }
-        let mut is = (0..prims as u32).into_iter().collect::<Vec<_>>();
-        let mut vs = vec![Vertex::default(); prims * 2];
-        let bounds = (0..prims).into_iter().map(|i|
-            AABB::from_points(&[mesh.triangles[i].a, mesh.triangles[i].b, mesh.triangles[i].c])
+        let mut is = (0..n as u32).into_iter().collect::<Vec<_>>();
+        let mut vs = vec![Vertex::default(); n * 2];
+        let bounds = (0..n).into_iter().map(|i|
+            AABB::from_points(&[triangles[i].a, triangles[i].b, triangles[i].c])
         ).collect::<Vec<_>>();
         let mut poolptr = 2;
-        Self::subdivide(&bounds, &mut is, &mut vs, 0, &mut poolptr, 0, prims, bins);
+        Self::subdivide(&bounds, &mut is, &mut vs, 0, &mut poolptr, 0, n, bins);
         Self{
             indices: is,
             vertices: vs,

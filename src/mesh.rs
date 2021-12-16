@@ -5,24 +5,26 @@ use obj::*;
 use crate::bvh::{Bvh, Vertex};
 use crate::aabb::AABB;
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Mesh{
-    pub name: String,
-    pub triangles: Vec<Triangle>
+    pub name: String, // used to check mesh is load
+    pub start: usize, // index to first triangle
+    pub count: usize  // number of triangles in this mesh
 }
 
 impl Mesh {
-    pub fn teapot() -> Self{
+    #[inline]
+    pub fn get_triangle(self, index: usize, scene: &Scene) -> &Triangle {
+        &scene.triangles[self.start + index]
+    }
+
+    pub fn teapot() -> Vec<Triangle>{
         Mesh::load_model("assets/models/teapot.obj")
     }
-    pub fn dragon() -> Self{
+    pub fn dragon() -> Vec<Triangle>{
         Mesh::load_model("assets/models/dragon.obj")
     }
-    pub fn load_model(file_path: &str) -> Self{
-        let mut mesh = Mesh {
-            name: file_path.parse().unwrap(),
-            triangles: vec![]
-        };
+    pub fn load_model(file_path: &str) -> Vec<Triangle>{
         let obj = if let Ok(o) = Obj::load(file_path){ o }
         else { panic!("Could not load file: {}!", file_path); };
         let pos = obj.data.position;
@@ -50,6 +52,7 @@ impl Mesh {
         // 5B = 5.000M = 50.000 * 100.000
         // we require 50.000 dragons
         // println!("model triangle size: {}", tris.len()); // dragon = 100.000
+        let mut triangles = vec![];
         for tri in &tris{
             let x0 = pos[tri[0]][0];
             let y0 = pos[tri[0]][1];
@@ -60,23 +63,20 @@ impl Mesh {
             let x2 = pos[tri[2]][0];
             let y2 = pos[tri[2]][1];
             let z2 = pos[tri[2]][2];
-            mesh.triangles.push( Triangle{
+            triangles.push(Triangle{
                 a: Vec3::new(x0, y0, z0),
                 b: Vec3::new(x1, y1, z1),
                 c: Vec3::new(x2, y2, z2),
-            });
+            })
         }
-        mesh
+        triangles
     }
 
-    pub fn build_triangle_wall(mat: u8, scene: &mut Scene, diff: f32, offset: f32) -> Self{
-        let mut mesh = Mesh {
-            name: "triangle_wall".parse().unwrap(),
-            triangles: vec![],
-        };
+    pub fn build_triangle_wall(mat: u8, scene: &mut Scene, diff: f32, offset: f32) -> Vec<Triangle>{
         let z = 0.0;
         let mut x = -offset;
         let mut total = 0;
+        let mut triangles = vec![];
         while x < offset { // (2.0*offset)/diff
             let mut y = -offset;
             while y < offset { // 2.0*(2.0*offset)/diff
@@ -95,12 +95,12 @@ impl Mesh {
                 let x3 = x + diff;
                 let y3 = y + diff;
                 let z3 = z;
-                mesh.triangles.push( Triangle{
+                triangles.push( Triangle{
                     a: Vec3::new(x0, y0, z0),
                     b: Vec3::new(x1, y1, z1),
                     c: Vec3::new(x2, y2, z2),
                 });
-                mesh.triangles.push( Triangle{
+                triangles.push( Triangle{
                     a: Vec3::new(x1, y1, z1),
                     b: Vec3::new(x2, y2, z2),
                     c: Vec3::new(x3, y3, z3),
@@ -111,7 +111,7 @@ impl Mesh {
             x += diff;
         }
         // println!("total:{}", total);
-        mesh
+        triangles
     }
 }
 

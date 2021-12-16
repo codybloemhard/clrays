@@ -201,7 +201,7 @@ pub type ModelIndex = u8;
 
 impl Bufferizable for Mesh{
     fn get_data(&self) -> Vec<f32>{
-        self.triangles.iter().map(|triangle| triangle.get_data()).flatten().collect()
+        vec![self.start as f32,self.count as f32]
     }
 }
 
@@ -272,7 +272,8 @@ pub struct Scene{
     pub planes: Vec<Plane>,
     pub lights: Vec<Light>,
     pub mats: Vec<Material>,
-    pub meshes: Vec<Arc<Mesh>>,
+    pub triangles: Vec<Triangle>,
+    pub meshes: Vec<Mesh>,
     pub models: Vec<Model>,
     pub bvhs: Vec<Bvh>,
     scene_params: [u32; Self::SCENE_PARAM_SIZE],
@@ -308,6 +309,7 @@ impl Scene{
             spheres: Vec::new(),
             planes: Vec::new(),
             mats: Vec::new(),
+            triangles: Vec::new(),
             meshes: Vec::new(),
             models: Vec::new(),
             bvhs: Vec::new(),
@@ -342,13 +344,13 @@ impl Scene{
         let mut len = self.lights.len() * Self::LIGHT_SIZE as usize;
         len += self.spheres.len() * Self::SPHERE_SIZE as usize;
         len += self.planes.len() * Self::PLANE_SIZE as usize;
-        // len += self.triangles.len() * Self::TRIANGLE_SIZE as usize;
+        len += self.triangles.len() * Self::TRIANGLE_SIZE as usize;
         let mut res = build_vec(len);
         let mut i = 0;
         Self::bufferize(&mut res, &mut i, &self.lights, Self::LIGHT_SIZE as usize);
         Self::bufferize(&mut res, &mut i, &self.spheres, Self::SPHERE_SIZE as usize);
         Self::bufferize(&mut res, &mut i, &self.planes, Self::PLANE_SIZE as usize);
-        // Self::bufferize(&mut res, &mut i, &self.triangles, Self::TRIANGLE_SIZE as usize);
+        Self::bufferize(&mut res, &mut i, &self.triangles, Self::TRIANGLE_SIZE as usize);
         make_nonzero_len(&mut res);
         res
     }
@@ -440,18 +442,6 @@ impl Scene{
             (self.mats.len() - 1) as MaterialIndex
         }
     }
-
-    pub fn add_mesh(&mut self, mesh_name: String) -> MeshIndex {
-        if let Some(i) = self.meshes.iter().position(|m| *m.name == mesh_name) {
-            i as u8
-        } else {
-            let mesh= Arc::new(Mesh::load_model(&*mesh_name));
-            let bvh = Bvh::from_mesh(mesh.clone(), 12);
-            self.bvhs.push(bvh);
-            self.meshes.push(mesh);
-            assert!(self.meshes.len() < 255);
-            (self.meshes.len() - 1) as u8
-        }
     }
 
     pub fn add_model(&mut self, model: Model) {
@@ -497,7 +487,35 @@ impl Scene{
     pub fn add_light(&mut self, l: Light){ self.lights.push(l); }
     pub fn add_sphere(&mut self, s: Sphere){ self.spheres.push(s); }
     pub fn add_plane(&mut self, p: Plane){ self.planes.push(p); }
-    // pub fn add_triangle(&mut self, b: Triangle){ self.triangles.push(b); }
+    pub fn add_triangle(&mut self, b: Triangle){ self.triangles.push(b); }
+
+    pub fn add_mesh(&mut self, mesh_name: String) -> MeshIndex {
+        if let Some(i) = self.meshes.iter().position(|m| *m.name == mesh_name) {
+            i as u8
+        } else {
+            // todo: mesh references to index of first triangle, including count
+            let triangles = Mesh::load_model(&*mesh_name);
+            let mesh = Mesh {
+                name: mesh_name,
+                start: self.triangles.len(),
+                count: triangles.len()
+            };
+            let bvh = Bvh::from_mesh(mesh.clone(), &triangles, 12);
+            for tri in triangles {
+                self.add_triangle(tri);
+            }
+            self.bvhs.push(bvh);
+            self.meshes.push(mesh);
+            assert!(self.meshes.len() < 255);
+            (self.meshes.len() - 1) as u8
+        }
+    }
+
+    #[inline]
+    pub fn get_mesh_triangle(&self, mesh: &Mesh, index: usize) -> &Triangle{
+        &self.triangles[mesh.start + index]
+    }
+
 
     // pub fn either_sphere_or_triangle(&self, index: usize) -> Either<&Sphere, &Triangle>{
     //     let sl = self.spheres.len();
