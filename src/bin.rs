@@ -210,13 +210,18 @@ pub fn main() -> Result<(), String>{
             // .as_dielectric()
             // .with_refraction(2.0);
     // load_model("assets/models/teapot.obj", model_mat.add_to_scene(&mut scene), &mut scene);
-    // let dragon = Model{
-    //     pos: Default::default(),
-    //     rot: Default::default(),
-    //     mat: scene.add_material(Material::basic()),
-    //     mesh: scene.add_mesh("assets/models/dragon.obj".parse().unwrap())
-    // };
-    // scene.add_model(dragon);
+    let mut dragon = Model{
+        pos: Default::default(),
+        rot: Default::default(),
+        mat: scene.add_material(Material::basic()),
+        mesh: scene.add_mesh("assets/models/dragon.obj".parse().unwrap())
+    };
+    for i in 0..10 {
+        println!("{}",i);
+        dragon.pos = dragon.pos.added(Vec3::UP.scaled(10.0));
+        dragon.rot.x = dragon.rot.x + 0.5;
+        scene.add_model(dragon);
+    }
 
     Light{
         pos: Vec3::new(0.0, 3.0, -5.0),
@@ -233,7 +238,7 @@ pub fn main() -> Result<(), String>{
     // scene.bvh.node.get_prim_counts(&mut v0);
     // println!("{:?}, {}, {}", v0, v0.len(), v0.iter().sum::<usize>());
 
-    scene.generate_bvh_nightly(16);
+    // scene.generate_bvh_nightly(16);
     // let mut v1 = Vec::new();
     // scene.bvh_nightly.get_prim_counts(0, &mut v1);
     // println!("{:?}, {}, {}", v1, v1.len(), v1.iter().sum::<usize>());

@@ -87,11 +87,11 @@ pub fn whitted(
                     } else {
                         let ray = Ray { pos, dir };
                         let contexts = Contexts::new();
-                        let mut col = if show_bvh{
-                            debug_trace(ray, scene)
-                        } else {
-                            whitted_trace(ray, scene, tex_params, textures, max_depth, contexts)
-                        };
+                        // let mut col = if show_bvh{
+                        //     debug_trace(ray, scene)
+                        // } else {
+                        let mut col = whitted_trace(ray, scene, tex_params, textures, max_depth, contexts);
+                        // };
                         col.pow_scalar(1.0 / GAMMA);
                         col
                     };
@@ -167,29 +167,38 @@ fn u32tf01(int: u32) -> f32{
 
 // WHITTED ------------------------------------------------------------
 
-fn debug_trace(ray: Ray, scene: &Scene) -> Vec3{
-    let mut hit = RayHit::NULL;
-    let (aabb_hits, dep) = scene.bvh_nightly.intersect(ray, &mut hit);
-    //let (aabb_hits, _, dep) = scene.bvh.intersect(ray, scene, &mut hit);
-    let lim1 = 10.0;
-    let lim2 = 100.0;
-
-    if aabb_hits < lim1 as usize {
-        Vec3::uni(dep as f32 / lim1)
-    } else {
-        // zero is blue, 100 is red
-        Vec3 {
-            x: dep as f32 / lim2,
-            y: 0.0,
-            z: 1.0 - dep as f32 / lim2,
-        }
-    }
-}
+// fn debug_trace(ray: Ray, scene: &Scene) -> Vec3{
+//     let mut hit = RayHit::NULL;
+//     let (aabb_hits, dep) = scene.bvh_nightly.intersect(ray, &mut hit);
+//     //let (aabb_hits, _, dep) = scene.bvh.intersect(ray, scene, &mut hit);
+//     let lim1 = 10.0;
+//     let lim2 = 100.0;
+//
+//     if aabb_hits < lim1 as usize {
+//         Vec3::uni(dep as f32 / lim1)
+//     } else {
+//         // zero is blue, 100 is red
+//         Vec3 {
+//             x: dep as f32 / lim2,
+//             y: 0.0,
+//             z: 1.0 - dep as f32 / lim2,
+//         }
+//     }
+// }
 
 // trace light ray through scene
 fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, contexts: Contexts) -> Vec3{
     let mut hit = RayHit::NULL;
-    scene.bvh_nightly.intersect(ray, &mut hit);
+    for (i, model) in scene.models.iter().enumerate() {
+        let t = hit.t;
+        // transform ray
+        let ray = ray.transformed(model.pos.neged(), model.rot.neged());
+        scene.bvhs[model.mesh as usize].intersect(ray, &mut hit);
+        if hit.t < t {
+            // apply
+            hit.model = i as u8;
+        }
+    }
 
     if depth == 0 || hit.is_null() {
         return get_sky_col(ray.dir, scene, tps, ts);

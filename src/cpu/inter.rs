@@ -11,6 +11,19 @@ pub struct Ray{
 
 impl Ray{
     #[inline]
+    pub fn transformed(mut self, pos: Vec3, rot: Vec3) -> Self{
+        self.pos = self.pos.added(pos);
+        // todo support rotation x and z axis
+        let o = rot.x;
+        self.dir = Vec3{
+            x: self.dir.x*o.cos() - self.dir.z*o.sin(),
+            y: self.dir.y,
+            z: self.dir.x*o.sin() + self.dir.z*o.cos()
+        };
+        self
+    }
+
+    #[inline]
     pub fn inverted(mut self) -> Self{
         self.dir = Vec3 {
             x: if self.dir.x.abs() > EPSILON { 1.0 / self.dir.x } else { self.dir.x.signum() * f32::INFINITY },
@@ -47,7 +60,7 @@ impl RayHit{
         t: MAX_RENDER_DIST,
         uvtype: 255,
         mat: 0,
-        model: 0
+        model: 0,
     };
 
     #[inline]
@@ -124,7 +137,7 @@ impl RayHit{
 // https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm?oldformat=true
 #[inline]
 #[allow(clippy::many_single_char_names)]
-pub fn inter_triangle(ray: Ray, tri: &Triangle, closest: &mut RayHit){
+pub fn inter_triangle(ray: Ray, tri: &Triangle, hit: &mut RayHit){
     let edge1 = Vec3::subed(tri.b, tri.a);
     let edge2 = Vec3::subed(tri.c, tri.a);
     let h = Vec3::crossed(ray.dir, edge2);
@@ -138,15 +151,11 @@ pub fn inter_triangle(ray: Ray, tri: &Triangle, closest: &mut RayHit){
     let v = f * Vec3::dot(ray.dir, q);
     if v < 0.0 || u + v > 1.0 { return; }
     let t = f * Vec3::dot(edge2, q);
-    if t <= EPSILON { return; }
-    if t > closest.t { return; }
-    closest.t = t;
-    closest.pos = ray.pos.added(ray.dir.scaled(t));
-    closest.nor = Vec3::crossed(edge1, edge2).normalized_fast();
-    // todo: convert to mesh intersection...
-    // closest.mat = Some(tri.mat);
-    // closest.uvtype = UV_PLANE;
-    // closest.sphere = None;
+    if t >= EPSILON && t < hit.t {
+        hit.t = t;
+        hit.pos = ray.pos.added(ray.dir.scaled(t));
+        hit.nor = Vec3::crossed(edge1, edge2).normalized_fast();
+    }
 }
 
 #[inline]

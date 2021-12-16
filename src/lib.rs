@@ -22,7 +22,7 @@ pub mod cpu;
 pub mod mesh;
 pub mod consts;
 pub mod aabb;
-pub mod bvh_nightly;
+pub mod bvh;
 
 pub fn test(t: test_platform::PlatformTest){
     test_platform::run_platform_test(t);

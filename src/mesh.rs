@@ -2,7 +2,7 @@ use crate::scene::{Scene, Material, Triangle};
 use crate::vec3::Vec3;
 
 use obj::*;
-use crate::bvh_nightly::{Bvh, Vertex};
+use crate::bvh::{Bvh, Vertex};
 use crate::aabb::AABB;
 
 #[derive(Default)]

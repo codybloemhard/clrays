@@ -3,10 +3,11 @@ use crate::trace_tex::{ TexType, TraceTex };
 use crate::misc::{ Incrementable, build_vec, make_nonzero_len };
 use crate::info::Info;
 use crate::aabb::AABB;
-use crate::bvh_nightly::Bvh;
+use crate::bvh::Bvh;
 
 use std::collections::HashMap;
 use crate::mesh::Mesh;
+use std::sync::Arc;
 
 type MaterialIndex = u8;
 
@@ -204,7 +205,7 @@ impl Bufferizable for Mesh{
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Model{
     pub pos: Vec3,
     // pub scale: Vec3,
@@ -269,11 +270,11 @@ pub struct Camera{
 pub struct Scene{
     pub spheres: Vec<Sphere>,
     pub planes: Vec<Plane>,
-    pub triangles: Vec<Triangle>,
     pub lights: Vec<Light>,
     pub mats: Vec<Material>,
-    pub meshes: Vec<Mesh>,
+    pub meshes: Vec<Arc<Mesh>>,
     pub models: Vec<Model>,
+    pub bvhs: Vec<Bvh>,
     scene_params: [u32; Self::SCENE_PARAM_SIZE],
     next_texture: u32,
     ghost_textures: HashMap<String, (String, TexType)>,
@@ -285,7 +286,6 @@ pub struct Scene{
     pub sky_intensity: f32,
     pub sky_box: u32,
     pub cam: Camera,
-    pub bvh_nightly: Bvh,
 }
 
 impl Default for Scene {
@@ -307,10 +307,10 @@ impl Scene{
         Self{
             spheres: Vec::new(),
             planes: Vec::new(),
-            triangles: Vec::new(),
             mats: Vec::new(),
             meshes: Vec::new(),
             models: Vec::new(),
+            bvhs: Vec::new(),
             lights: Vec::new(),
             scene_params: [0; Self::SCENE_PARAM_SIZE],
             next_texture: 0,
@@ -335,7 +335,6 @@ impl Scene{
                 angle_radius: 0.0,
                 distortion_coefficient: 1.0
             },
-            bvh_nightly: Bvh::default(),
         }
     }
 
@@ -343,13 +342,13 @@ impl Scene{
         let mut len = self.lights.len() * Self::LIGHT_SIZE as usize;
         len += self.spheres.len() * Self::SPHERE_SIZE as usize;
         len += self.planes.len() * Self::PLANE_SIZE as usize;
-        len += self.triangles.len() * Self::TRIANGLE_SIZE as usize;
+        // len += self.triangles.len() * Self::TRIANGLE_SIZE as usize;
         let mut res = build_vec(len);
         let mut i = 0;
         Self::bufferize(&mut res, &mut i, &self.lights, Self::LIGHT_SIZE as usize);
         Self::bufferize(&mut res, &mut i, &self.spheres, Self::SPHERE_SIZE as usize);
         Self::bufferize(&mut res, &mut i, &self.planes, Self::PLANE_SIZE as usize);
-        Self::bufferize(&mut res, &mut i, &self.triangles, Self::TRIANGLE_SIZE as usize);
+        // Self::bufferize(&mut res, &mut i, &self.triangles, Self::TRIANGLE_SIZE as usize);
         make_nonzero_len(&mut res);
         res
     }
@@ -366,8 +365,8 @@ impl Scene{
         self.scene_params[7] = self.planes.len() as u32;
         self.scene_params[8] = i; i += self.planes.len() as u32 * Self::PLANE_SIZE;
         self.scene_params[9] = Self::TRIANGLE_SIZE;
-        self.scene_params[10] = self.triangles.len() as u32;
-        self.scene_params[11] = i; //i += self.triangles.len() as u32 * Self::TRIANGLE_SIZE;
+        // self.scene_params[10] = self.triangles.len() as u32;
+        // self.scene_params[11] = i; //i += self.triangles.len() as u32 * Self::TRIANGLE_SIZE;
         //scene
         self.scene_params[12] = self.skybox;
         self.put_in_scene_params(13, self.sky_col);
@@ -446,7 +445,9 @@ impl Scene{
         if let Some(i) = self.meshes.iter().position(|m| *m.name == mesh_name) {
             i as u8
         } else {
-            let mesh= Mesh::load_model(&*mesh_name);
+            let mesh= Arc::new(Mesh::load_model(&*mesh_name));
+            let bvh = Bvh::from_mesh(mesh.clone(), 12);
+            self.bvhs.push(bvh);
             self.meshes.push(mesh);
             assert!(self.meshes.len() < 255);
             (self.meshes.len() - 1) as u8
@@ -496,21 +497,17 @@ impl Scene{
     pub fn add_light(&mut self, l: Light){ self.lights.push(l); }
     pub fn add_sphere(&mut self, s: Sphere){ self.spheres.push(s); }
     pub fn add_plane(&mut self, p: Plane){ self.planes.push(p); }
-    pub fn add_triangle(&mut self, b: Triangle){ self.triangles.push(b); }
+    // pub fn add_triangle(&mut self, b: Triangle){ self.triangles.push(b); }
 
-    pub fn generate_bvh_nightly(&mut self, bins: usize){
-        self.bvh_nightly = Bvh::from_mesh(&Mesh::dragon(), bins);
-    }
-
-    pub fn either_sphere_or_triangle(&self, index: usize) -> Either<&Sphere, &Triangle>{
-        let sl = self.spheres.len();
-        if index < sl{ // is sphere
-            Either::Left(&self.spheres[index])
-        } else { // is triangle
-            // figure out which model
-            Either::Right(&self.triangles[index - sl])
-        }
-    }
+    // pub fn either_sphere_or_triangle(&self, index: usize) -> Either<&Sphere, &Triangle>{
+    //     let sl = self.spheres.len();
+    //     if index < sl{ // is sphere
+    //         Either::Left(&self.spheres[index])
+    //     } else { // is triangle
+    //         // figure out which model
+    //         Either::Right(&self.triangles[index - sl])
+    //     }
+    // }
 }
 
 pub enum Either<T, S> { Left(T), Right(S) }
