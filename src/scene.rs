@@ -181,6 +181,7 @@ impl SceneItem for Sphere{
     // }
 }
 
+#[derive(Default,Debug)]
 pub struct Triangle{ // 37 byte
     pub a: Vec3, // Vec3: 12 byte
     pub b: Vec3, // Vec3: 12 byte

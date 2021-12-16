@@ -1,6 +1,7 @@
-use crate::consts::EPSILON;
+use crate::consts::{EPSILON, MAX_RENDER_DIST};
 use crate::aabb::Axis;
 use crate::scene::Bufferizable;
+use rand::random;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Orientation {
@@ -36,6 +37,20 @@ impl Vec3{
     pub const BLACK: Vec3 =     Self { x:  0.0, y:  0.0, z:  0.0 };
     pub const WHITE: Vec3 =     Self { x:  1.0, y:  1.0, z:  1.0 };
     pub const EPSILON: Vec3 =   Self { x: EPSILON, y: EPSILON, z: EPSILON};
+
+    #[inline]
+    pub fn as_array(&self) -> [f32;3]{
+        [self.x,self.y,self.z]
+    }
+
+    #[inline]
+    pub fn new_random() -> Self{
+        Self {
+            x: (random::<f32>() - 0.5) * MAX_RENDER_DIST,
+            y: (random::<f32>() - 0.5) * MAX_RENDER_DIST,
+            z: (random::<f32>() - 0.5) * MAX_RENDER_DIST
+        }
+    }
 
     #[inline]
     pub fn new(x: f32, y: f32, z: f32) -> Self{

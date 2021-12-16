@@ -14,6 +14,9 @@ use sdl2::keyboard::Keycode;
 use clrays_rs::consts::*;
 use clrays_rs::scene::{Model, SceneItem};
 use clrays_rs::vec3::Orientation;
+use clrays_rs::bvh::Bvh;
+use clrays_rs::mesh::Mesh;
+use stopwatch::Stopwatch;
 // use clrays_rs::mesh::build_triangle_wall;
 
 pub const USE_WATERFLOOR : bool = false;
@@ -211,6 +214,27 @@ pub fn main() -> Result<(), String>{
             // .as_dielectric()
             // .with_refraction(2.0);
     // load_model("assets/models/teapot.obj", model_mat.add_to_scene(&mut scene), &mut scene);
+
+    // generate 5.000.000 triangles randomly
+    let mut triangles = vec![];
+    for i in 0..5000000{
+        if i % 100000 == 0 {
+            println!("{}",i);
+        }
+        triangles.push(Triangle{
+            a: Vec3::new_random(),
+            b: Vec3::new_random(),
+            c: Vec3::new_random(),
+        });
+        // println!("{},{:?}",i, triangles[i]);
+    }
+    println!("building bvh...");
+    // generate bvh over triangles
+    let watch = Stopwatch::start_new();
+    Bvh::from_mesh(Mesh::default(), &triangles, 12);
+    let mut elapsed = watch.elapsed_ms();
+    println!("done building bvh in {}...", elapsed);
+
     let mut dragon = Model{
         pos: Default::default(),
         rot: Default::default(),
