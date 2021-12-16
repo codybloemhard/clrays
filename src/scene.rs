@@ -9,6 +9,11 @@ use crate::bvh_nightly::Bvh;
 
 use std::collections::HashMap;
 
+pub trait SceneItem{
+    fn get_data(&self) -> Vec<f32>;
+    fn add(self, scene: &mut Scene);
+}
+
 pub type MaterialIndex = u32;
 
 #[derive(Clone, PartialEq, Debug)]
@@ -35,10 +40,6 @@ impl Material{
 
     pub fn set_tex_scale(&mut self, v: f32){
         self.tex_scale = 1.0 / v;
-    }
-
-    pub fn add_to_scene(self, scene: &mut Scene) -> MaterialIndex{
-        scene.get_mat_index(self)
     }
 
     pub fn basic() -> Self{
@@ -123,11 +124,27 @@ impl Material{
         self.tex_scale = 1.0 / v;
         self
     }
+
+    pub fn add_to_scene(self, scene: &mut Scene) -> MaterialIndex{
+        scene.get_mat_index(self)
+    }
+
 }
 
-pub trait SceneItem{
-    fn get_data(&self) -> Vec<f32>;
-    fn add(self, scene: &mut Scene);
+impl SceneItem for Material{
+    fn get_data(&self) -> Vec<f32>{
+        vec![
+            self.col.x, self.col.y, self.col.z,
+            self.reflectivity, self.roughness,
+            self.texture as f32, self.normal_map as f32,
+            self.roughness_map as f32, self.metalic_map as f32,
+            self.tex_scale
+        ]
+    }
+
+    fn add(self, scene: &mut Scene){
+        scene.get_mat_index(self);
+    }
 }
 
 pub struct Plane{
@@ -252,12 +269,13 @@ impl Default for Scene {
 
 impl Scene{
     const SCENE_SIZE: u32 = 11;
-    const SCENE_PARAM_SIZE: usize = 4 * 3 + Self::SCENE_SIZE as usize;
+    const SCENE_PARAM_SIZE: usize = 5 * 3 + Self::SCENE_SIZE as usize;
     const MATERIAL_SIZE: u32 = 10;
+    const MATERIAL_INDEX_SIZE: u32 = 1;
     const LIGHT_SIZE: u32 = 7;
-    const PLANE_SIZE: u32 = 6 + Self::MATERIAL_SIZE;
-    const SPHERE_SIZE: u32 = 4 + Self::MATERIAL_SIZE;
-    const TRIANGLE_SIZE: u32 = 9 + Self::MATERIAL_SIZE;
+    const PLANE_SIZE: u32 = 6 + Self::MATERIAL_INDEX_SIZE;
+    const SPHERE_SIZE: u32 = 4 + Self::MATERIAL_INDEX_SIZE;
+    const TRIANGLE_SIZE: u32 = 9 + Self::MATERIAL_INDEX_SIZE;
 
     pub fn new() -> Self{
         Self{
@@ -312,12 +330,15 @@ impl Scene{
     }
 
     pub fn get_buffers(&mut self) -> Vec<f32>{
-        let mut len = self.lights.len() * Self::LIGHT_SIZE as usize;
+        let mut len = 0;
+        len += self.mats.len() * Self::MATERIAL_SIZE as usize;
+        len += self.lights.len() * Self::LIGHT_SIZE as usize;
         len += self.planes.len() * Self::PLANE_SIZE as usize;
         len += self.spheres.len() * Self::SPHERE_SIZE as usize;
         len += self.triangles.len() * Self::TRIANGLE_SIZE as usize;
         let mut res = build_vec(len);
         let mut i = 0;
+        Self::bufferize(&mut res, &mut i, &self.mats, Self::MATERIAL_SIZE as usize);
         Self::bufferize(&mut res, &mut i, &self.lights, Self::LIGHT_SIZE as usize);
         Self::bufferize(&mut res, &mut i, &self.planes, Self::PLANE_SIZE as usize);
         Self::bufferize(&mut res, &mut i, &self.spheres, Self::SPHERE_SIZE as usize);
@@ -328,27 +349,31 @@ impl Scene{
 
     pub fn get_params_buffer(&mut self) -> Vec<u32>{
         let mut i = 0;
-        self.scene_params[0] = Self::LIGHT_SIZE;
-        self.scene_params[1] = self.lights.len() as u32;
-        self.scene_params[2] = i; i += self.lights.len() as u32 * Self::LIGHT_SIZE;
+        self.scene_params[0] = Self::MATERIAL_SIZE;
+        self.scene_params[1] = self.mats.len() as u32;
+        self.scene_params[2] = i; i += self.mats.len() as u32 * Self::MATERIAL_SIZE;
 
-        self.scene_params[3] = Self::PLANE_SIZE;
-        self.scene_params[4] = self.planes.len() as u32;
-        self.scene_params[5] = i; i += self.planes.len() as u32 * Self::PLANE_SIZE;
+        self.scene_params[3] = Self::LIGHT_SIZE;
+        self.scene_params[4] = self.lights.len() as u32;
+        self.scene_params[5] = i; i += self.lights.len() as u32 * Self::LIGHT_SIZE;
 
-        self.scene_params[6] = Self::SPHERE_SIZE;
-        self.scene_params[7] = self.spheres.len() as u32;
-        self.scene_params[8] = i; i += self.spheres.len() as u32 * Self::SPHERE_SIZE;
+        self.scene_params[6] = Self::PLANE_SIZE;
+        self.scene_params[7] = self.planes.len() as u32;
+        self.scene_params[8] = i; i += self.planes.len() as u32 * Self::PLANE_SIZE;
 
-        self.scene_params[9] = Self::TRIANGLE_SIZE;
-        self.scene_params[10] = self.triangles.len() as u32;
-        self.scene_params[11] = i; //i += self.triangles.len() as u32 * Self::TRIANGLE_SIZE;
+        self.scene_params[9] = Self::SPHERE_SIZE;
+        self.scene_params[10] = self.spheres.len() as u32;
+        self.scene_params[11] = i; i += self.spheres.len() as u32 * Self::SPHERE_SIZE;
+
+        self.scene_params[12] = Self::TRIANGLE_SIZE;
+        self.scene_params[13] = self.triangles.len() as u32;
+        self.scene_params[14] = i; //i += self.triangles.len() as u32 * Self::TRIANGLE_SIZE;
         //scene
-        self.scene_params[12] = self.skybox;
-        self.put_in_scene_params(13, self.sky_col);
-        self.scene_params[16] = self.sky_intensity.to_bits() as u32;
-        self.put_in_scene_params(17, self.cam.pos);
-        self.put_in_scene_params(20, self.cam.dir);
+        self.scene_params[15] = self.skybox;
+        self.put_in_scene_params(16, self.sky_col);
+        self.scene_params[19] = self.sky_intensity.to_bits() as u32;
+        self.put_in_scene_params(20, self.cam.pos);
+        self.put_in_scene_params(23, self.cam.dir);
         self.scene_params.to_vec()
     }
 

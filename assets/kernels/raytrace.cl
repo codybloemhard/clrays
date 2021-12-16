@@ -14,23 +14,7 @@ struct Material{
     uint roughnessmap;
     uint metalicmap;
     float texscale;
-    uchar uvtype;
 };
-
-//extract material from array, off is index of first byte of material we want
-struct Material ExtractMaterial(uint off, global float *arr){
-    struct Material mat;
-    mat.col = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
-    mat.reflectivity = arr[off + 3];
-    mat.roughness = arr[off + 4] + EPSILON;
-    mat.texture = (uint)arr[off + 5];
-    mat.normalmap = (uint)arr[off + 6];
-    mat.roughnessmap = (uint)arr[off + 7];
-    mat.metalicmap  = (uint)arr[off + 8];
-    mat.texscale = arr[off + 9];
-    mat.uvtype = 0;
-    return mat;
-}
 
 #define uvPLANE 0
 #define uvSPHERE 1
@@ -39,7 +23,8 @@ struct RayHit{
     float3 pos;
     float3 nor;
     float t;
-    struct Material *mat;
+    uint mat_index;
+    uchar uvtype;
 };
 
 //hit nothing
@@ -55,11 +40,12 @@ struct Ray{
 };
 
 //indices for types
-#define SC_LIGHT 0
-#define SC_PLANE 1
-#define SC_SPHERE 2
-#define SC_TRI 3
-#define SC_SCENE 4
+#define SC_MAT 0
+#define SC_LIGHT 1
+#define SC_PLANE 2
+#define SC_SPHERE 3
+#define SC_TRI 4
+#define SC_SCENE 5
 
 struct Scene{
     global uint *params, *tex_params;
@@ -83,6 +69,26 @@ global uint ScGetCount(uint type, struct Scene *scene){
 //size of an item of this type
 global uint ScGetStride(uint type, struct Scene *scene){
     return scene->params[type * 3 + 0];
+}
+
+//extract material from array, off is index of first byte of material we want
+struct Material ExtractMaterial(uint off, global float *arr){
+    struct Material mat;
+    mat.col = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
+    mat.reflectivity = arr[off + 3];
+    mat.roughness = arr[off + 4] + EPSILON;
+    mat.texture = (uint)arr[off + 5];
+    mat.normalmap = (uint)arr[off + 6];
+    mat.roughnessmap = (uint)arr[off + 7];
+    mat.metalicmap  = (uint)arr[off + 8];
+    mat.texscale = arr[off + 9];
+    return mat;
+}
+
+struct Material GetMaterialFromIndex(uint index, struct Scene *scene){
+    uint start = ScGetStart(SC_MAT, scene);
+    uint stride = ScGetStride(SC_MAT, scene);
+    return ExtractMaterial(start + index * stride, scene->items);
 }
 
 //first byte of texture
@@ -287,9 +293,8 @@ float2 SkySphereUV(float3 nor){
 #define END_PRIM(offset,uvtyp) {\
             if(closest->t > hit.t){\
                 *closest = hit;\
-                struct Material mat = ExtractMaterial(off + offset, arr);\
-                mat.uvtype = uvtyp;\
-                closest->mat = &mat;\
+                closest->mat_index = arr[off + offset];\
+                closest->uvtype = uvtyp;\
             }\
         }\
     }\
@@ -318,6 +323,8 @@ void InterTris START_PRIM()
 //intersect whole scene
 struct RayHit InterScene(struct Ray *ray, struct Scene *scene){
     struct RayHit closest = NullRayHit();
+    uint mstart = ScGetStart(SC_MAT, scene);
+    uint mstride = ScGetStride(SC_MAT, scene);
     InterPlanes(&closest, ray, scene->items, ScGetCount(SC_PLANE, scene), ScGetStart(SC_PLANE, scene), ScGetStride(SC_PLANE, scene));
     InterSpheres(&closest, ray, scene->items, ScGetCount(SC_SPHERE, scene), ScGetStart(SC_SPHERE, scene), ScGetStride(SC_SPHERE, scene));
     InterTris(&closest, ray, scene->items, ScGetCount(SC_TRI, scene), ScGetStart(SC_TRI, scene), ScGetStride(SC_TRI, scene));
@@ -333,7 +340,7 @@ float3 SkyCol(float3 nor, struct Scene *scene){
 }
 
 //get diffuse light strength for hit for a light
-float2 BlinnSingle(float3 lpos, float lpow, float3 viewdir, struct RayHit *hit, struct Scene *scene){
+float2 BlinnSingle(float3 lpos, float lpow, float3 viewdir, float roughness, struct RayHit *hit, struct Scene *scene){
     float3 toL = lpos - hit->pos;
     float dist = fast_length(toL);
     toL /= dist + EPSILON;
@@ -356,12 +363,12 @@ float2 BlinnSingle(float3 lpos, float lpow, float3 viewdir, struct RayHit *hit, 
     //specular
     float3 halfdir = fast_normalize(toL + -viewdir);
     float specangle = max(dot(halfdir,nor),0.0f);
-    float spec = pow(specangle,16.0f / hit->mat->roughness);
+    float spec = pow(specangle,16.0f / roughness);
     return power * (float2)(angle,spec);
 }
 
 //get diffuse light incl colour of hit with all lights
-void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 *out_diff, float3 *out_spec){
+void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 colour, float roughness, float3 *out_diff, float3 *out_spec){
     float3 col = (float3)(AMBIENT);
     float3 spec = (float3)(0.0f);
     global float* arr = scene->items;
@@ -373,12 +380,12 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 *out_
         float3 lpos = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
         float lpow = arr[off + 3];
         float3 lcol = (float3)(arr[off + 4], arr[off + 5], arr[off + 6]);
-        float2 res = BlinnSingle(lpos, lpow, viewdir, hit, scene);
+        float2 res = BlinnSingle(lpos, lpow, viewdir, roughness, hit, scene);
         col += res.x * lcol;
         spec += res.y * lcol;
     }
-    *out_diff = col * hit->mat->col;
-    *out_spec = spec * (1.0f - hit->mat->roughness);
+    *out_diff = col * colour;
+    *out_spec = spec * (1.0f - roughness);
 }
 
 //Recursion only works with one function
@@ -393,19 +400,23 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
     //texture
     float2 uv;
     float3 texcol = (float3)(1.0f);
-    if(hit.mat->texture > 0){
-        uchar uvtype = hit.mat->uvtype;
+    struct Material mat = GetMaterialFromIndex(hit.mat_index, scene);
+    // if (hit.mat_index == 1){
+    //     return (float3)(0.0, 0.0, 0.0);
+    // }
+    if(mat.texture > 0){
+        uchar uvtype = hit.uvtype;
         if(uvtype == uvPLANE)
             uv = PlaneUV(hit.pos, hit.nor);
         else if(uvtype == uvSPHERE)
             uv = SphereUV(hit.nor);
-        uv *= hit.mat->texscale;
-        texcol = GetTexCol(hit.mat->texture - 1, uv, scene);
+        uv *= mat.texscale;
+        texcol = GetTexCol(mat.texture - 1, uv, scene);
     }
 
     //normalmap
-    if(hit.mat->normalmap > 0){
-        float3 rawnor = GetTexVal(hit.mat->normalmap - 1, uv, scene);
+    if(mat.normalmap > 0){
+        float3 rawnor = GetTexVal(mat.normalmap - 1, uv, scene);
         float3 t = cross(hit.nor, (float3)(0.0f,1.0f,0.0f));
         if(fast_length(t) < EPSILON)
             t = cross(hit.nor, (float3)(0.0f,0.0f,1.0f));
@@ -424,20 +435,20 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
     }
 
     //roughnessmap
-    if(hit.mat->roughnessmap > 0){
-        float value = GetTexScalar(hit.mat->roughnessmap - 1, uv, scene);
-        hit.mat->roughness = value * hit.mat->roughness;
+    if(mat.roughnessmap > 0){
+        float value = GetTexScalar(mat.roughnessmap - 1, uv, scene);
+        mat.roughness = value * mat.roughness;
     }
 
     //metalicmap
-    if(hit.mat->metalicmap > 0){
-        float value = GetTexScalar(hit.mat->metalicmap - 1, uv, scene);
-        hit.mat->reflectivity *= value;
+    if(mat.metalicmap > 0){
+        float value = GetTexScalar(mat.metalicmap - 1, uv, scene);
+        mat.reflectivity *= value;
     }
 
     //diffuse, specular
     float3 diff, spec;
-    Blinn(&hit, scene, ray->dir, &diff, &spec);
+    Blinn(&hit, scene, ray->dir, mat.col, mat.roughness, &diff, &spec);
     diff *= texcol;
 
     //reflection
@@ -449,7 +460,7 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
     struct RayHit nhit = InterScene(&nray, scene);
 
     // Does not get corrupted to version inside recursive call if not pointer
-    float refl_mul = hit.mat->reflectivity;
+    float refl_mul = mat.reflectivity;
     float3 refl = RayTrace(&nray, scene, depth - 1);
     return (diff * (1.0f - refl_mul)) + (refl * refl_mul) + spec;
 }
