@@ -273,26 +273,24 @@ impl Bvh{
         let mut best : (f32, Axis, f32) = (f32::MAX, Axis::X, 0.0); // (cost, axis, split)
         for axis in [Axis::X, Axis::Y, Axis::Z] {
             let u = axis.as_usize();
-            if !axis_valid[u] { continue; }
-            let k1 = (bins as f32*(1.0-EPSILON))/(top_bound.max.fake_arr(axis)-top_bound.min.fake_arr(axis));
+            if !axis_valid[u] {
+                continue;
+            }
+            let k1 = (binsf*(1.0-EPSILON))/(top_bound.max.fake_arr(axis)-top_bound.min.fake_arr(axis));
             let k0 = top_bound.min.fake_arr(axis);
 
             // place bounds in bins
-            let mut sep = vec![vec![];bins];
+            let mut sep : Vec<Vec<u32>>= vec![vec![];bins];
             for i in is {
                 let midpoint = midpoints[*i as usize];
                 let index = k1*(midpoint[u]-k0);
-                if index as usize >= bins {
-                    println!("topbounds: {:?}\n, bound: {:?}\n, midpoint: {:?}\n, axis: {:?}", top_bound, bounds[*i  as usize], midpoint, axis);
-                    println!("{}, {}", index, index as usize);
-                }
-                sep[index as usize].push(i);
+                sep[index as usize].push(*i);
             }
             // generate bounds of bins
             let mut binbounds = vec![AABB::new();bins];
             let mut bincounts = vec![0;bins];
             for bin_index in 0..bins {
-                for bound_index in sep[bin_index]{
+                for bound_index in &sep[bin_index]{
                     binbounds[bin_index].combine(bounds[*bound_index as usize]);
                 }
                 bincounts[bin_index] = sep[bin_index].len();
@@ -309,7 +307,7 @@ impl Bvh{
                     ls += bincounts[j];
                     lb.combine(binbounds[j]);
                 }
-                for j in 0..lerp_index { // right of split
+                for j in lerp_index..bins { // right of split
                     rs += bincounts[j];
                     rb.combine(binbounds[j]);
                 }
