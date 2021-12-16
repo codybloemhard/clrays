@@ -48,12 +48,21 @@ impl Vec3{
     }
 
     #[inline]
-    pub fn new_dir(ori: &Orientation) -> Self {
+    pub fn from_orientation(ori: &Orientation) -> Self {
         let a = ori.roll;  // Up/Down
         let b = ori.yaw;   // Left/Right
         Self { x: a.cos() * b.sin(), y: a.sin(), z: a.cos() * -b.cos() }
     }
 
+
+    #[inline]
+    pub fn yawed(self, o: f32) -> Self {
+        Self {
+            x: self.x * o.cos() + self.z * o.sin(),
+            y: self.y,
+            z: -self.x * o.sin() + self.z * o.cos()
+        }
+    }
     #[inline]
     pub fn fake_arr(self, axis: Axis) -> f32 {
         match axis {
@@ -65,9 +74,10 @@ impl Vec3{
 
     #[inline]
     pub fn orientation(&self) -> Orientation {
+        let normalized = self.normalized_fast();
         Orientation {
-            yaw: f32::atan2(self.x,-self.z),
-            roll: self.y.asin()
+            yaw: f32::atan2(normalized.x,-normalized.z),
+            roll: normalized.y.asin()
         }
     }
 

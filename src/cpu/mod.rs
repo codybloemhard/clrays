@@ -192,11 +192,21 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, con
     for (i, model) in scene.models.iter().enumerate() {
         let t = hit.t;
         // transform ray
-        let ray = ray.transformed(model.pos.neged(), model.rot.neged());
-        scene.bvhs[model.mesh as usize].intersect(ray, &mut hit);
+        let ori = model.rot.orientation();
+        let yaw = ori.yaw;
+
+        let mut ray = ray;
+        ray.pos = ray.pos.subed(model.pos);
+        // rotate pos clockwise x-axis
+        ray.pos = ray.pos.yawed(-yaw);
+        // rotate dir clockwise x-axis
+        ray.dir = ray.dir.yawed(-yaw);
+        // let ray = ray.transformed(model.pos.neged(), Vec3::ZERO);
+        scene.bvhs[model.mesh as usize].intersect(ray, &scene, &mut hit);
         if hit.t < t {
             // apply
             hit.model = i as u8;
+            hit.nor = hit.nor.yawed(yaw);
         }
     }
 

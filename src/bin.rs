@@ -13,6 +13,7 @@ use clr::state::{ State, Settings, log_update_fn, fps_input_fn };
 use sdl2::keyboard::Keycode;
 use clrays_rs::consts::*;
 use clrays_rs::scene::{Model, SceneItem};
+use clrays_rs::vec3::Orientation;
 // use clrays_rs::mesh::build_triangle_wall;
 
 pub const USE_WATERFLOOR : bool = false;
@@ -216,10 +217,24 @@ pub fn main() -> Result<(), String>{
         mat: scene.add_material(Material::basic()),
         mesh: scene.add_mesh("assets/models/dragon.obj".parse().unwrap())
     };
-    for i in 0..10 {
+    let n = 20;
+    for i in 0..n {
         println!("{}",i);
-        dragon.pos = dragon.pos.added(Vec3::UP.scaled(10.0));
-        dragon.rot.x = dragon.rot.x + 0.5;
+        let theta = (i as f32 / n as f32) * 2.0*PI;
+        println!("{}",theta);
+        println!("{}",FRAC_2_PI);
+        let mut pos = Vec3::BACKWARD.scaled(16.0).yawed(theta).added(Vec3::FORWARD.scaled(6.0)).subed(Vec3::UP.scaled(5.0));
+        // pos = pos.subed(Vec3::UP.scaled(3.0));
+        println!("{:?}",pos);
+        let mut ori = Vec3::ZERO.subed(pos).orientation();
+        println!("{}",theta);
+        println!("{}",FRAC_2_PI);
+        ori.yaw = theta + FRAC_2_PI ;
+        // ori.yaw = FRAC_2_PI;
+        // assert_eq!(ori.yaw, FRAC_2_PI );
+        println!("{:?}",ori);
+        dragon.pos = pos;
+        dragon.rot = Vec3::from_orientation( &ori);
         scene.add_model(dragon);
     }
 

@@ -203,25 +203,25 @@ pub fn fps_input_fn(events: &[Event], scene: &mut Scene, state: &mut State) -> L
             },
             6 => { // Look Up;
                 cam.ori.roll = (cam.ori.roll + ls).min(FRAC_PI_2).max(-FRAC_PI_2);
-                cam.dir = Vec3::new_dir(&cam.ori);
+                cam.dir = Vec3::from_orientation(&cam.ori);
             },
             7 => { // Look Down;
                 cam.ori.roll = (cam.ori.roll - ls).min(FRAC_PI_2).max(-FRAC_PI_2);
-                cam.dir = Vec3::new_dir(&cam.ori);
+                cam.dir = Vec3::from_orientation(&cam.ori);
             },
             8 => { // Look Left;
                 cam.ori.yaw -= ls;
                 if cam.ori.yaw < -PI {
                     cam.ori.yaw += 2.0 * PI;
                 }
-                cam.dir = Vec3::new_dir(&cam.ori);
+                cam.dir = Vec3::from_orientation(&cam.ori);
             },
             9 => { // Look Right;
                 cam.ori.yaw += ls;
                 if cam.ori.yaw > PI {
                     cam.ori.yaw -= 2.0 * PI;
                 }
-                cam.dir = Vec3::new_dir(&cam.ori);
+                cam.dir = Vec3::from_orientation(&cam.ori);
             },
             _ => {},
         }
