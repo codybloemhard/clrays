@@ -73,7 +73,7 @@ impl Window
             let inp_res = input_fn(&events, scene, state);
             if inp_res == LoopRequest::Stop { break; }
 
-            tracer.update();
+            tracer.update(scene);
             let int_tex = tracer.render(scene, state);
             if upd_res == LoopRequest::Export || inp_res == LoopRequest::Export{
                 export(self.width, self.height, int_tex);

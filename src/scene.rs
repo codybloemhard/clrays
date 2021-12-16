@@ -9,7 +9,7 @@ use crate::bvh_nightly::Bvh;
 
 use std::collections::HashMap;
 
-type MaterialIndex = u8;
+pub type MaterialIndex = u32;
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Material{
@@ -128,7 +128,6 @@ impl Material{
 pub trait SceneItem{
     fn get_data(&self) -> Vec<f32>;
     fn add(self, scene: &mut Scene);
-    // fn bound(&self) -> AABB;
 }
 
 pub struct Plane{
@@ -149,10 +148,6 @@ impl SceneItem for Plane{
     fn add(self, scene: &mut Scene){
         scene.add_plane(self);
     }
-
-    // fn bound(&self) -> AABB{
-    //     panic!("Plane\'s cannot be bound!");
-    // }
 }
 
 pub struct Sphere{
@@ -169,17 +164,13 @@ impl SceneItem for Sphere{
     fn add(self, scene: &mut Scene){
         scene.add_sphere(self);
     }
-
-    // fn bound(&self) -> AABB{
-    //     AABB::from_point_radius(self.pos, self.rad)
-    // }
 }
 
 pub struct Triangle{ // 37 byte
     pub a: Vec3, // Vec3: 12 byte
     pub b: Vec3, // Vec3: 12 byte
     pub c: Vec3, // Vec3: 12 byte
-    pub mat: MaterialIndex, // u8: 1 byte
+    pub mat: MaterialIndex, // u32: 4 byte
 }
 
 impl SceneItem for Triangle{
@@ -195,10 +186,6 @@ impl SceneItem for Triangle{
     fn add(self, scene: &mut Scene){
         scene.add_triangle(self);
     }
-
-    // fn bound(&self) -> AABB{
-    //     AABB::from_points(&[self.a, self.b, self.c])
-    // }
 }
 
 pub struct Light{
@@ -218,10 +205,6 @@ impl SceneItem for Light{
     fn add(self, scene: &mut Scene){
         scene.add_light(self);
     }
-
-    // fn bound(&self) -> AABB{
-    //     panic!("Lights need not to be bound!");
-    // }
 }
 
 #[derive(Clone, Debug)]
@@ -272,8 +255,8 @@ impl Scene{
     const SCENE_PARAM_SIZE: usize = 4 * 3 + Self::SCENE_SIZE as usize;
     const MATERIAL_SIZE: u32 = 10;
     const LIGHT_SIZE: u32 = 7;
-    const SPHERE_SIZE: u32 = 4 + Self::MATERIAL_SIZE;
     const PLANE_SIZE: u32 = 6 + Self::MATERIAL_SIZE;
+    const SPHERE_SIZE: u32 = 4 + Self::MATERIAL_SIZE;
     const TRIANGLE_SIZE: u32 = 9 + Self::MATERIAL_SIZE;
 
     pub fn new() -> Self{
@@ -281,7 +264,7 @@ impl Scene{
             spheres: Vec::new(),
             planes: Vec::new(),
             triangles: Vec::new(),
-            mats: Vec::new(),
+            mats: vec![Material::basic()],
             lights: Vec::new(),
             scene_params: [0; Self::SCENE_PARAM_SIZE],
             next_texture: 0,
@@ -330,14 +313,14 @@ impl Scene{
 
     pub fn get_buffers(&mut self) -> Vec<f32>{
         let mut len = self.lights.len() * Self::LIGHT_SIZE as usize;
-        len += self.spheres.len() * Self::SPHERE_SIZE as usize;
         len += self.planes.len() * Self::PLANE_SIZE as usize;
+        len += self.spheres.len() * Self::SPHERE_SIZE as usize;
         len += self.triangles.len() * Self::TRIANGLE_SIZE as usize;
         let mut res = build_vec(len);
         let mut i = 0;
         Self::bufferize(&mut res, &mut i, &self.lights, Self::LIGHT_SIZE as usize);
-        Self::bufferize(&mut res, &mut i, &self.spheres, Self::SPHERE_SIZE as usize);
         Self::bufferize(&mut res, &mut i, &self.planes, Self::PLANE_SIZE as usize);
+        Self::bufferize(&mut res, &mut i, &self.spheres, Self::SPHERE_SIZE as usize);
         Self::bufferize(&mut res, &mut i, &self.triangles, Self::TRIANGLE_SIZE as usize);
         make_nonzero_len(&mut res);
         res
@@ -348,12 +331,15 @@ impl Scene{
         self.scene_params[0] = Self::LIGHT_SIZE;
         self.scene_params[1] = self.lights.len() as u32;
         self.scene_params[2] = i; i += self.lights.len() as u32 * Self::LIGHT_SIZE;
-        self.scene_params[3] = Self::SPHERE_SIZE;
-        self.scene_params[4] = self.spheres.len() as u32;
-        self.scene_params[5] = i; i += self.spheres.len() as u32 * Self::SPHERE_SIZE;
-        self.scene_params[6] = Self::PLANE_SIZE;
-        self.scene_params[7] = self.planes.len() as u32;
-        self.scene_params[8] = i; i += self.planes.len() as u32 * Self::PLANE_SIZE;
+
+        self.scene_params[3] = Self::PLANE_SIZE;
+        self.scene_params[4] = self.planes.len() as u32;
+        self.scene_params[5] = i; i += self.planes.len() as u32 * Self::PLANE_SIZE;
+
+        self.scene_params[6] = Self::SPHERE_SIZE;
+        self.scene_params[7] = self.spheres.len() as u32;
+        self.scene_params[8] = i; i += self.spheres.len() as u32 * Self::SPHERE_SIZE;
+
         self.scene_params[9] = Self::TRIANGLE_SIZE;
         self.scene_params[10] = self.triangles.len() as u32;
         self.scene_params[11] = i; //i += self.triangles.len() as u32 * Self::TRIANGLE_SIZE;

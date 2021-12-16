@@ -54,6 +54,21 @@ impl<T: ocl::OclPrm> ClBuffer<T>{
             .enq()
     }
 
+    pub fn upload_new(&mut self, queue: &Queue, data: &[T]) -> Result<(), ocl::Error>{
+        let clen = self.client_buffer.len();
+        if data.len() != clen{
+            println!("Warning: could not upload new data to ClBuffer! Buffer len is: {} and new data len is: {}!", clen, data.len());
+            return Ok(());
+        }
+        for (i, x) in self.client_buffer.iter_mut().enumerate(){
+            *x = data[i];
+        }
+        self.ocl_buffer.cmd()
+            .queue(queue)
+            .write(&self.client_buffer)
+            .enq()
+    }
+
     pub fn get_slice(&self) -> &[T]{
         &self.client_buffer
     }

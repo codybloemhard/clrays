@@ -1,9 +1,9 @@
-use crate::scene::{ Scene, Material, SceneItem, Triangle };
+use crate::scene::{ Scene, SceneItem, Triangle, MaterialIndex };
 use crate::vec3::Vec3;
 
 use obj::*;
 
-pub fn load_model(file_path: &str, mat: u8, scene: &mut Scene){
+pub fn load_model(file_path: &str, mat: MaterialIndex, scene: &mut Scene){
     let obj = if let Ok(o) = Obj::load(file_path){ o }
     else { println!("Could not load file: {}!", file_path); return; };
 
@@ -44,11 +44,11 @@ pub fn load_model(file_path: &str, mat: u8, scene: &mut Scene){
             a: Vec3::new(x0, y0, z0),
             b: Vec3::new(x1, y1, z1),
             c: Vec3::new(x2, y2, z2),
-            mat: mat.clone(),
+            mat,
         }.add(scene);
     }
 }
-pub fn build_triangle_wall(mat: u8, scene: &mut Scene, diff: f32, offset: f32) {
+pub fn build_triangle_wall(mat: MaterialIndex, scene: &mut Scene, diff: f32, offset: f32) {
     let z = 0.0;
     let mut x = -offset;
     let mut total = 0;
@@ -74,13 +74,13 @@ pub fn build_triangle_wall(mat: u8, scene: &mut Scene, diff: f32, offset: f32) {
                 a: Vec3::new(x0, y0, z0),
                 b: Vec3::new(x1, y1, z1),
                 c: Vec3::new(x2, y2, z2),
-                mat: mat.clone(),
+                mat,
             }.add(scene);
             Triangle{
                 a: Vec3::new(x1, y1, z1),
                 b: Vec3::new(x2, y2, z2),
                 c: Vec3::new(x3, y3, z3),
-                mat: mat.clone(),
+                mat,
             }.add(scene);
             total += 2;
             y += diff;

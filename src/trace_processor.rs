@@ -5,15 +5,14 @@ use crate::cl_helpers::create_five;
 use crate::misc::load_source;
 use crate::cpu::{ whitted };
 use crate::vec3::Vec3;
-use crate::state::{ State };
-// use crate::bvh::Bvh;
+use crate::state::{ RenderMode, State };
 
 use ocl::{ Queue };
 
 use rand::prelude::*;
 
 pub trait TraceProcessor{
-    fn update(&mut self);
+    fn update(&mut self, scene: &mut Scene);
     fn render(&mut self, scene: &mut Scene, state: &mut State) -> &[u32];
 }
 
@@ -38,13 +37,23 @@ impl RealTracer{
 }
 
 impl TraceProcessor for RealTracer{
-    fn update(&mut self){
-        self.kernel.update(&self.queue).expect("Could not update RealTracer's kernel!");
+    fn update(&mut self, scene: &mut Scene){
+        self.kernel.update(&self.queue, scene).expect("Could not update RealTracer's kernel!");
     }
 
-    fn render(&mut self, _: &mut Scene, _: &mut State) -> &[u32]{
-        self.kernel.execute(&self.queue).expect("Could not execute RealTracer's kernel!");
-        self.kernel.get_result(&self.queue).expect("Could not get result of RealTracer!")
+    fn render(&mut self, _: &mut Scene, state: &mut State) -> &[u32]{
+        match state.render_mode{
+            RenderMode::Full | RenderMode::Reduced => {
+                state.last_frame = RenderMode::Full;
+                state.render_mode = RenderMode::None;
+                self.kernel.execute(&self.queue).expect("Could not execute RealTracer's kernel!");
+                self.kernel.get_result(&self.queue).expect("Could not get result of RealTracer!")
+            },
+            _ => {
+                state.last_frame = RenderMode::None;
+                self.kernel.get_result(&self.queue).expect("Could not get result of RealTracer!")
+            },
+        }
     }
 }
 
@@ -76,7 +85,7 @@ impl AaTracer{
 }
 
 impl TraceProcessor for AaTracer{
-    fn update(&mut self){
+    fn update(&mut self, _: &mut Scene){
         self.trace_kernel.update(&self.queue).expect("Could not update AaTracer's trace kernel!");
     }
 
@@ -92,7 +101,6 @@ pub struct CpuWhitted{
     width: usize,
     height: usize,
     threads: usize,
-    // bvh: Bvh,
     screen_buffer: Vec<u32>,
     float_buffer: Vec<Vec3>,
     texture_params: Vec<u32>,
@@ -113,7 +121,6 @@ impl CpuWhitted{
             width,
             height,
             threads,
-            // bvh: Bvh::from(scene),
             screen_buffer,
             float_buffer,
             texture_params,
@@ -124,12 +131,12 @@ impl CpuWhitted{
 }
 
 impl TraceProcessor for CpuWhitted{
-    fn update(&mut self){  }
+    fn update(&mut self, _: &mut Scene){ }
 
     fn render(&mut self, scene: &mut Scene, state: &mut State) -> &[u32]{
         whitted(
             self.width, self.height, self.threads,
-            scene, /*&self.bvh,*/ &self.texture_params, &self.textures,
+            scene, &self.texture_params, &self.textures,
             &mut self.screen_buffer, &mut self.float_buffer, state, &mut self.rng
         );
         &self.screen_buffer

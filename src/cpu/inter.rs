@@ -1,4 +1,4 @@
-use crate::scene::{ Material, Sphere, Plane, Triangle };
+use crate::scene::{ Sphere, Plane, Triangle, MaterialIndex };
 use crate::vec3::Vec3;
 use crate::aabb::AABB;
 use crate::consts::*;
@@ -35,7 +35,7 @@ pub struct RayHit<'a>{
     pub pos: Vec3,
     pub nor: Vec3,
     pub t: f32,
-    pub mat: Option<u8>,
+    pub mat: MaterialIndex,
     pub uvtype: u8,
     pub sphere: Option<&'a Sphere>,
 }
@@ -45,7 +45,7 @@ impl RayHit<'_>{
         pos: Vec3::ZERO,
         nor: Vec3::ZERO,
         t: MAX_RENDER_DIST,
-        mat: None,
+        mat: 0,
         uvtype: 255,
         sphere: None,
     };
@@ -73,7 +73,7 @@ pub fn inter_sphere<'a>(ray: Ray, sphere: &'a Sphere, closest: &mut RayHit<'a>){
     closest.t = t;
     closest.pos = ray.pos.added(ray.dir.scaled(t));
     closest.nor = Vec3::subed(closest.pos, sphere.pos).scaled(1.0 / sphere.rad);
-    closest.mat = Some(sphere.mat);
+    closest.mat = sphere.mat;
     closest.uvtype = UV_SPHERE;
     closest.sphere = Some(sphere);
 }
@@ -105,7 +105,7 @@ pub fn inter_plane<'a>(ray: Ray, plane: &'a Plane, closest: &mut RayHit<'a>){
     closest.t = t;
     closest.pos = ray.pos.added(ray.dir.scaled(t));
     closest.nor = plane.nor;
-    closest.mat = Some(plane.mat);
+    closest.mat = plane.mat;
     closest.uvtype = UV_PLANE;
     closest.sphere = None;
 }
@@ -143,7 +143,7 @@ pub fn inter_triangle<'a>(ray: Ray, tri: &'a Triangle, closest: &mut RayHit<'a>)
     closest.t = t;
     closest.pos = ray.pos.added(ray.dir.scaled(t));
     closest.nor = Vec3::crossed(edge1, edge2).normalized_fast();
-    closest.mat = Some(tri.mat);
+    closest.mat = tri.mat;
     closest.uvtype = UV_PLANE;
     closest.sphere = None;
 }

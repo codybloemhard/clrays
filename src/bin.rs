@@ -95,39 +95,39 @@ pub fn main() -> Result<(), String>{
         }.add(&mut scene);
     }
     //
-    // Sphere{
-    //     pos: Vec3::new(2.0, 0.0, -5.0),
-    //     rad: 1.0 - EPSILON,
-    //     mat: Material::basic()
-    //         .with_texture(scene.get_texture("tiles-alb"))
-    //         .with_normal_map(scene.get_texture("tiles-nor"))
-    //         .with_roughness_map(scene.get_texture("tiles-rou"))
-    //         .add_to_scene(&mut scene)
-    // }.add(&mut scene);
-    //
-    // Sphere{
-    //     pos: Vec3::new(0.0, 0.0, -5.0),
-    //     rad: 1.0 - EPSILON,
-    //     mat: Material::basic()
-    //         .with_reflectivity(0.3)
-    //         .with_texture(scene.get_texture("solar-alb"))
-    //         .with_normal_map(scene.get_texture("solar-nor"))
-    //         .with_roughness_map(scene.get_texture("solar-rou"))
-    //         .with_metalic_map(scene.get_texture("solar-met"))
-    //         .add_to_scene(&mut scene)
-    // }.add(&mut scene);
-    //
-    // Sphere{
-    //     pos: Vec3::new(-2.0, 0.1, -5.0),
-    //     rad: 1.0 - EPSILON,
-    //     mat: Material::basic()
-    //         .with_texture(scene.get_texture("scifi-alb"))
-    //         .with_normal_map(scene.get_texture("scifi-nor"))
-    //         .with_roughness_map(scene.get_texture("scifi-rou"))
-    //         .with_metalic_map(scene.get_texture("scifi-met"))
-    //         .with_reflectivity(0.9)
-    //         .add_to_scene(&mut scene)
-    // }.add(&mut scene);
+    Sphere{
+        pos: Vec3::new(2.0, 0.0, -5.0),
+        rad: 1.0 - EPSILON,
+        mat: Material::basic()
+            .with_texture(scene.get_texture("tiles-alb"))
+            .with_normal_map(scene.get_texture("tiles-nor"))
+            .with_roughness_map(scene.get_texture("tiles-rou"))
+            .add_to_scene(&mut scene)
+    }.add(&mut scene);
+
+    Sphere{
+        pos: Vec3::new(0.0, 0.0, -5.0),
+        rad: 1.0 - EPSILON,
+        mat: Material::basic()
+            .with_reflectivity(0.3)
+            .with_texture(scene.get_texture("solar-alb"))
+            .with_normal_map(scene.get_texture("solar-nor"))
+            .with_roughness_map(scene.get_texture("solar-rou"))
+            .with_metalic_map(scene.get_texture("solar-met"))
+            .add_to_scene(&mut scene)
+    }.add(&mut scene);
+
+    Sphere{
+        pos: Vec3::new(-2.0, 0.1, -5.0),
+        rad: 1.0 - EPSILON,
+        mat: Material::basic()
+            .with_texture(scene.get_texture("scifi-alb"))
+            .with_normal_map(scene.get_texture("scifi-nor"))
+            .with_roughness_map(scene.get_texture("scifi-rou"))
+            .with_metalic_map(scene.get_texture("scifi-met"))
+            .with_reflectivity(0.9)
+            .add_to_scene(&mut scene)
+    }.add(&mut scene);
 
     // Triangle{
     //     a: Vec3::new(-1.0, 1.0, -7.0),
@@ -206,10 +206,11 @@ pub fn main() -> Result<(), String>{
     // https://groups.csail.mit.edu/graphics/classes/6.837/F03/models/
     // load_model("assets/models/object-scene.obj", Material::basic(), &mut scene);
     let model_mat = Material::basic()
-            .with_reflectivity(0.3);
+            .with_reflectivity(0.3)
             // .as_dielectric()
             // .with_refraction(2.0);
-    load_model("assets/models/teapot.obj", model_mat.add_to_scene(&mut scene), &mut scene);
+            .add_to_scene(&mut scene);
+    load_model("assets/models/teapot.obj", model_mat, &mut scene);
 
     Light{
         pos: Vec3::new(0.0, 2.0, -3.0),
