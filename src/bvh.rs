@@ -27,136 +27,161 @@ pub struct BuilderData {
     is: Vec<usize>,
     vs: Vec<Vertex>,
     bins: usize,
-    watch: Stopwatch,
-    times: Vec<i64>,
     info: Info,
 }
 
 struct Info {
     maxdepth: usize,
     counter: usize,
+    watch: Stopwatch,
+    times: Vec<u128>,
 }
 
 impl Bvh{
     #[allow(clippy::too_many_arguments)]
     fn subdivide(data: &mut BuilderData, current: usize, poolptr: &mut usize, first: usize, count: usize, depth: usize){
+
+        let bounds = &data.bounds;
         let midpoints = &data.midpoints;
+        let mut is = &mut data.is;
+        let mut vs = &mut data.vs;
         let bins = data.bins;
+
         let binsf = bins as f32;
-        let mut v = &mut data.vs[current];
-        data.watch.start();
-        let sub_is = &data.is[first..first + count];
-        let top_bound = Self::union_bound(sub_is, &data.bounds);
-        data.times[0] += data.watch.elapsed_ms();
 
-        if count < 3 { // leaf
-            v.bound = top_bound;
-            v.left_first = first; // first
-            v.count = count;
-            return;
-        }
 
-        data.watch.start();
-        // sah binned
-        let diff = top_bound.max.subed(top_bound.min);
-        let axis_valid = [diff.x > binsf * EPSILON, diff.y > binsf * EPSILON, diff.z > binsf * EPSILON];
+        // let mut stack: Vec<(usize, usize, usize, usize)> = vec![(0,0,0,0);data.midpoints.len()]; // [(current,first,count,step)]
+        let mut stack: Vec<(usize, usize, usize)> = vec![(current,first,count)]; // [(current,first,count,step)]
 
-        // precompute lerps
         let mut lerps = vec![Vec3::ZERO; bins];
-        for (i, item) in lerps.iter_mut().enumerate(){
-            *item = top_bound.lerp(i as f32 / binsf);
-        }
+        let mut binbounds = vec![AABB::new();bins];
+        let mut bincounts : Vec<usize> = vec![0;bins];
+        let aabb_null = AABB::default();
 
-        // compute best combination; minimal cost
-        let (mut ls, mut rs) = (0, 0);
-        let (mut lb, mut rb) = (AABB::default(), AABB::default());
         let mut best_aabb_left = AABB::default();
         let mut best_aabb_right = AABB::default();
-        let mut best_cost = f32::MAX;
         let mut best_axis = Axis::X;
         let mut best_split = 0.0;
-        data.times[3] += data.watch.elapsed_ms();
 
-        data.watch.start();
-        for axis in [Axis::X, Axis::Y, Axis::Z] {
+        let mut sub_is: &[usize];
+        let mut v : &mut Vertex = &mut Vertex::default();
+        let mut top_bound;
 
-            let u = axis.as_usize();
-            if !axis_valid[u] {
+        let mut current = 0;
+        let mut first = 0;
+        let mut count = 0;
+        let mut step = 0;
+        let mut depth = 1;
+
+        while stack.len() > 0 {
+            let mut x =  stack.pop().unwrap();
+            // println!("{:?}", x);
+            current = x.0;
+            first = x.1;
+            count = x.2;
+            v = &mut vs[current];
+            sub_is = &is[first..first + count];
+            top_bound = Self::union_bound(sub_is, bounds);
+            if count < 3 { // leaf
+                v.bound = top_bound;
+                v.left_first = first; // first
+                v.count = count;
                 continue;
             }
-            let k1 = (binsf*(1.0-EPSILON))/(top_bound.max.fake_arr(axis)-top_bound.min.fake_arr(axis));
-            let k0 = top_bound.min.fake_arr(axis);
+            // sah binned
+            let diff = top_bound.max.subed(top_bound.min);
+            let axis_valid = [diff.x > binsf * EPSILON, diff.y > binsf * EPSILON, diff.z > binsf * EPSILON];
 
-            // place bounds in bins
-            // generate bounds of bins
-            let mut binbounds = vec![AABB::new();bins];
-            let mut bincounts : Vec<usize> = vec![0;bins];
-            let mut index: usize ;
-            for index_triangle in sub_is {
-                index = (k1*(midpoints[*index_triangle][u]-k0)) as usize;
-                binbounds[index].combine(data.bounds[*index_triangle]);
-                bincounts[index] += 1;
+            // precompute lerps
+            lerps.fill(Vec3::ZERO)
+            for (i, item) in lerps.iter_mut().enumerate(){
+                *item = top_bound.lerp(i as f32 / binsf);
             }
 
-            // iterate over bins
-            for (lerp_index,lerp) in lerps.iter().enumerate(){
-                let split = lerp.fake_arr(axis);
-                // reset values
-                ls = 0; rs = 0;
-                lb.set_default(); rb.set_default();
-                // construct bounds
-                for j in 0..lerp_index { // left of split
-                    ls += bincounts[j];
-                    lb.combine(binbounds[j]);
+            // compute best combination; minimal cost
+            let (mut ls, mut rs) = (0, 0);
+            let (mut lb, mut rb) = (AABB::default(), AABB::default());
+            let mut best_cost = f32::MAX;
+
+            for axis in [Axis::X, Axis::Y, Axis::Z] {
+
+                let u = axis.as_usize();
+                if !axis_valid[u] {
+                    continue;
                 }
-                for j in lerp_index..bins { // right of split
-                    rs += bincounts[j];
-                    rb.combine(binbounds[j]);
+                let k1 = (binsf*(1.0-EPSILON))/(top_bound.max.fake_arr(axis)-top_bound.min.fake_arr(axis));
+                let k0 = top_bound.min.fake_arr(axis);
+
+                // place bounds in bins
+                // generate bounds of bins
+                binbounds.fill(aabb_null);
+                bincounts.fill(0);
+                let mut index: usize ;
+                for index_triangle in sub_is {
+                    index = (k1*(midpoints[*index_triangle][u]-k0)) as usize;
+                    binbounds[index].combine(data.bounds[*index_triangle]);
+                    bincounts[index] += 1;
                 }
 
-                // get cost
-                let cost = 3.0 + 1.0 + lb.surface_area() * ls as f32 + 1.0 + rb.surface_area() * rs as f32;
-                if cost < best_cost {
-                    best_cost = cost;
-                    best_axis = axis;
-                    best_split = split;
+                // iterate over bins
+                for (lerp_index,lerp) in lerps.iter().enumerate(){
+                    let split = lerp.fake_arr(axis);
+                    // reset values
+                    ls = 0; rs = 0;
+                    lb.set_default(); rb.set_default();
+                    // construct bounds
+                    for j in 0..lerp_index { // left of split
+                        ls += bincounts[j];
+                        lb.combine(binbounds[j]);
+                    }
+                    for j in lerp_index..bins { // right of split
+                        rs += bincounts[j];
+                        rb.combine(binbounds[j]);
+                    }
+
+                    // get cost
+                    let cost = 3.0 + 1.0 + lb.surface_area() * ls as f32 + 1.0 + rb.surface_area() * rs as f32;
+                    if cost < best_cost {
+                        best_cost = cost;
+                        best_axis = axis;
+                        best_split = split;
+                        best_aabb_left = lb;
+                        best_aabb_right = rb;
+                    }
                 }
             }
-        }
-        data.times[1] += data.watch.elapsed_ms();
 
-        // partition
-        data.watch.start();
-        let mut a = first; // first
-        let mut b = first + count - 1; // last
-        let u = best_axis.as_usize();
-        while a <= b{
-            if data.midpoints[data.is[a]][u] < best_split{
-                a += 1;
-            } else {
-                data.is.swap(a, b);
-                b -= 1;
+            // partition
+            data.info.watch.start();
+            let mut a = first; // first
+            let mut b = first + count - 1; // last
+            let u = best_axis.as_usize();
+            while a <= b{
+                if midpoints[is[a]][u] < best_split{
+                    a += 1;
+                } else {
+                    is.swap(a, b);
+                    b -= 1;
+                }
             }
-        }
-        let l_count = a - first;
-        data.times[2] += data.watch.elapsed_ms();
 
-        if l_count == 0 || l_count == count{ // leaf
+            let l_count = a - first;
+            if l_count == 0 || l_count == count{ // leaf
+                v.bound = top_bound;
+                v.left_first = first; // first
+                v.count = count;
+                continue;
+            }
+
             v.bound = top_bound;
-            v.left_first = first; // first
-            v.count = count;
-            return;
+            v.count = 0; // internal vertex, not a leaf
+            v.left_first = *poolptr; // left = poolptr, right = poolptr + 1
+            *poolptr += 2;
+            let lf = v.left_first;
+
+            stack.push((lf, first, l_count));
+            stack.push((lf + 1, first + l_count, count - l_count));
         }
-
-        v.bound = top_bound;
-        v.count = 0; // internal vertex, not a leaf
-        v.left_first = *poolptr; // left = poolptr, right = poolptr + 1
-        *poolptr += 2;
-        let lf = v.left_first;
-
-
-        Self::subdivide(data, lf, poolptr, first, l_count, depth + 1);
-        Self::subdivide(data, lf + 1, poolptr, first + l_count, count - l_count, depth + 1);
     }
 
     fn union_bound(is: &[usize], bounds: &[AABB]) -> AABB {
@@ -206,18 +231,18 @@ impl Bvh{
             is,
             vs,
             bins,
-            watch,
-            times: vec![0,0,0,0,0],
             info: Info {
                 maxdepth: 0,
                 counter: 0,
+                watch,
+                times: vec![0,0,0,0,0],
             }
         };
         let mut poolptr = 2;
         let watch = Stopwatch::start_new();
-        println!("{:?}", data.times);
-        println!("{:?}", watch.elapsed_ms());
         Self::subdivide(&mut data, 0, &mut poolptr, 0, n, 0);
+        println!("{:?}", data.info.times.iter().map(|t| *t as f64 * 0.000001).collect::<Vec<f64>>());
+        println!("{:?}", watch.elapsed_ms());
 
         let p = data.is.into_iter().map(|i| i as u32).collect();
         Self{
