@@ -23,17 +23,23 @@ pub struct Vertex{
 
 pub struct BuilderData {
     bounds: Vec<AABB>,
-    midpoints: Vec<[f32;3]>,
+    midpoints: Vec<[f32; 3]>,
     is: Vec<usize>,
     vs: Vec<Vertex>,
     bins: usize,
     watch: Stopwatch,
-    times: Vec<i64>
+    times: Vec<i64>,
+    info: Info,
+}
+
+struct Info {
+    maxdepth: usize,
+    counter: usize,
 }
 
 impl Bvh{
     #[allow(clippy::too_many_arguments)]
-    fn subdivide(data: &mut BuilderData, current: usize, poolptr: &mut usize, first: usize, count: usize){
+    fn subdivide(data: &mut BuilderData, current: usize, poolptr: &mut usize, first: usize, count: usize, depth: usize){
         let midpoints = &data.midpoints;
         let bins = data.bins;
         let binsf = bins as f32;
@@ -148,8 +154,9 @@ impl Bvh{
         *poolptr += 2;
         let lf = v.left_first;
 
-        Self::subdivide(data, lf, poolptr, first, l_count);
-        Self::subdivide(data, lf + 1, poolptr, first + l_count, count - l_count);
+
+        Self::subdivide(data, lf, poolptr, first, l_count, depth + 1);
+        Self::subdivide(data, lf + 1, poolptr, first + l_count, count - l_count, depth + 1);
     }
 
     fn union_bound(is: &[usize], bounds: &[AABB]) -> AABB {
@@ -200,13 +207,17 @@ impl Bvh{
             vs,
             bins,
             watch,
-            times: vec![0,0,0,0,0]
+            times: vec![0,0,0,0,0],
+            info: Info {
+                maxdepth: 0,
+                counter: 0,
+            }
         };
         let mut poolptr = 2;
         let watch = Stopwatch::start_new();
-        Self::subdivide(&mut data, 0, &mut poolptr, 0, n);
         println!("{:?}", data.times);
         println!("{:?}", watch.elapsed_ms());
+        Self::subdivide(&mut data, 0, &mut poolptr, 0, n, 0);
 
         let p = data.is.into_iter().map(|i| i as u32).collect();
         Self{

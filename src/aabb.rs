@@ -39,6 +39,16 @@ impl AABB {
         }
     }
 
+    #[inline]
+    pub fn set_default(&mut self) {
+        self.max.x = f32::MIN;
+        self.max.y = f32::MIN;
+        self.max.z = f32::MIN;
+        self.min.x = f32::MAX;
+        self.min.y = f32::MAX;
+        self.min.z = f32::MAX;
+    }
+
     pub fn from_point_radius(p: Vec3, r: f32) -> Self{
         Self{
             min: p.subed(Vec3::uni(r)),

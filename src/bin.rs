@@ -141,14 +141,14 @@ pub fn main() -> Result<(), String>{
     //         .with_reflectivity(0.9)
     //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
-
+    //
     // Triangle{
     //     a: Vec3::new(-1.0, 1.0, -7.0),
     //     b: Vec3::new( 1.0, 1.0, -7.0),
     //     c: Vec3::new( 1.0, 3.0, -7.0),
     //     mat: Material::basic().as_checkerboard().add_to_scene(&mut scene),
     // }.add(&mut scene);
-
+    //
     // Sphere{
     //     pos: Vec3::new(3.0, 3.0, -5.0),
     //     rad: 1.0 - EPSILON,
@@ -265,7 +265,7 @@ pub fn main() -> Result<(), String>{
         mat: scene.add_material(Material::basic()),
         mesh: scene.add_mesh("assets/models/dragon.obj".parse().unwrap())
     };
-    let n = 20;
+    let n = 1;
     for i in 0..n {
         println!("{}",i);
         let theta = (i as f32 / n as f32) * 2.0*PI;
@@ -285,6 +285,7 @@ pub fn main() -> Result<(), String>{
         dragon.rot = Vec3::from_orientation( &ori);
         scene.add_model(dragon);
     }
+    // scene.generate_top_level_bvh();
 
     Light{
         pos: Vec3::new(0.0, 3.0, -5.0),
@@ -319,12 +320,12 @@ pub fn main() -> Result<(), String>{
         start_in_focus_mode: false,
         max_render_depth: 4,
     };
-    // let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O, T), settings);
-    let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O, F, B, W), settings);
+    let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O, T), settings);
+    // let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O, F, B, W), settings);
 
     // let (w, h) = (960, 540);
-    // let (w, h) = (1600, 900);
-    let (w, h) = (1920, 1080);
+    let (w, h) = (1600, 900);
+    // let (w, h) = (1920, 1080);
 
     // let mut tracer = unpackdb!(trace_processor::RealTracer::new((w, h), &mut scene, &mut info), "Could not create RealTracer!");
     // let mut tracer = unpackdb!(trace_processor::AaTracer::new((w, h), 2, &mut scene, &mut info), "Could not create AaTracer!");

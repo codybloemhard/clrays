@@ -443,7 +443,6 @@ impl Scene{
             (self.mats.len() - 1) as MaterialIndex
         }
     }
-    }
 
     pub fn add_model(&mut self, model: Model) {
         self.models.push(model);
