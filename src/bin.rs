@@ -22,6 +22,15 @@ use stopwatch::Stopwatch;
 pub const USE_WATERFLOOR : bool = false;
 pub const USE_WIDE_ANGLE : bool = false;
 
+// credit: George Marsaglia
+#[inline]
+fn xor32(seed: &mut u32) -> u32{
+    *seed ^= *seed << 13;
+    *seed ^= *seed >> 17;
+    *seed ^= *seed << 5;
+    *seed
+}
+
 pub fn main() -> Result<(), String>{
     // clr::test(clr::test_platform::PlatformTest::OpenCl2);
     let mut info = Info::new();
@@ -217,14 +226,28 @@ pub fn main() -> Result<(), String>{
 
     // generate 5.000.000 triangles randomly
     let mut triangles = vec![];
+    let mut seed:u32 = 81349324; // guaranteed to be random
+
     for i in 0..5000000{
         if i % 100000 == 0 {
             println!("{}",i);
         }
         triangles.push(Triangle{
-            a: Vec3::new_random(),
-            b: Vec3::new_random(),
-            c: Vec3::new_random(),
+            a: Vec3 {
+                x: xor32(&mut seed) as f32,
+                y: xor32(&mut seed) as f32,
+                z: xor32(&mut seed) as f32
+            },
+            b: Vec3 {
+                x: xor32(&mut seed) as f32,
+                y: xor32(&mut seed) as f32,
+                z: xor32(&mut seed) as f32
+            },
+            c: Vec3 {
+                x: xor32(&mut seed) as f32,
+                y: xor32(&mut seed) as f32,
+                z: xor32(&mut seed) as f32
+            },
         });
         // println!("{},{:?}",i, triangles[i]);
     }
