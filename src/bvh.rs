@@ -51,12 +51,17 @@ impl Bvh{
 
 
         // let mut stack: Vec<(usize, usize, usize, usize)> = vec![(0,0,0,0);data.midpoints.len()]; // [(current,first,count,step)]
-        let mut stack: Vec<(usize, usize, usize)> = vec![(current,first,count)]; // [(current,first,count,step)]
+        let mut stack = &mut CustomStack::new();
+        // let mut stack: Vec<(usize, usize, usize)> = vec![(current,first,count)]; // [(current,first,count,step)]
+
+        stack.push(StackItem {current,first,count});
 
         let mut lerps = vec![Vec3::ZERO; bins];
         let mut binbounds = vec![AABB::new();bins];
         let mut bincounts : Vec<usize> = vec![0;bins];
         let aabb_null = AABB::default();
+
+        let (mut lb, mut rb) = (AABB::default(), AABB::default());
 
         let mut best_aabb_left = AABB::default();
         let mut best_aabb_right = AABB::default();
@@ -73,17 +78,18 @@ impl Bvh{
         let mut step = 0;
         let mut depth = 1;
 
-        while stack.len() > 0 {
-            let mut x =  stack.pop().unwrap();
+        while stack.index >= 1 {
+            let mut x =  stack.pop();
+            current = x.current;
+            count = x.count;
+            first = x.first;
             // println!("{:?}", x);
-            current = x.0;
-            first = x.1;
-            count = x.2;
             v = &mut vs[current];
             sub_is = &is[first..first + count];
             top_bound = Self::union_bound(sub_is, bounds);
+            v.bound = top_bound;
+
             if count < 3 { // leaf
-                v.bound = top_bound;
                 v.left_first = first; // first
                 v.count = count;
                 continue;
@@ -93,14 +99,15 @@ impl Bvh{
             let axis_valid = [diff.x > binsf * EPSILON, diff.y > binsf * EPSILON, diff.z > binsf * EPSILON];
 
             // precompute lerps
-            lerps.fill(Vec3::ZERO)
+            lerps.fill(Vec3::ZERO);
             for (i, item) in lerps.iter_mut().enumerate(){
                 *item = top_bound.lerp(i as f32 / binsf);
             }
 
             // compute best combination; minimal cost
             let (mut ls, mut rs) = (0, 0);
-            let (mut lb, mut rb) = (AABB::default(), AABB::default());
+            lb.set_default();
+            rb.set_default();
             let mut best_cost = f32::MAX;
 
             for axis in [Axis::X, Axis::Y, Axis::Z] {
@@ -164,23 +171,20 @@ impl Bvh{
                     b -= 1;
                 }
             }
-
             let l_count = a - first;
+
             if l_count == 0 || l_count == count{ // leaf
-                v.bound = top_bound;
                 v.left_first = first; // first
                 v.count = count;
                 continue;
             }
-
-            v.bound = top_bound;
             v.count = 0; // internal vertex, not a leaf
             v.left_first = *poolptr; // left = poolptr, right = poolptr + 1
             *poolptr += 2;
             let lf = v.left_first;
 
-            stack.push((lf, first, l_count));
-            stack.push((lf + 1, first + l_count, count - l_count));
+            stack.push(StackItem {current: lf,first,count: l_count});
+            stack.push(StackItem {current: lf+1,first: first+l_count,count: count-l_count});
         }
     }
 
@@ -253,3 +257,34 @@ impl Bvh{
     }
 }
 
+
+const STACK_SIZE : usize = 100000;
+pub struct CustomStack {
+    pub stack: [StackItem; STACK_SIZE],
+    pub index: usize
+}
+
+impl CustomStack {
+    pub fn new() -> Self{
+        Self { stack: [StackItem { current: 0, first: 0, count: 0 }; STACK_SIZE], index: 0 }
+    }
+    #[inline]
+    pub fn current(&self) -> &StackItem{
+        &self.stack[self.index]
+    }
+    pub fn push(&mut self, item: StackItem){
+        self.index += 1;
+        self.stack[self.index] = item;
+    }
+    pub fn pop(&mut self) -> StackItem{
+        self.index = self.index-1;
+        self.stack[self.index + 1]
+    }
+}
+
+#[derive(Default, Copy, Clone, Debug)]
+pub struct StackItem {
+    pub current : usize,
+    pub first : usize,
+    pub count : usize
+}
