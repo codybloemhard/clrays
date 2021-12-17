@@ -7,7 +7,7 @@ use crate::consts::{ EPSILON };
 #[derive(Clone, Debug, Default)]
 pub struct Bvh{
     indices: Vec<u32>,
-    pub vertices: Vec<Vertex>,
+    vertices: Vec<Vertex>,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -146,8 +146,8 @@ impl Bvh{
 
         Self::subdivide(&bounds, &mut is, &mut vs, 0, &mut poolptr, 0, prims, bins);
 
-        // vs = vs.into_iter().filter(|v| v.bound != AABB::default()).collect::<Vec<_>>();
-        // println!("{:#?}", vs);
+        vs = vs.into_iter().take(poolptr as usize).collect::<Vec<_>>();
+        // println!("{}, {}", prims, vs.len());
 
         Self{
             indices: is,
@@ -251,6 +251,24 @@ impl Bvh{
 
         let (_, axis, split) = best;
         (axis, split)
+    }
+
+    pub fn into_buffer(&self, nth: usize, buffer: &mut Vec<u32>){
+        buffer[nth * 2] = buffer.len() as u32; // first index for this bvh
+        for i in &self.indices{
+            buffer.push(*i);
+        }
+        buffer[nth * 2 + 1] = buffer.len() as u32; // first vertex for this bvh
+        for v in &self.vertices{
+            buffer.push(v.bound.min.x.to_bits() as u32);
+            buffer.push(v.bound.min.y.to_bits() as u32);
+            buffer.push(v.bound.min.z.to_bits() as u32);
+            buffer.push(v.bound.max.x.to_bits() as u32);
+            buffer.push(v.bound.max.y.to_bits() as u32);
+            buffer.push(v.bound.max.z.to_bits() as u32);
+            buffer.push(v.left_first);
+            buffer.push(v.count);
+        }
     }
 }
 

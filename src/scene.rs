@@ -5,7 +5,6 @@ use crate::info::Info;
 use crate::bvh::{ BVH, Node };
 use crate::aabb::AABB;
 use crate::bvh_nightly::Bvh;
-// use crate::bvh::{ AABB, BVH, build_bvh, Node };
 
 use std::collections::HashMap;
 
@@ -329,7 +328,7 @@ impl Scene{
         }
     }
 
-    pub fn get_buffers(&mut self) -> Vec<f32>{
+    pub fn get_scene_buffer(&mut self) -> Vec<f32>{
         let mut len = 0;
         len += self.mats.len() * Self::MATERIAL_SIZE as usize;
         len += self.lights.len() * Self::LIGHT_SIZE as usize;
@@ -347,7 +346,7 @@ impl Scene{
         res
     }
 
-    pub fn get_params_buffer(&mut self) -> Vec<u32>{
+    pub fn get_scene_params_buffer(&mut self) -> Vec<u32>{
         let mut i = 0;
         self.scene_params[0] = Self::MATERIAL_SIZE;
         self.scene_params[1] = self.mats.len() as u32;
@@ -411,6 +410,13 @@ impl Scene{
         }
         make_nonzero_len(&mut res);
         res
+    }
+
+    pub fn get_bvh_buffer(&self) -> Vec<u32>{
+        let bvhs = 1;
+        let mut buffer = vec![0; bvhs * 2];
+        self.bvh_nightly.into_buffer(0, &mut buffer);
+        buffer
     }
 
     pub fn bufferize<T: SceneItem>(vec: &mut Vec<f32>, start: &mut usize, list: &[T], stride: usize){

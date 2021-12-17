@@ -51,6 +51,7 @@ struct Scene{
     global uint *params, *tex_params;
     global float *items;
     global uchar *textures;
+    global uint *bvh;
     uint skybox;
     float3 skycol;
     float skyintens;
@@ -158,109 +159,80 @@ float3 ExtractFloat3FromInts(global uint *arr, uint index){
 }
 
 float3 reflect(float3 vec, float3 nor){
-    return vec - 2 * (dot(vec,nor)) * nor;
+    return vec - 2 * (dot(vec, nor)) * nor;
 }
 
 //ray-sphere intersection
-struct RayHit InterSphere(struct Ray* r, float3 spos, float srad){
+bool InterSphere(struct Ray* r, struct RayHit* hit, float3 spos, float srad){
     float3 l = spos - r->pos;
     float tca = dot(r->dir, l);
     float d = tca*tca - dot(l, l) + srad*srad;
-    if(d < 0) return NullRayHit();
+    if(d < 0) return false;
     float t = tca - sqrt(d);
     if(t < 0){
         t = tca + sqrt(d);
-        if(t < 0) return NullRayHit();
+        if (t < 0) return false;
     }
-    struct RayHit hit;
-    hit.t = t;
-    hit.pos = r->pos + r->dir * t;
-    hit.nor = (hit.pos - spos) / srad;
-    return hit;
+    if(t >= hit->t) return false;
+    hit->t = t;
+    hit->pos = r->pos + r->dir * t;
+    hit->nor = (hit->pos - spos) / srad;
+    return true;
 }
 
 //ray-plane intersection
-struct RayHit InterPlane(struct Ray* r, float3 ppos, float3 pnor){
+bool InterPlane(struct Ray* r, struct RayHit* hit, float3 ppos, float3 pnor){
     float divisor = dot(r->dir, pnor);
-    if(fabs(divisor) < EPSILON) return NullRayHit();
+    if(fabs(divisor) < EPSILON) return false;
     float3 planevec = ppos - r->pos;
     float t = dot(planevec, pnor) / divisor;
-    if(t < EPSILON) return NullRayHit();
-    struct RayHit hit;
-    hit.t = t;
-    hit.pos = r->pos + r->dir * t;
-    hit.nor = pnor;
-    return hit;
+    if(t < EPSILON) return false;
+    if(t >= hit->t) return false;
+    hit->t = t;
+    hit->pos = r->pos + r->dir * t;
+    hit->nor = pnor;
+    return true;
 }
 
-struct RayHit InterTri(struct Ray* r, float3 ta, float3 tb, float3 tc){
+bool InterTri(struct Ray* r, struct RayHit* hit, float3 ta, float3 tb, float3 tc){
     float3 edge1 = tb - ta;
     float3 edge2 = tc - ta;
     float3 h = cross(r->dir, edge2);
     float a = dot(edge1, h);
-    if (a > -EPSILON * 0.01 && a < EPSILON * 0.01) return NullRayHit();
+    if(a > -EPSILON * 0.01 && a < EPSILON * 0.01) return false;
     float f = 1.0 / a;
     float3 s = r->pos - ta;
     float u = f * dot(s, h);
-    if (u < 0.0 || u > 1.0) return NullRayHit();
+    if(u < 0.0 || u > 1.0) return false;
     float3 q = cross(s, edge1);
     float v = f * dot(r->dir, q);
-    if (v < 0.0 || u + v > 1.0) return NullRayHit();
+    if(v < 0.0 || u + v > 1.0) return false;
     float t = f * dot(edge2, q);
-    if (t <= EPSILON) return NullRayHit();
-    struct RayHit hit;
-    hit.t = t;
-    hit.pos = r->pos + r->dir * t;
-    hit.nor = fast_normalize(cross(edge1, edge2));
-    return hit;
+    if(t <= EPSILON) return false;
+    if(t >= hit->t) return false;
+    hit->t = t;
+    hit->pos = r->pos + r->dir * t;
+    hit->nor = fast_normalize(cross(edge1, edge2));
+    return true;
 }
 
-//ray-box intersection
-//https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms
-//https://stackoverflow.com/questions/16875946/ray-box-intersection-normal#16876601
-struct RayHit InterBox(struct Ray* r, float3 bmin, float3 bmax){
+// ray-box intersection
+// https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms
+// https://stackoverflow.com/questions/16875946/ray-box-intersection-normal#16876601
+float InterAABB(struct Ray* r, float3 bmin, float3 bmax){
     float3 inv = 1.0f / r->dir;
-    float t1 = (bmin.x - r->pos.x)*inv.x;
-    float t2 = (bmax.x - r->pos.x)*inv.x;
-    float t3 = (bmin.y - r->pos.y)*inv.y;
-    float t4 = (bmax.y - r->pos.y)*inv.y;
-    float t5 = (bmin.z - r->pos.z)*inv.z;
-    float t6 = (bmax.z - r->pos.z)*inv.z;
-    float tmin = fmax(fmax(fmin(t1,t2),fmin(t3,t4)),fmin(t5,t6));
-    float tmax = fmin(fmin(fmax(t1,t2),fmax(t3,t4)),fmax(t5,t6));
+    float t1 = (bmin.x - r->pos.x) * inv.x;
+    float t2 = (bmax.x - r->pos.x) * inv.x;
+    float t3 = (bmin.y - r->pos.y) * inv.y;
+    float t4 = (bmax.y - r->pos.y) * inv.y;
+    float t5 = (bmin.z - r->pos.z) * inv.z;
+    float t6 = (bmax.z - r->pos.z) * inv.z;
+    float tmin = fmax(fmax(fmin(t1, t2), fmin(t3, t4)), fmin(t5, t6));
+    float tmax = fmin(fmin(fmax(t1, t2), fmax(t3, t4)), fmax(t5, t6));
     if(tmax < 0.0f || tmin > tmax){
-        return NullRayHit();
+        return MAX_RENDER_DIST;
     }
-    float3 hitp = r->pos + r->dir * tmin;
-    //normal
-    float3 normal = (float3)(0.0f,0.0f,1.0f);
-    float3 size = bmax - bmin;
-    float3 localPoint = hitp - (bmin + size/2.0f);
-    float min = -10000.0f;
-    float distance = fabs(size.x - fabs(localPoint.x));
-    if (distance < min) {
-        min = distance;
-        normal = (float3)(1.0f,0.0f,0.0f);
-        normal *= sign(localPoint.x);
-    }
-    distance = fabs(size.y - fabs(localPoint.y));
-    if (distance < min) {
-        min = distance;
-        normal = (float3)(0.0f,1.0f,0.0f);
-        normal *= sign(localPoint.y);
-    }
-    distance = fabs(size.z - fabs(localPoint.z));
-    if (distance < min) {
-        min = distance;
-        normal = (float3)(0.0f,0.0f,1.0f);
-        normal *= sign(localPoint.z);
-    }
-    //return
-    struct RayHit hit;
-    hit.t = tmin;
-    hit.pos = hitp;
-    hit.nor = fast_normalize(normal);
-    return hit;
+    return tmin;
 }
 
 //plane uv
@@ -287,48 +259,198 @@ float2 SkySphereUV(float3 nor){
 //macros for primitive intersections
 #define START_PRIM() \
     (struct RayHit *closest, struct Ray *ray, global float *arr, const uint count, const uint start, const uint stride){\
+    uint coff = UINT_MAX;\
     for(uint i = 0; i < count; i++){\
         uint off = start + i * stride;\
 
-#define END_PRIM(offset,uvtyp) {\
-            if(closest->t > hit.t){\
-                *closest = hit;\
-                closest->mat_index = arr[off + offset];\
-                closest->uvtype = uvtyp;\
-            }\
+#define END_PRIM(mat_prim_offset, uvtyp) {\
+            if(hit) coff = off;\
+        }\
+        if(coff != UINT_MAX){\
+            closest->mat_index = arr[coff + mat_prim_offset];\
+            closest->uvtype = uvtyp;\
         }\
     }\
-}
+}\
 
 //actual functions
 void InterSpheres START_PRIM()
     float3 spos = ExtractFloat3(off + 0, arr);
     float srad = arr[off + 3];
-    struct RayHit hit = InterSphere(ray, spos, srad);
-    END_PRIM(4, uvSPHERE)
+    bool hit = InterSphere(ray, closest, spos, srad);
+END_PRIM(4, uvSPHERE)
 
 void InterPlanes START_PRIM()
     float3 ppos = ExtractFloat3(off + 0, arr);
     float3 pnor = ExtractFloat3(off + 3, arr);
-    struct RayHit hit = InterPlane(ray, ppos, pnor);
-    END_PRIM(6, uvPLANE)
+    bool hit = InterPlane(ray, closest, ppos, pnor);
+END_PRIM(6, uvPLANE)
 
 void InterTris START_PRIM()
     float3 a = ExtractFloat3(off + 0, arr);
     float3 b = ExtractFloat3(off + 3, arr);
     float3 c = ExtractFloat3(off + 6, arr);
-    struct RayHit hit = InterTri(ray, a, b, c);
-    END_PRIM(9, uvPLANE)
+    bool hit = InterTri(ray, closest, a, b, c);
+END_PRIM(9, uvPLANE)
 
 //intersect whole scene
 struct RayHit InterScene(struct Ray *ray, struct Scene *scene){
     struct RayHit closest = NullRayHit();
-    uint mstart = ScGetStart(SC_MAT, scene);
-    uint mstride = ScGetStride(SC_MAT, scene);
     InterPlanes(&closest, ray, scene->items, ScGetCount(SC_PLANE, scene), ScGetStart(SC_PLANE, scene), ScGetStride(SC_PLANE, scene));
     InterSpheres(&closest, ray, scene->items, ScGetCount(SC_SPHERE, scene), ScGetStart(SC_SPHERE, scene), ScGetStride(SC_SPHERE, scene));
     InterTris(&closest, ray, scene->items, ScGetCount(SC_TRI, scene), ScGetStart(SC_TRI, scene), ScGetStride(SC_TRI, scene));
     return closest;
+}
+
+void InterBvh(struct Ray *ray, struct Scene *scene, struct RayHit *closest, uint current, uint index_start, uint vertex_start){
+    // uint stack[64];
+    // uint* ptr = stack;
+    // *ptr++ = NULL;
+    // uint current = 0;
+    //
+    // do{
+    //
+    // }
+    // while();
+
+    uint v = vertex_start + current * 8;
+    float3 bmin = ExtractFloat3FromInts(scene->bvh, v + 0);
+    float3 bmax = ExtractFloat3FromInts(scene->bvh, v + 3);
+    uint left_first = scene->bvh[vertex_start + 6];
+    uint count = scene->bvh[vertex_start + 7];
+
+    if(count > 0){ // leaf
+        uint sph_start = ScGetStart(SC_SPHERE, scene);
+        uint sph_stride = ScGetStride(SC_SPHERE, scene);
+        uint sph_count = ScGetCount(SC_SPHERE, scene);
+        uint tri_start = ScGetStart(SC_TRI, scene);
+        uint tri_stride = ScGetStride(SC_TRI, scene);
+
+        uchar uvtype = 0;
+        uint coff = UINT_MAX;
+
+        for(uint i = left_first; i < left_first + count; i++){
+            uint k = scene->bvh[2 + i]; // 2 = index_start for now
+            if(k < sph_count){ // sphere
+                uint off = sph_start + k * sph_stride;
+                float3 spos = ExtractFloat3(off + 0, scene->items);
+                float srad = scene->items[off + 3];
+                bool hit = InterSphere(ray, closest, spos, srad);
+                // bool hit = false;
+                if(hit){
+                    coff = off;
+                    uvtype = uvSPHERE;
+                }
+            } else { // triangle
+                uint off = tri_start + (k - sph_count) * tri_stride;
+                float3 a = ExtractFloat3(off + 0, scene->items);
+                float3 b = ExtractFloat3(off + 3, scene->items);
+                float3 c = ExtractFloat3(off + 6, scene->items);
+                bool hit = InterTri(ray, closest, a, b, c);
+                // bool hit = false;
+                if(hit){
+                    coff = off;
+                    uvtype = uvPLANE;
+                }
+            }
+        }
+
+        // InterSpheres(closest, ray, scene->items, ScGetCount(SC_SPHERE, scene), ScGetStart(SC_SPHERE, scene), ScGetStride(SC_SPHERE, scene));
+        // InterTris(closest, ray, scene->items, ScGetCount(SC_TRI, scene), ScGetStart(SC_TRI, scene), ScGetStride(SC_TRI, scene));
+
+        uint mat_prim_offset = uvtype == uvSPHERE ? 4 : 9;
+        if(coff != UINT_MAX){
+            closest->mat_index = scene->items[coff + mat_prim_offset];
+            closest->uvtype = uvtype;
+        }
+    } else {
+        uint vertices[2] = {
+            left_first,
+            left_first + 1,
+        };
+
+        v = vertex_start + left_first * 8;
+        float3 bmin = ExtractFloat3FromInts(scene->bvh, v + 0);
+        float3 bmax = ExtractFloat3FromInts(scene->bvh, v + 3);
+        float t0 = InterAABB(ray, bmin, bmax);
+
+        v = vertex_start + (left_first + 1) * 8;
+        bmin = ExtractFloat3FromInts(scene->bvh, v + 0);
+        bmax = ExtractFloat3FromInts(scene->bvh, v + 3);
+        float t1 = InterAABB(ray, bmin, bmax);
+        float ts[2] = { t0, t1 };
+
+        uint order[2] = { 0, 0 };
+        if(ts[0] <= ts[1]){
+            order[1] = 1;
+        } else {
+            order[0] = 1;
+        }
+
+        if(ts[order[0]] < closest->t){
+            InterBvh(ray, scene, closest, vertices[order[0]], index_start, vertex_start);
+            if(ts[order[1]] < closest->t){
+                InterBvh(ray, scene, closest, vertices[order[1]], index_start, vertex_start);
+            }
+        }
+    }
+}
+
+struct RayHit InterSceneBvh(struct Ray *ray, struct Scene *scene){
+    struct RayHit closest = NullRayHit();
+    uint index_start = scene->bvh[0];
+    uint vertex_start = scene->bvh[1];
+    InterBvh(ray, scene, &closest, 0, index_start, vertex_start);
+    return closest;
+}
+
+// #define INTER_SCENE InterScene
+#define INTER_SCENE InterSceneBvh
+
+float BvhDebug(struct Ray *ray, struct Scene *scene, uint current, uint vertex_start, uint d){
+    uint v = vertex_start + current * 8;
+    float3 bmin = ExtractFloat3FromInts(scene->bvh, v + 0);
+    float3 bmax = ExtractFloat3FromInts(scene->bvh, v + 3);
+    uint left_first = scene->bvh[vertex_start + 6];
+    uint count = scene->bvh[vertex_start + 7];
+
+    if(count > 0){ // leaf
+        return 1.0;
+    } else {
+        uint vertices[2] = {
+            left_first,
+            left_first + 1,
+        };
+
+        v = vertex_start + left_first * 8;
+        float3 bmin = ExtractFloat3FromInts(scene->bvh, v + 0);
+        float3 bmax = ExtractFloat3FromInts(scene->bvh, v + 3);
+        float t0 = InterAABB(ray, bmin, bmax);
+
+        v = vertex_start + (left_first + 1) * 8;
+        bmin = ExtractFloat3FromInts(scene->bvh, v + 0);
+        bmax = ExtractFloat3FromInts(scene->bvh, v + 3);
+        float t1 = InterAABB(ray, bmin, bmax);
+        float ts[2] = { t0, t1 };
+
+        uint order[2] = { 0, 0 };
+        if(ts[0] <= ts[1]){
+            order[1] = 1;
+        } else {
+            order[0] = 1;
+        }
+        if(d > 4) return 1.0;
+
+        float x0 = 0.0;
+        float x1 = 0.0;
+        if(t0 != MAX_RENDER_DIST) x0 = BvhDebug(ray, scene, vertices[order[0]], vertex_start, d + 1);
+        if(t1 != MAX_RENDER_DIST) x1 = BvhDebug(ray, scene, vertices[order[1]], vertex_start, d + 1);
+
+        return 2.0 + x0 + x1;
+
+        // if(t0 == MAX_RENDER_DIST && t1 == MAX_RENDER_DIST) return 0.0;
+        // else return 20.0;
+    }
 }
 
 //get sky colour
@@ -357,7 +479,7 @@ float2 BlinnSingle(float3 lpos, float lpow, float3 viewdir, float roughness, str
     struct Ray lray;
     lray.pos = hit->pos + hit->nor * EPSILON;
     lray.dir = toL;
-    struct RayHit lhit = InterScene(&lray, scene);
+    struct RayHit lhit = INTER_SCENE(&lray, scene);
     if(lhit.t <= dist)
         return (float2)(0.0f);
     //specular
@@ -390,10 +512,12 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 colou
 
 //Recursion only works with one function
 float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
+    float hits = BvhDebug(ray, scene, 0, scene->bvh[1], 0);
+    return (float3)(1.0) * (hits / 30);
     if(depth == 0) return SkyCol(ray->dir, scene);
 
     //hit
-    struct RayHit hit = InterScene(ray, scene);
+    struct RayHit hit = INTER_SCENE(ray, scene);
     if(hit.t >= MAX_RENDER_DIST)
         return SkyCol(ray->dir, scene);
 
@@ -457,7 +581,7 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
     // using hit.nor instead of newdir slows down by 5ms???
     nray.pos = hit.pos + newdir * EPSILON;
     nray.dir = newdir;
-    struct RayHit nhit = InterScene(&nray, scene);
+    struct RayHit nhit = INTER_SCENE(&nray, scene);
 
     // Does not get corrupted to version inside recursive call if not pointer
     float refl_mul = mat.reflectivity;
@@ -468,13 +592,15 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
 float3 RayTracing(const uint w, const uint h,
 const uint x, const uint y, const uint AA,
 __global uint *sc_params, __global float *sc_items,
-__global uint *tx_params, __global uchar *tx_items){
+__global uint *tx_params, __global uchar *tx_items,
+__global uint *bvh){
     //Scene
     struct Scene scene;
     scene.params = sc_params;
     scene.items = sc_items;
     scene.tex_params = tx_params;
     scene.textures = tx_items;
+    scene.bvh = bvh;
     scene.skybox = sc_params[3 * SC_SCENE + 0];
     scene.skycol = ExtractFloat3FromInts(sc_params, 3 * SC_SCENE + 1);
     scene.skyintens = as_float(sc_params[3 * SC_SCENE + 4]);
@@ -500,35 +626,35 @@ __global uint *tx_params, __global uchar *tx_items){
 }
 
 //https://simpleopencl.blogspot.com/2013/05/atomic-operations-and-floats-in-opencl.html
-void AtomicFloatAdd(volatile global float *source, const float operand) {
-    union { uint intVal; float floatVal; } newVal;
-    union { uint intVal; float floatVal; } prevVal;
-    do{
-        prevVal.floatVal = *source;
-        newVal.floatVal = prevVal.floatVal + operand;
-    }
-    while (atomic_cmpxchg((volatile global uint *)source, prevVal.intVal, newVal.intVal) != prevVal.intVal);
-}
+// void AtomicFloatAdd(volatile global float *source, const float operand) {
+//     union { uint intVal; float floatVal; } newVal;
+//     union { uint intVal; float floatVal; } prevVal;
+//     do{
+//         prevVal.floatVal = *source;
+//         newVal.floatVal = prevVal.floatVal + operand;
+//     }
+//     while (atomic_cmpxchg((volatile global uint *)source, prevVal.intVal, newVal.intVal) != prevVal.intVal);
+// }
 
-__kernel void raytracingAA(
-    __global float *floatmap,
-    const uint w,
-    const uint h,
-    const uint AA,
-    __global  int *sc_params,
-    __global float *sc_items,
-    __global uint *tx_params,
-    __global uchar *tx_items
-){
-    uint x = get_global_id(0);
-    uint y = get_global_id(1);
-    uint pixid = ((x/AA) + ((y/AA) * w)) * 3;
-    float3 col = RayTracing(w, h, x, y, AA,
-        sc_params, sc_items, tx_params, tx_items);
-    AtomicFloatAdd(&floatmap[pixid + 0],col.x);
-    AtomicFloatAdd(&floatmap[pixid + 1],col.y);
-    AtomicFloatAdd(&floatmap[pixid + 2],col.z);
-}
+// __kernel void raytracingAA(
+//     __global float *floatmap,
+//     const uint w,
+//     const uint h,
+//     const uint AA,
+//     __global  int *sc_params,
+//     __global float *sc_items,
+//     __global uint *tx_params,
+//     __global uchar *tx_items
+// ){
+//     uint x = get_global_id(0);
+//     uint y = get_global_id(1);
+//     uint pixid = ((x/AA) + ((y/AA) * w)) * 3;
+//     float3 col = RayTracing(w, h, x, y, AA,
+//         sc_params, sc_items, tx_params, tx_items);
+//     AtomicFloatAdd(&floatmap[pixid + 0],col.x);
+//     AtomicFloatAdd(&floatmap[pixid + 1],col.y);
+//     AtomicFloatAdd(&floatmap[pixid + 2],col.z);
+// }
 
 __kernel void raytracing(
     __global uint *intmap,
@@ -536,6 +662,7 @@ __kernel void raytracing(
     const uint h,
     __global uint *sc_params,
     __global float *sc_items,
+    __global uint *bvh,
     __global uint *tx_params,
     __global uchar *tx_items
 ){
@@ -543,7 +670,7 @@ __kernel void raytracing(
     uint y = get_global_id(1);
     uint pixid = x + y * w;
     float3 col = RayTracing(w, h, x, y, 1,
-        sc_params, sc_items, tx_params, tx_items);
+        sc_params, sc_items, tx_params, tx_items, bvh);
     col *= 255;
     uint res = ((uint)col.x << 16) + ((uint)col.y << 8) + (uint)col.z;
     intmap[pixid] = res;

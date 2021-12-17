@@ -108,13 +108,16 @@ impl TraceKernelReal{
         let buffer = ClBuffer::<u32>::new(queue, w as usize * h as usize, 0)?;
         info.int_buffer_size = w as u64 * h as u64;
         info.set_time_point("Build int frame buffer");
-        let scene_params_raw = scene.get_params_buffer();
-        let scene_raw = scene.get_buffers();
+        let scene_params_raw = scene.get_scene_params_buffer();
+        let scene_raw = scene.get_scene_buffer();
+        let bvh_raw = scene.get_bvh_buffer();
         info.scene_size = scene_raw.len() as u64;
         info.meta_size = scene_params_raw.len() as u64;
+        info.bvh_size = bvh_raw.len() as u64;
         info.set_time_point("Build scene data");
         let mut scene_params = ClBuffer::from(queue, scene_params_raw)?;
         let mut scene_items = ClBuffer::from(queue, scene_raw)?;
+        let mut bvh = ClBuffer::from(queue, bvh_raw)?;
         info.set_time_point("Build scene buffers");
         let tex_raw = scene.get_textures_buffer();
         let tex_params_raw = scene.get_texture_params_buffer();
@@ -126,7 +129,7 @@ impl TraceKernelReal{
         kbuilder.program(program);
         kbuilder.name(name);
         kbuilder.queue(queue.clone());
-        kbuilder.global_work_size([w,h]);
+        kbuilder.global_work_size([w, h]);
 
         kbuilder.arg(buffer.get_ocl_buffer());
         kbuilder.arg(w as u32);
@@ -134,6 +137,7 @@ impl TraceKernelReal{
 
         kbuilder.arg(scene_params.get_ocl_buffer());
         kbuilder.arg(scene_items.get_ocl_buffer());
+        kbuilder.arg(bvh.get_ocl_buffer());
         kbuilder.arg(tex_params.get_ocl_buffer());
         kbuilder.arg(tex_items.get_ocl_buffer());
         let kernel = kbuilder.build()?;
@@ -144,23 +148,25 @@ impl TraceKernelReal{
         I choose to upload here and let them go, as i don't need them later on and i can time the uploading.
         Except the scene_params. It is small and used to change camera etc. */
         scene_params.upload(queue)?;
-        info.set_time_point("Upload scene_params");
+        info.set_time_point("Upload scene parameters");
         scene_items.upload(queue)?;
-        info.set_time_point("Upload scene_items");
+        info.set_time_point("Upload scene items");
         tex_params.upload(queue)?;
-        info.set_time_point("Upload tex_params");
+        info.set_time_point("Upload bvh");
+        bvh.upload(queue)?;
+        info.set_time_point("Upload texture parameters");
         tex_items.upload(queue)?;
-        info.set_time_point("Upload tex_items");
-        Ok(Self{ kernel, dirty, buffer, scene_params, res: (w,h) })
+        info.set_time_point("Upload textures");
+        Ok(Self{ kernel, dirty, buffer, scene_params, res: (w, h) })
     }
 
     pub fn update(&mut self, queue: &Queue, scene: &mut Scene) -> Result<(), ocl::Error>{
-        let scene_params_raw = scene.get_params_buffer();
+        let scene_params_raw = scene.get_scene_params_buffer();
         self.scene_params.upload_new(queue, &scene_params_raw)?;
         Ok(())
     }
 
-    pub fn get_res(&self) -> (u32,u32){
+    pub fn get_res(&self) -> (u32, u32){
         self.res
     }
 }
@@ -203,8 +209,8 @@ impl TraceKernelAa{
         let buffer = ClBuffer::<f32>::new(queue, bsize, 0.0)?;
         info.float_buffer_size = bsize as u64;
         info.set_time_point("Build float frame buffer");
-        let scene_params_raw = scene.get_params_buffer();
-        let scene_raw = scene.get_buffers();
+        let scene_params_raw = scene.get_scene_params_buffer();
+        let scene_raw = scene.get_scene_buffer();
         info.scene_size = scene_raw.len() as u64;
         info.meta_size = scene_params_raw.len() as u64;
         info.set_time_point("Build scene data");

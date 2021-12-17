@@ -204,13 +204,13 @@ pub fn main() -> Result<(), String>{
     // // println!("wall is build");
 
     // https://groups.csail.mit.edu/graphics/classes/6.837/F03/models/
-    // load_model("assets/models/object-scene.obj", Material::basic(), &mut scene);
     let model_mat = Material::basic()
             .with_reflectivity(0.3)
             // .as_dielectric()
             // .with_refraction(2.0);
             .add_to_scene(&mut scene);
     load_model("assets/models/teapot.obj", model_mat, &mut scene);
+    // load_model("assets/models/object-scene.obj", model_mat, &mut scene);
 
     Light{
         pos: Vec3::new(0.0, 2.0, -3.0),
@@ -218,23 +218,7 @@ pub fn main() -> Result<(), String>{
         col: Vec3::ONE,
     }.add(&mut scene);
 
-    // println!("build bvh...");
-    // scene.generate_bvh_sah();
-    // scene.generate_bvh_mid();
-    // println!("bvh is build");
-    // scene.bvh.node.print(0);
-    // let mut v0 = Vec::new();
-    // scene.bvh.node.get_prim_counts(&mut v0);
-    // println!("{:?}, {}, {}", v0, v0.len(), v0.iter().sum::<usize>());
-
     scene.generate_bvh_nightly(16);
-    // let mut v1 = Vec::new();
-    // scene.bvh_nightly.get_prim_counts(0, &mut v1);
-    // println!("{:?}, {}, {}", v1, v1.len(), v1.iter().sum::<usize>());
-
-    // println!("{:?}, {:?}", scene.bvh.node.bounds, scene.bvh_nightly.vertices[0].bound);
-    // println!("{:?}, {:?}", scene.bvh.node.left.as_ref().unwrap().bounds, scene.bvh_nightly.vertices[2].bound);
-    // println!("{:?}, {:?}", scene.bvh.node.right.as_ref().unwrap().bounds, scene.bvh_nightly.vertices[3].bound);
 
     info.set_time_point("Setting up scene");
     scene.pack_textures(&mut info);
