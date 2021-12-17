@@ -234,6 +234,7 @@ pub fn main() -> Result<(), String>{
     Bvh::from_mesh(Mesh::default(), &triangles, 12);
     let mut elapsed = watch.elapsed_ms();
     println!("done building bvh in {}...", elapsed);
+    return Err("".parse().unwrap());
 
     let mut dragon = Model{
         pos: Default::default(),

@@ -21,6 +21,14 @@ pub struct Vertex{
     count: u32,
 }
 
+pub struct BuilderData {
+    bounds: Vec<AABB>,
+    midpoints: Vec<[f32;3]>,
+    is: Vec<u32>,
+    vs: Vec<Vertex>,
+    bins: usize,
+}
+
 impl Bvh{
     pub fn get_prim_counts(&self, current: usize, vec: &mut Vec<usize>){
         if current >= self.vertices.len() { return; }
@@ -155,11 +163,18 @@ impl Bvh{
         ).collect::<Vec<_>>();
         let mut elapsed = watch.elapsed_ms();
         println!("done building midpoints in {}...", elapsed);
+        let mut data = BuilderData {
+            bounds,
+            midpoints,
+            is,
+            vs,
+            bins,
+        };
         let mut poolptr = 2;
-        Self::subdivide(&bounds, &midpoints, &mut is, &mut vs, 0, &mut poolptr, 0, n, bins);
+        Self::subdivide(&mut data, 0, &mut poolptr, 0, n);
         Self{
-            indices: is,
-            vertices: vs,
+            indices: data.is.to_owned(),
+            vertices: data.vs.to_owned(),
             mesh
         }
     }
@@ -207,48 +222,47 @@ impl Bvh{
     // }
 
     #[allow(clippy::too_many_arguments)]
-    fn subdivide(bounds: &[AABB], midpoints: &[[f32;3]], is: &mut[u32], vs: &mut[Vertex], current: usize, poolptr: &mut u32, first: usize, count: usize, bins: usize){
-        let v = &mut vs[current];
-        v.bound = Self::union_bound(&is[first..first + count], bounds);
+    fn subdivide(data: &mut BuilderData, current: usize, poolptr: &mut u32, first: usize, count: usize){
+        let bins = data.bins;
+        let b = Self::union_bound(&data.is[first..first + count], &data.bounds);
+        data.vs[current].bound = b.clone();
 
         if count < 3 { // leaf
-            v.left_first = first as u32; // first
-            v.count = count as u32;
+            data.vs[current].left_first = first as u32; // first
+            data.vs[current].count = count as u32;
             return;
         }
 
-        let l_count = Self::partition(bounds, midpoints, is, v.bound, first, count, bins);
-
-        if l_count == 0 || l_count == count{ // leaf
-            v.left_first = first as u32; // first
-            v.count = count as u32;
-            return;
-        }
-
-        v.count = 0; // internal vertex, not a leaf
-        v.left_first = *poolptr; // left = poolptr, right = poolptr + 1
-        *poolptr += 2;
-        let lf = v.left_first as usize;
-
-        Self::subdivide(bounds, midpoints, is, vs, lf, poolptr, first, l_count, bins);
-        Self::subdivide(bounds, midpoints, is, vs, lf + 1, poolptr, first + l_count, count - l_count, bins);
-    }
-
-    fn partition(bounds: &[AABB], midpoints: &[[f32;3]], is: &mut[u32], bound: AABB, first: usize, count: usize, bins: usize) -> usize{
-        let (axis, split) = Self::sah_binned(bounds, midpoints, &is[first..first + count], bound, bins);
+        // partition
+        let (axis, split) = Self::sah_binned(data, first, count, b, bins);
         let mut a = first; // first
         let mut b = first + count - 1; // last
         let u = axis.as_usize();
         while a <= b{
-            if midpoints[is[a] as usize][u] < split{
+            if data.midpoints[data.is[a] as usize][u] < split{
                 a += 1;
             } else {
-                is.swap(a, b);
+                data.is.swap(a, b);
                 b -= 1;
             }
         }
-        a - first
+        let l_count = a - first;
+
+        if l_count == 0 || l_count == count{ // leaf
+            data.vs[current].left_first = first as u32; // first
+            data.vs[current].count = count as u32;
+            return;
+        }
+
+        data.vs[current].count = 0; // internal vertex, not a leaf
+        data.vs[current].left_first = *poolptr; // left = poolptr, right = poolptr + 1
+        *poolptr += 2;
+        let lf = data.vs[current].left_first as usize;
+
+        Self::subdivide(data, lf, poolptr, first, l_count);
+        Self::subdivide(data, lf + 1, poolptr, first + l_count, count - l_count);
     }
+
 
     fn union_bound(is: &[u32], bounds: &[AABB]) -> AABB {
         let mut bound = AABB::default();
@@ -258,7 +272,9 @@ impl Bvh{
         bound.grown(Vec3::EPSILON)
     }
 
-    fn sah_binned(bounds: &[AABB], midpoints: &[[f32;3]], is: &[u32], top_bound: AABB, bins: usize) -> (Axis, f32) {
+    fn sah_binned(data: &mut BuilderData, first: usize, count: usize, top_bound: AABB, bins: usize) -> (Axis, f32) {
+        let bins = data.bins;
+        let midpoints = &data.midpoints;
         let binsf = bins as f32;
         let diff = top_bound.max.subed(top_bound.min);
         let axis_valid = [diff.x > binsf * EPSILON, diff.y > binsf * EPSILON, diff.z > binsf * EPSILON];
@@ -281,17 +297,18 @@ impl Bvh{
 
             // place bounds in bins
             let mut sep : Vec<Vec<u32>>= vec![vec![];bins];
-            for i in is {
+            for i in &data.is[first..first + count] {
                 let midpoint = midpoints[*i as usize];
                 let index = k1*(midpoint[u]-k0);
                 sep[index as usize].push(*i);
             }
+            
             // generate bounds of bins
             let mut binbounds = vec![AABB::new();bins];
             let mut bincounts = vec![0;bins];
             for bin_index in 0..bins {
                 for bound_index in &sep[bin_index]{
-                    binbounds[bin_index].combine(bounds[*bound_index as usize]);
+                    binbounds[bin_index].combine(data.bounds[*bound_index as usize]);
                 }
                 bincounts[bin_index] = sep[bin_index].len();
             }

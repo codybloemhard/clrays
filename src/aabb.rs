@@ -19,7 +19,7 @@ impl Axis {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct AABB { // 24 bytes
     pub min: Vec3, // Vec3: 12 bytes
     pub max: Vec3, // Vec3: 12 bytes
@@ -143,6 +143,16 @@ impl AABB {
         v.x * v.y * 2.0 +
         v.x * v.z * 2.0 +
         v.y * v.z * 2.0
+    }
+
+    #[inline]
+    pub fn is_in(self, other: &AABB) -> bool{
+        other.min.less_eq(self.min) && self.max.less_eq(other.max)
+    }
+
+    #[inline]
+    pub fn is_equal(self, other: &AABB) -> bool{
+        self.min.equal(&other.min) && self.max.equal(&other.max)
     }
 }
 

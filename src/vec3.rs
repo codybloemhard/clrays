@@ -9,12 +9,18 @@ pub struct Orientation {
     pub roll: f32
 }
 
-#[derive(PartialEq, Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Vec3{ // 12 byte
     pub x: f32, // f32: 4 byte
     pub y: f32, // f32: 4 byte
     pub z: f32, // f32: 4 byte
 }
+impl PartialEq for Vec3{
+    fn eq(&self, other: &Self) -> bool {
+        self.dist(*other) < EPSILON
+    }
+}
+impl Eq for Vec3 {}
 
 impl Bufferizable for Vec3{
     fn get_data(&self) -> Vec<f32>{
