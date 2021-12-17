@@ -233,46 +233,9 @@ impl Bvh{
             return;
         }
 
-        // partition
-        let (axis, split) = Self::sah_binned(data, first, count, b, bins);
-        let mut a = first; // first
-        let mut b = first + count - 1; // last
-        let u = axis.as_usize();
-        while a <= b{
-            if data.midpoints[data.is[a] as usize][u] < split{
-                a += 1;
-            } else {
-                data.is.swap(a, b);
-                b -= 1;
-            }
-        }
-        let l_count = a - first;
+        let top_bound = b.clone();
 
-        if l_count == 0 || l_count == count{ // leaf
-            data.vs[current].left_first = first as u32; // first
-            data.vs[current].count = count as u32;
-            return;
-        }
-
-        data.vs[current].count = 0; // internal vertex, not a leaf
-        data.vs[current].left_first = *poolptr; // left = poolptr, right = poolptr + 1
-        *poolptr += 2;
-        let lf = data.vs[current].left_first as usize;
-
-        Self::subdivide(data, lf, poolptr, first, l_count);
-        Self::subdivide(data, lf + 1, poolptr, first + l_count, count - l_count);
-    }
-
-
-    fn union_bound(is: &[u32], bounds: &[AABB]) -> AABB {
-        let mut bound = AABB::default();
-        for i in is{
-            bound.combine(bounds[*i as usize]);
-        }
-        bound.grown(Vec3::EPSILON)
-    }
-
-    fn sah_binned(data: &mut BuilderData, first: usize, count: usize, top_bound: AABB, bins: usize) -> (Axis, f32) {
+        // sah binned
         let bins = data.bins;
         let midpoints = &data.midpoints;
         let binsf = bins as f32;
@@ -302,7 +265,7 @@ impl Bvh{
                 let index = k1*(midpoint[u]-k0);
                 sep[index as usize].push(*i);
             }
-            
+
             // generate bounds of bins
             let mut binbounds = vec![AABB::new();bins];
             let mut bincounts = vec![0;bins];
@@ -317,9 +280,10 @@ impl Bvh{
             for (lerp_index,lerp) in lerps.iter().enumerate(){
 
                 let split = lerp.fake_arr(axis);
-                // construct bounds
+                // reset values
                 let (mut ls, mut rs) = (0, 0);
                 let (mut lb, mut rb) = (AABB::default(), AABB::default());
+                // construct bounds
                 for j in 0..lerp_index { // left of split
                     ls += bincounts[j];
                     lb.combine(binbounds[j]);
@@ -338,7 +302,42 @@ impl Bvh{
         }
 
         let (_, axis, split) = best;
-        (axis, split)
+
+        // partition
+        let mut a = first; // first
+        let mut b = first + count - 1; // last
+        let u = axis.as_usize();
+        while a <= b{
+            if data.midpoints[data.is[a] as usize][u] < split{
+                a += 1;
+            } else {
+                data.is.swap(a, b);
+                b -= 1;
+            }
+        }
+        let l_count = a - first;
+
+        if l_count == 0 || l_count == count{ // leaf
+            data.vs[current].left_first = first as u32; // first
+            data.vs[current].count = count as u32;
+            return;
+        }
+
+        data.vs[current].count = 0; // internal vertex, not a leaf
+        data.vs[current].left_first = *poolptr; // left = poolptr, right = poolptr + 1
+        *poolptr += 2;
+        let lf = data.vs[current].left_first as usize;
+
+        Self::subdivide(data, lf, poolptr, first, l_count);
+        Self::subdivide(data, lf + 1, poolptr, first + l_count, count - l_count);
+    }
+
+    fn union_bound(is: &[u32], bounds: &[AABB]) -> AABB {
+        let mut bound = AABB::default();
+        for i in is{
+            bound.combine(bounds[*i as usize]);
+        }
+        bound.grown(Vec3::EPSILON)
     }
 }
 
