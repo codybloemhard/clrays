@@ -219,6 +219,10 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     scene.generate_bvh_nightly(16);
+    // use clrays_rs::cpu::inter::{ RayHit, Ray };
+    // let mut closest = RayHit::NULL;
+    // let ray = Ray{ pos: Vec3::new(0.0, 1.0, 0.0), dir: Vec3::new(0.0, 0.0, 1.0) };
+    // scene.bvh_nightly.stacktest(ray, &scene, &mut closest);
 
     info.set_time_point("Setting up scene");
     scene.pack_textures(&mut info);
