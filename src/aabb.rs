@@ -4,9 +4,9 @@ use crate::cpu::inter::Ray;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Axis {
-    X,
-    Y,
-    Z
+    X = 0,
+    Y = 1,
+    Z = 2
 }
 
 impl Axis {
@@ -101,10 +101,12 @@ impl AABB {
         self
     }
 
+    #[inline]
     pub fn midpoint(&self) -> Vec3{
         self.lerp(0.5)
     }
 
+    #[inline]
     pub fn lerp(&self, val: f32) -> Vec3{
         self.min.scaled(1.0 - val).added(self.max.scaled(val))
     }
@@ -148,6 +150,7 @@ impl AABB {
         v.x * v.y * v.z
     }
 
+    #[inline]
     pub fn surface_area(self) -> f32{
         let v = self.max.subed(self.min);
         v.x * v.y * 2.0 +
