@@ -689,7 +689,8 @@ fn xor32(seed: &mut u32) -> u32{
 }
 
 const TRIANGLES: usize = 5000000;
-// const TRIANGLES: usize = 500000;
+// const TRIANGLES: usize = 100000;
+// const TRIANGLES: usize = 1000000;
 
 fn main() {
     // generate triangles
@@ -725,10 +726,10 @@ fn main() {
     let bins = 12;
     let mut is = (0..n).into_iter().collect::<Vec<_>>();
     let mut vs = vec![Vertex::default(); n * 2];
-    let _bounds = (0..n).into_iter().map(|i|
+    let mut _bounds = (0..n).into_iter().map(|i|
         AABB::from_points(&[triangles[i].a, triangles[i].b, triangles[i].c])
     ).collect::<Vec<_>>();
-    let bounds = _bounds.as_slice();
+    let mut bounds = _bounds.as_mut_slice();
 
     // build bvh
     let current = 0;
@@ -778,7 +779,7 @@ fn main() {
         // }
         timer.start();
 
-        let mut x =  stack.pop().unwrap();
+        let mut x = stack.pop().unwrap();
         // measure time in depth
         depth = x.depth;
         if depth >= depth_timers.len() {
@@ -790,8 +791,10 @@ fn main() {
         first = x.first;
         // println!("{:?}", x);
         v = &mut vs[current];
-        sub_is = &is[first..first + count];
-        top_bound = union_bound(sub_is, bounds);
+        // sub_is = &is[first..first + count];
+        // top_bound = union_bound(sub_is, bounds);
+        let sub_range = first..first + count;
+        top_bound = union_bound(&bounds[sub_range.clone()]);
         v.bound = top_bound;
 
         if count < 3 { // leaf
@@ -808,7 +811,7 @@ fn main() {
         // precompute lerps
         // lerps.fill(Vec3::ZERO);
         for (i, item) in lerps.iter_mut().enumerate(){
-            *item = top_bound.lerp(i as f32     * binsf_inf);
+            *item = top_bound.lerp(i as f32 * binsf_inf);
         }
 
         // compute best combination; minimal cost
@@ -832,9 +835,9 @@ fn main() {
             binbounds.fill(aabb_null);
             bincounts.fill(0);
             let mut index: usize ;
-            for index_triangle in sub_is {
-                index = (k1*(bounds[*index_triangle].midpoint().as_array()[u]-k0)) as usize;
-                binbounds[index].combine(bounds[*index_triangle]);
+            for index_triangle in sub_range.clone() {
+                index = (k1*(bounds[index_triangle].midpoint().as_array()[u]-k0)) as usize;
+                binbounds[index].combine(bounds[index_triangle]);
                 bincounts[index] += 1;
             }
 
@@ -880,10 +883,11 @@ fn main() {
         let mut b = first + count - 1; // last
         let u = best_axis.as_usize();
         while a <= b{
-            if bounds[is[a]].midpoint().as_array()[u] < best_split{
+            if bounds[a].midpoint().as_array()[u] < best_split{
                 a += 1;
             } else {
                 is.swap(a, b);
+                bounds.swap(a, b);
                 b -= 1;
             }
         }
@@ -920,10 +924,10 @@ fn main() {
 
 
 }
-fn union_bound(is: &[usize], bounds: &[AABB]) -> AABB {
+fn union_bound(bounds: &[AABB]) -> AABB {
     let mut bound = AABB::default();
-    for i in is{
-        bound.combine(bounds[*i]);
+    for other in bounds{
+        bound.combine(*other);
     }
     bound.grown(Vec3::EPSILON)
 }
