@@ -1,20 +1,20 @@
 # clrays
 
-## P2 Checklist: GPU Pathtracing with Bvh
-### Bvh
-- [x] Correct Bvh: 10k+ tris
-- [x] Bvh Ray/Scene intersection
-- [x] Bvh Ray/Scene occlusion test
-- [x] Bvh surface area heuristic
-- [x] Bvh binning
+## P2 Checklist: GPU Pathtracing with BVH
+### BVH
+- [x] Correct BVH: 10k+ tris
+- [x] BVH Ray/Scene intersection
+- [x] BVH Ray/Scene occlusion test
+- [x] BVH surface area heuristic
+- [x] BVH binning
 - [ ] Construct a BVH for dynamic scenery using specialized builders for various types of animation. Add a top-
 level BVH to combine the resulting sub-BVHs, and adapt your traversal code to handle rigid motion. Provide
 a demo to prove that your BVH handles animated scenes. 2pts
-- [ ] Construct Sah Bvh for 5M tris scene in less than 1 second, 1pt
+- [ ] Construct Sah BVH for 5M tris scene in less than 1 second, 1pt
 - [ ] Construct a 4-way BVH by collapsing a 2-way BVH, and traverse this structure. The resulting traversal speed
 must be an improvement over 2-way BVH traversal (good for Kajiya, packets are better for Whitted). 1pt
 - [ ] Render a 1B poly scene in 5 seconds or less, 5pts
-- [ ] Use Bvh on gpu
+- [x] GPU BVH traversal
 ### GPU Pathtracing
 - [ ] Basic pathtracer (area lights, materials, speculars, dielectrics, beer's law)
 - [ ] Frame energy
@@ -70,7 +70,6 @@ QWERTY  |Gaming | Q, E, W, S, A, D                               | I, K, J, L   
 QGMLWY  |Typing | G, L, M, T, S, N                               | U, E, A, O                  | F                 | B
 
 ## Possible things to work on
-- movement on gpu
 - pathtracing
 - portals
 - hdr skybox

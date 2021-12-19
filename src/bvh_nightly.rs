@@ -77,59 +77,6 @@ impl Bvh{
         internal_intersect(self, 0, scene, ray, closest, inv_dir, dir_is_neg)
     }
 
-    pub fn stacktest<'a>(&self, ray: Ray, scene: &'a Scene, closest: &mut RayHit<'a>){
-        if self.vertices.is_empty() { return; }
-        let inv_dir = ray.inverted().dir;
-        let dir_is_neg : [usize; 3] = ray.direction_negations();
-        let mut stack = [0; 64];
-        stack[0] = usize::MAX;
-        stack[1] = 0;
-        let mut ptr = 2;
-
-        while ptr < 64{
-            ptr -= 1;
-            let current = stack[ptr];
-            if current == usize::MAX { println!("break: {}, {}", current, ptr); break; }
-            let vs = &self.vertices;
-            let is = &self.indices;
-            let v = vs[current];
-            if v.count > 0{ // leaf
-                for i in is.iter().skip(v.left_first as usize).take(v.count as usize).map(|i| *i as usize){
-                    match scene.either_sphere_or_triangle(i){
-                        Either::Left(s) => inter_sphere(ray, s, closest),
-                        Either::Right(t) => inter_triangle(ray, t, closest),
-                    }
-                }
-                println!("leaf: {}, {}", current, ptr);
-            } else { // vertex
-                let nodes = [
-                    v.left_first as usize,
-                    v.left_first as usize + 1,
-                ];
-
-                let ts = [
-                    vs[nodes[0]].bound.intersection(ray, inv_dir, dir_is_neg),
-                    vs[nodes[1]].bound.intersection(ray, inv_dir, dir_is_neg),
-                ];
-
-                let order = if ts[0] <= ts[1] { [0, 1] } else { [1, 0] };
-
-                if ts[order[0]] < closest.t {
-                    // internal_intersect(self, nodes[order[0]], scene, ray, closest, inv_dir, dir_is_neg);
-                    stack[ptr] = nodes[order[0]];
-                    ptr += 1;
-                    if ts[order[1]] < closest.t {
-                        // internal_intersect(self, nodes[order[1]], scene, ray, closest, inv_dir, dir_is_neg);
-                        stack[ptr] = nodes[order[1]];
-                        ptr += 1;
-                    }
-                }
-                println!("vertex: {}, {}", current, ptr);
-            }
-        }
-    }
-
-
     // (aabb hits, depth)
     #[inline]
     pub fn occluded(&self, ray: Ray, scene: &Scene, ldist: f32) -> bool{

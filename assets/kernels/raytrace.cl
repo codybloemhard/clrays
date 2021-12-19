@@ -47,6 +47,12 @@ struct Ray{
 #define SC_SPHERE 3
 #define SC_TRI 4
 #define SC_SCENE 5
+// sizes, must be the same as rust provides
+#define SC_MAT_SIZE 10
+#define SC_LIGHT_SIZE 8
+#define SC_PLANE_SIZE 7
+#define SC_SPHERE_SIZE 5
+#define SC_TRI_SIZE 10
 
 struct Scene{
     global uint *params, *tex_params;
@@ -60,17 +66,12 @@ struct Scene{
 
 //first byte in array where this type starts
 global uint ScGetStart(uint type, struct Scene *scene){
-    return scene->params[type * 3 + 2];
+    return scene->params[type * 2 + 1];
 }
 
 //number of items of this type(not bytes!)
 global uint ScGetCount(uint type, struct Scene *scene){
-    return scene->params[type * 3 + 1];
-}
-
-//size of an item of this type
-global uint ScGetStride(uint type, struct Scene *scene){
-    return scene->params[type * 3 + 0];
+    return scene->params[type * 2];
 }
 
 //extract material from array, off is index of first byte of material we want
@@ -89,8 +90,7 @@ struct Material ExtractMaterial(uint off, global float *arr){
 
 struct Material GetMaterialFromIndex(uint index, struct Scene *scene){
     uint start = ScGetStart(SC_MAT, scene);
-    uint stride = ScGetStride(SC_MAT, scene);
-    return ExtractMaterial(start + index * stride, scene->items);
+    return ExtractMaterial(start + index * SC_MAT_SIZE, scene->items);
 }
 
 //first byte of texture
@@ -293,9 +293,9 @@ END_PRIM(pTRI)
 //intersect whole scene
 struct RayHit InterScene(struct Ray *ray, struct Scene *scene){
     struct RayHit closest = NullRayHit();
-    InterPlanes(&closest, ray, scene->items, ScGetCount(SC_PLANE, scene), ScGetStart(SC_PLANE, scene), ScGetStride(SC_PLANE, scene));
-    InterSpheres(&closest, ray, scene->items, ScGetCount(SC_SPHERE, scene), ScGetStart(SC_SPHERE, scene), ScGetStride(SC_SPHERE, scene));
-    InterTris(&closest, ray, scene->items, ScGetCount(SC_TRI, scene), ScGetStart(SC_TRI, scene), ScGetStride(SC_TRI, scene));
+    InterPlanes(&closest, ray, scene->items, ScGetCount(SC_PLANE, scene), ScGetStart(SC_PLANE, scene), SC_PLANE_SIZE);
+    InterSpheres(&closest, ray, scene->items, ScGetCount(SC_SPHERE, scene), ScGetStart(SC_SPHERE, scene), SC_SPHERE_SIZE);
+    InterTris(&closest, ray, scene->items, ScGetCount(SC_TRI, scene), ScGetStart(SC_TRI, scene), SC_TRI_SIZE);
     return closest;
 }
 
@@ -310,20 +310,17 @@ struct RayHit InterSceneBvh(struct Ray *ray, struct Scene *scene){
     uint vertex_start = scene->bvh[1];
 
     uint sph_start = ScGetStart(SC_SPHERE, scene);
-    uint sph_stride = ScGetStride(SC_SPHERE, scene);
     uint sph_count = ScGetCount(SC_SPHERE, scene);
     uint tri_start = ScGetStart(SC_TRI, scene);
-    uint tri_stride = ScGetStride(SC_TRI, scene);
     uint pla_count = ScGetCount(SC_PLANE, scene);
     uint pla_start = ScGetStart(SC_PLANE, scene);
-    uint pla_stride = ScGetStride(SC_PLANE, scene);
 
     uchar ptype = 0;
     uint coff = UINT_MAX;
 
     // Planes are not in the bvh so we just check em linearly
     for(uint i = 0; i < pla_count; i++){
-        uint off = pla_start + i * pla_stride;
+        uint off = pla_start + i * SC_PLANE_SIZE;
         float3 ppos = ExtractFloat3(off + 0, scene->items);
         float3 pnor = ExtractFloat3(off + 3, scene->items);
         bool hit = InterPlane(ray, &closest, ppos, pnor);
@@ -333,7 +330,7 @@ struct RayHit InterSceneBvh(struct Ray *ray, struct Scene *scene){
         }
     }
 
-    #define size 32
+    #define size 24
     uint stack[size];
     stack[0] = UINT_MAX;
     stack[1] = 0;
@@ -343,8 +340,6 @@ struct RayHit InterSceneBvh(struct Ray *ray, struct Scene *scene){
         uint current = stack[--ptr];
         if(current == UINT_MAX) break;
         uint v = vertex_start + current * 8;
-        float3 bmin = ExtractFloat3FromInts(scene->bvh, v + 0);
-        float3 bmax = ExtractFloat3FromInts(scene->bvh, v + 3);
         uint left_first = scene->bvh[v + 6];
         uint count = scene->bvh[v + 7];
 
@@ -352,22 +347,20 @@ struct RayHit InterSceneBvh(struct Ray *ray, struct Scene *scene){
             for(uint i = left_first; i < left_first + count; i++){
                 uint k = scene->bvh[index_start + i]; // 2 = index_start for now
                 if(k < sph_count){ // sphere
-                    uint off = sph_start + k * sph_stride;
+                    uint off = sph_start + k * SC_SPHERE_SIZE;
                     float3 spos = ExtractFloat3(off + 0, scene->items);
                     float srad = scene->items[off + 3];
                     bool hit = InterSphere(ray, &closest, spos, srad);
-                    // bool hit = false;
                     if(hit){
                         coff = off;
                         ptype = pSPHERE;
                     }
                 } else { // triangle
-                    uint off = tri_start + (k - sph_count) * tri_stride;
+                    uint off = tri_start + (k - sph_count) * SC_TRI_SIZE;
                     float3 a = ExtractFloat3(off + 0, scene->items);
                     float3 b = ExtractFloat3(off + 3, scene->items);
                     float3 c = ExtractFloat3(off + 6, scene->items);
                     bool hit = InterTri(ray, &closest, a, b, c);
-                    // bool hit = false;
                     if(hit){
                         coff = off;
                         ptype = pTRI;
@@ -418,52 +411,6 @@ struct RayHit InterSceneBvh(struct Ray *ray, struct Scene *scene){
 // #define INTER_SCENE InterScene
 #define INTER_SCENE InterSceneBvh
 
-// float BvhDebug(struct Ray *ray, struct Scene *scene, uint current, uint vertex_start, uint d){
-//     uint v = vertex_start + current * 8;
-//     float3 bmin = ExtractFloat3FromInts(scene->bvh, v + 0);
-//     float3 bmax = ExtractFloat3FromInts(scene->bvh, v + 3);
-//     uint left_first = scene->bvh[vertex_start + 6];
-//     uint count = scene->bvh[vertex_start + 7];
-//
-//     if(count > 0){ // leaf
-//         return 1.0;
-//     } else {
-//         uint vertices[2] = {
-//             left_first,
-//             left_first + 1,
-//         };
-//
-//         v = vertex_start + left_first * 8;
-//         float3 bmin = ExtractFloat3FromInts(scene->bvh, v + 0);
-//         float3 bmax = ExtractFloat3FromInts(scene->bvh, v + 3);
-//         float t0 = InterAABB(ray, bmin, bmax);
-//
-//         v = vertex_start + (left_first + 1) * 8;
-//         bmin = ExtractFloat3FromInts(scene->bvh, v + 0);
-//         bmax = ExtractFloat3FromInts(scene->bvh, v + 3);
-//         float t1 = InterAABB(ray, bmin, bmax);
-//         float ts[2] = { t0, t1 };
-//
-//         uint order[2] = { 0, 0 };
-//         if(ts[0] <= ts[1]){
-//             order[1] = 1;
-//         } else {
-//             order[0] = 1;
-//         }
-//         if(d > 4) return 1.0;
-//
-//         float x0 = 0.0;
-//         float x1 = 0.0;
-//         if(t0 != MAX_RENDER_DIST) x0 = BvhDebug(ray, scene, vertices[order[0]], vertex_start, d + 1);
-//         if(t1 != MAX_RENDER_DIST) x1 = BvhDebug(ray, scene, vertices[order[1]], vertex_start, d + 1);
-//
-//         return 2.0 + x0 + x1;
-//
-//         // if(t0 == MAX_RENDER_DIST && t1 == MAX_RENDER_DIST) return 0.0;
-//         // else return 20.0;
-//     }
-// }
-
 //get sky colour
 float3 SkyCol(float3 nor, struct Scene *scene){
     if(scene->skybox == 0)
@@ -506,13 +453,12 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 colou
     float3 spec = (float3)(0.0f);
     global float* arr = scene->items;
     uint count = ScGetCount(SC_LIGHT, scene);
-    uint stride = ScGetStride(SC_LIGHT, scene);
     uint start = ScGetStart(SC_LIGHT, scene);
     for(uint i = 0; i < count; i++){
-        uint off = start + i * stride;
+        uint off = start + i * SC_LIGHT_SIZE;
         float3 lpos = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
-        float lpow = arr[off + 3];
         float3 lcol = (float3)(arr[off + 4], arr[off + 5], arr[off + 6]);
+        float lpow = arr[off + 7];
         float2 res = BlinnSingle(lpos, lpow, viewdir, roughness, hit, scene);
         col += res.x * lcol;
         spec += res.y * lcol;
@@ -523,9 +469,6 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 colou
 
 //Recursion only works with one function
 float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
-    // float hits = BvhDebug(ray, scene, 0, scene->bvh[1], 0);
-    // return (float3)(1.0) * (hits / 30);
-
     if(depth == 0) return SkyCol(ray->dir, scene);
 
     //hit
@@ -613,12 +556,12 @@ __global uint *bvh){
     scene.tex_params = tx_params;
     scene.textures = tx_items;
     scene.bvh = bvh;
-    scene.skybox = sc_params[3 * SC_SCENE + 0];
-    scene.skycol = ExtractFloat3FromInts(sc_params, 3 * SC_SCENE + 1);
-    scene.skyintens = as_float(sc_params[3 * SC_SCENE + 4]);
+    scene.skybox = sc_params[2 * SC_SCENE + 0];
+    scene.skycol = ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 1);
+    scene.skyintens = as_float(sc_params[2 * SC_SCENE + 4]);
     struct Ray ray;
-    ray.pos = ExtractFloat3FromInts(sc_params, 3 * SC_SCENE + 5);
-    float3 cd = fast_normalize(ExtractFloat3FromInts(sc_params, 3 * SC_SCENE + 8));
+    ray.pos = ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 5);
+    float3 cd = fast_normalize(ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 8));
     float3 hor = fast_normalize(cross(cd, (float3)(0.0f, 1.0f, 0.0f)));
     float3 ver = fast_normalize(cross(hor,cd));
     float2 uv = (float2)((float)x / (w * AA), (float)y / (h * AA));
