@@ -480,9 +480,7 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
     float2 uv;
     float3 texcol = (float3)(1.0f);
     struct Material mat = GetMaterialFromIndex(hit.mat_index, scene);
-    // if (hit.mat_index == 1){
-    //     return (float3)(0.0, 0.0, 0.0);
-    // }
+
     if(mat.texture > 0){
         uchar ptype = hit.ptype;
         if(ptype == pPLANE || ptype == pTRI)
@@ -544,11 +542,15 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
     return (diff * (1.0f - refl_mul)) + (refl * refl_mul) + spec;
 }
 
-float3 RayTracing(const uint w, const uint h,
-const uint x, const uint y, const uint AA,
-__global uint *sc_params, __global float *sc_items,
-__global uint *tx_params, __global uchar *tx_items,
-__global uint *bvh){
+float3 RayTracing(
+    const uint w,
+    const uint h,
+    const uint x,
+    const uint y,
+    __global uint *sc_params, __global float *sc_items,
+    __global uint *tx_params, __global uchar *tx_items,
+    __global uint *bvh
+){
     //Scene
     struct Scene scene;
     scene.params = sc_params;
@@ -564,7 +566,7 @@ __global uint *bvh){
     float3 cd = fast_normalize(ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 8));
     float3 hor = fast_normalize(cross(cd, (float3)(0.0f, 1.0f, 0.0f)));
     float3 ver = fast_normalize(cross(hor,cd));
-    float2 uv = (float2)((float)x / (w * AA), (float)y / (h * AA));
+    float2 uv = (float2)((float)x / w, (float)y / h);
     uv -= 0.5f;
     uv *= (float2)((float)w / h, -1.0f);
     float3 to = ray.pos + cd;
@@ -574,42 +576,9 @@ __global uint *bvh){
 
     float3 col = RayTrace(&ray, &scene, MAX_RENDER_DEPTH);
     col = pow(col, (float3)(1.0f / GAMMA));
-    if(AA == 1)
-        col = clamp(col, 0.0f, 1.0f);
-    col /= (float)(AA * AA);
+    col = clamp(col, 0.0f, 1.0f);
     return col;
 }
-
-//https://simpleopencl.blogspot.com/2013/05/atomic-operations-and-floats-in-opencl.html
-// void AtomicFloatAdd(volatile global float *source, const float operand) {
-//     union { uint intVal; float floatVal; } newVal;
-//     union { uint intVal; float floatVal; } prevVal;
-//     do{
-//         prevVal.floatVal = *source;
-//         newVal.floatVal = prevVal.floatVal + operand;
-//     }
-//     while (atomic_cmpxchg((volatile global uint *)source, prevVal.intVal, newVal.intVal) != prevVal.intVal);
-// }
-
-// __kernel void raytracingAA(
-//     __global float *floatmap,
-//     const uint w,
-//     const uint h,
-//     const uint AA,
-//     __global  int *sc_params,
-//     __global float *sc_items,
-//     __global uint *tx_params,
-//     __global uchar *tx_items
-// ){
-//     uint x = get_global_id(0);
-//     uint y = get_global_id(1);
-//     uint pixid = ((x/AA) + ((y/AA) * w)) * 3;
-//     float3 col = RayTracing(w, h, x, y, AA,
-//         sc_params, sc_items, tx_params, tx_items);
-//     AtomicFloatAdd(&floatmap[pixid + 0],col.x);
-//     AtomicFloatAdd(&floatmap[pixid + 1],col.y);
-//     AtomicFloatAdd(&floatmap[pixid + 2],col.z);
-// }
 
 __kernel void raytracing(
     __global uint *intmap,
@@ -624,53 +593,10 @@ __kernel void raytracing(
     uint x = get_global_id(0);
     uint y = get_global_id(1);
     uint pixid = x + y * w;
-    float3 col = RayTracing(w, h, x, y, 1,
+    float3 col = RayTracing(w, h, x, y,
         sc_params, sc_items, tx_params, tx_items, bvh);
     col *= 255;
     uint res = ((uint)col.x << 16) + ((uint)col.y << 8) + (uint)col.z;
-    intmap[pixid] = res;
-}
-
-//takes same input as raytracing, outputs a gradient
-__kernel void raytracing_format_gradient_test(
-    __global uint *intmap,
-    const uint w,
-    const uint h,
-    __global uint *sc_params,
-    __global float *sc_items,
-    __global uint *tx_params,
-    __global uchar *tx_items
-){
-    uint x = get_global_id(0);
-    uint y = get_global_id(1);
-    uint pixid = x + y * w;
-    float3 col = (float3)((float)x / w,(float)y / h, 0.0);
-    col *= 255.0f;
-    uint res = ((uint)col.x << 16) + ((uint)col.y << 8) + (uint)col.z;
-    intmap[pixid] = res;
-}
-
-//takes same input as raytracing, outputs the first texture
-__kernel void raytracing_format_texture_test(
-    __global uint *intmap,
-    const uint w,
-    const uint h,
-    __global uint *sc_params,
-    __global float *sc_items,
-    __global uint *tx_params,
-    __global uchar *tx_items
-){
-    uint x = get_global_id(0);
-    uint y = get_global_id(1);
-    uint pixid = x + y * w;
-    uint ww = tx_params[1];
-    uint hh = tx_params[2];
-    uint xx = (float)x / w * ww;
-    uint yy = (float)y / h * hh;
-    uchar rr = tx_items[(yy * ww + xx) * 3 + 0];
-    uchar gg = tx_items[(yy * ww + xx) * 3 + 1];
-    uchar bb = tx_items[(yy * ww + xx) * 3 + 2];
-    uint res = ((uint)rr << 16) + ((uint)gg << 8) + (uint)bb;
     intmap[pixid] = res;
 }
 

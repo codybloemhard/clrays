@@ -93,7 +93,10 @@ impl ResultKernel<u32> for ImageKernel{
     }
 }
 
-pub struct TraceKernelReal{
+// Wrong name for this struct breaks clippy/compiler
+// If you name it back TraceKernelReal it's fine
+// Crashes with `cargo clippy --all-features` and not with `cargo check`
+pub struct TraceKernelWhitted{
     kernel: Kernel,
     dirty: bool,
     buffer: ClBuffer<u32>,
