@@ -865,12 +865,7 @@ fn main() {
                 let midpoint = 0.5 * (bounds[index_triangle][axis] + bounds[index_triangle][axis + 3]);
                 index = (k1*(midpoint-k0)) as usize;
                 // combine
-                binbounds[index][0] = binbounds[index][0].min(bounds[index_triangle][0]);
-                binbounds[index][1] = binbounds[index][1].min(bounds[index_triangle][1]);
-                binbounds[index][2] = binbounds[index][2].min(bounds[index_triangle][2]);
-                binbounds[index][3] = binbounds[index][3].max(bounds[index_triangle][3]);
-                binbounds[index][4] = binbounds[index][4].max(bounds[index_triangle][4]);
-                binbounds[index][5] = binbounds[index][5].max(bounds[index_triangle][5]);
+                binbounds[index] = combine(binbounds[index], bounds[index_triangle]);
                 bincounts[index] += 1;
             }
 
@@ -885,23 +880,11 @@ fn main() {
                 // construct lerpbounds
                 for j in 0..lerp_index { // left of split
                     ls += bincounts[j];
-                    // combine
-                    lb[0] = lb[0].min(binbounds[j][0]);
-                    lb[1] = lb[1].min(binbounds[j][1]);
-                    lb[2] = lb[2].min(binbounds[j][2]);
-                    lb[3] = lb[3].max(binbounds[j][3]);
-                    lb[4] = lb[4].max(binbounds[j][4]);
-                    lb[5] = lb[5].max(binbounds[j][5]);
+                    lb = combine(lb, binbounds[j]);
                 }
                 for j in lerp_index..bins { // right of split
                     rs += bincounts[j];
-                    // combine
-                    rb[0] = rb[0].min(binbounds[j][0]);
-                    rb[1] = rb[1].min(binbounds[j][1]);
-                    rb[2] = rb[2].min(binbounds[j][2]);
-                    rb[3] = rb[3].max(binbounds[j][3]);
-                    rb[4] = rb[4].max(binbounds[j][4]);
-                    rb[5] = rb[5].max(binbounds[j][5]);
+                    rb = combine(rb, binbounds[j]);
                 }
 
                 // get cost
@@ -989,13 +972,19 @@ const AABB_NULL : [f32;6] = [f32::MAX,f32::MAX,f32::MAX,f32::MIN,f32::MIN,f32::M
 fn union_bound(bounds: &[[f32;6]]) -> [f32;6] {
     let mut bound = AABB_NULL;
     for other in bounds{
-        bound[0] = bound[0].min(other[0]) - EPSILON;
-        bound[1] = bound[1].min(other[1]) - EPSILON;
-        bound[2] = bound[2].min(other[2]) - EPSILON;
-        bound[3] = bound[3].max(other[3]) + EPSILON;
-        bound[4] = bound[4].max(other[4]) + EPSILON;
-        bound[5] = bound[5].max(other[5]) + EPSILON;
+        bound[0] = bound[0].min(other[0]);
+        bound[1] = bound[1].min(other[1]);
+        bound[2] = bound[2].min(other[2]);
+        bound[3] = bound[3].max(other[3]);
+        bound[4] = bound[4].max(other[4]);
+        bound[5] = bound[5].max(other[5]);
     }
+    bound[0] -= EPSILON;
+    bound[1] -= EPSILON;
+    bound[2] -= EPSILON;
+    bound[3] += EPSILON;
+    bound[4] += EPSILON;
+    bound[5] += EPSILON;
     bound
 }
 
@@ -1008,4 +997,10 @@ fn union_bound(bounds: &[[f32;6]]) -> [f32;6] {
 fn surface_area(bound: [f32;6]) -> f32 {
     let v = [bound[3] - bound[0], bound[4] - bound[1], bound[5] - bound[2]];
     v[0] * v[1] * 2.0 + v[0] * v[2] * 2.0 + v[1] * v[2] * 2.0
+}
+
+#[inline]
+fn combine(a: [f32;6], b: [f32;6]) -> [f32;6] {
+    [a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2]),
+    a[3].max(b[3]), a[4].max(b[4]), a[5].max(b[5])]
 }
