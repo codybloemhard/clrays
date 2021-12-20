@@ -352,7 +352,6 @@ use std::iter::FromIterator;
 
 #[derive(Default)]
 pub struct Bvh{
-    pub indices: Vec<u32>,
     pub vertices: Vec<Vertex>,
     pub mesh: Mesh
 }
@@ -381,7 +380,7 @@ struct Info {
 
 impl Bvh{
     #[allow(clippy::too_many_arguments)]
-    fn subdivide(data: &mut BuilderData){
+    fn subdivide(data: &mut BuilderData, triangles: &mut Vec<Triangle>){
         let current = 0;
         let first = 0;
         let mut poolptr = 2;
@@ -552,6 +551,7 @@ impl Bvh{
                 } else {
                     is.swap(a, b);
                     bounds.swap(a, b);
+                    triangles.swap(a, b);
                     b -= 1;
                 }
             }
@@ -599,10 +599,9 @@ impl Bvh{
 
         fn internal_intersect(bvh: &Bvh, current: usize, ray: Ray, scene: &Scene, hit: &mut RayHit, inv_dir: Vec3, dir_is_neg: [usize; 3]) -> (usize, usize){
             let vs = &bvh.vertices;
-            let is = &bvh.indices;
             let v = vs[current];
             if v.count > 0{ // leaf
-                for i in is.iter().skip(v.left_first as usize).take(v.count as usize).map(|i| *i as usize){
+                for i in v.left_first as usize..v.left_first as usize + v.count as usize {
                     inter_triangle(ray,scene.get_mesh_triangle(&bvh.mesh, i), hit);
                 }
                 (0, v.count as usize)
@@ -643,10 +642,10 @@ impl Bvh{
         result
     }
 
-    pub fn from_mesh(mesh: Mesh, triangles: &Vec<Triangle>, bins: usize) -> Self{
+    pub fn from_mesh(mesh: Mesh, triangles: &mut Vec<Triangle>, bins: usize) -> Self{
         let n = triangles.len();
         if n == 0 {
-            return Self{ indices: vec![], vertices: vec![], mesh };
+            return Self{ vertices: vec![], mesh };
         }
         let mut is = (0..n).into_iter().collect::<Vec<_>>();
         let mut vs = vec![Vertex::default(); n * 2];
@@ -657,10 +656,6 @@ impl Bvh{
         ).collect::<Vec<_>>();
         let mut elapsed = watch.elapsed_ms();
         println!("done building bounds in {}...", elapsed);
-        println!("Generating midpoints...");
-        let midpoints = (0..n).into_iter().map(|i|
-            bounds[i].midpoint().as_array()
-        ).collect::<Vec<_>>();
         let mut elapsed = watch.elapsed_ms();
         println!("done building midpoints in {}...", elapsed);
         let mut data = BuilderData {
@@ -676,13 +671,11 @@ impl Bvh{
             }
         };
         let watch = Stopwatch::start_new();
-        Self::subdivide(&mut data);
+        Self::subdivide(&mut data, triangles);
         println!("{:?}", data.info.times.iter().map(|t| *t as f64 * 0.000001).collect::<Vec<f64>>());
         println!("{:?}", watch.elapsed_ms());
 
-        let p = data.is.into_iter().map(|i| i as u32).collect();
         Self{
-            indices: p,
             vertices: data.vs,
             mesh
         }

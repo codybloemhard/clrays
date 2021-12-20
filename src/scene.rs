@@ -494,13 +494,13 @@ impl Scene{
             i as u8
         } else {
             // todo: mesh references to index of first triangle, including count
-            let triangles = Mesh::load_model(&*mesh_name);
+            let mut triangles = Mesh::load_model(&*mesh_name);
             let mesh = Mesh {
                 name: mesh_name,
                 start: self.triangles.len(),
                 count: triangles.len()
             };
-            let bvh = Bvh::from_mesh(mesh.clone(), &triangles, 12);
+            let bvh = Bvh::from_mesh(mesh.clone(), &mut triangles, 12);
             for tri in triangles {
                 self.add_triangle(tri);
             }

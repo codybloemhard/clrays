@@ -254,10 +254,10 @@ pub fn main() -> Result<(), String>{
     println!("building bvh...");
     // generate bvh over triangles
     let watch = Stopwatch::start_new();
-    Bvh::from_mesh(Mesh::default(), &triangles, 12);
+    Bvh::from_mesh(Mesh::default(), &mut triangles, 12);
     let mut elapsed = watch.elapsed_ms();
     println!("done building bvh in {}...", elapsed);
-    return Err("".parse().unwrap());
+    // return Err("".parse().unwrap());
 
     let mut dragon = Model{
         pos: Default::default(),
