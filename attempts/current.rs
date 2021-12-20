@@ -199,9 +199,8 @@ impl Vec3{
     pub const EPSILON: Vec3 =   Self { x: EPSILON, y: EPSILON, z: EPSILON};
 
     #[inline]
-    pub fn as_array(&self) -> [f32;3]{
-        [self.x,self.y,self.z]
-    }
+    pub fn as_array(&self) -> [f32;3]{ [self.x,self.y,self.z] }
+    pub fn into_arr(&self) -> [f32;3]{ [self.x,self.y,self.z] }
 
     #[inline]
     pub fn new(x: f32, y: f32, z: f32) -> Self{
@@ -622,9 +621,7 @@ impl AABB {
     #[inline]
     pub fn surface_area(self) -> f32{
         let v = self.max.subed(self.min);
-        v.x * v.y * 2.0 +
-        v.x * v.z * 2.0 +
-        v.y * v.z * 2.0
+        v.x * v.y * 2.0 + v.x * v.z * 2.0 + v.y * v.z * 2.0
     }
 
     #[inline]
@@ -641,7 +638,7 @@ impl AABB {
 // Bvh
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Vertex{
-    pub bound: AABB,
+    pub bound: [f32; 6],
     left_first: usize,
     count: usize,
 }
@@ -688,11 +685,14 @@ fn xor32(seed: &mut u32) -> u32{
     *seed
 }
 
+// const TRIANGLES: usize = 20000000;
+// const TRIANGLES: usize = 10000000;
 const TRIANGLES: usize = 5000000;
-// const TRIANGLES: usize = 100000;
+// const TRIANGLES: usize = 2500000;
 // const TRIANGLES: usize = 1000000;
+// const TRIANGLES: usize = 100000;
 
-fn main() {
+fn generate_triangles() -> Vec<Triangle>{
     // generate triangles
     let mut triangles = vec![];
     let mut seed:u32 = 81349324; // guaranteed to be random
@@ -719,17 +719,41 @@ fn main() {
         });
         // println!("{},{:?}",i, triangles[i]);
     }
+    triangles
 
-    // convert to builder data
+    // // convert to builder data
+    // let n = triangles.len();
+    // (0..n).into_iter().map(|i|
+    //     AABB::from_points(&[triangles[i].a, triangles[i].b, triangles[i].c])
+    // ).collect::<Vec<_>>()
+}
+
+fn main() {
+    let triangles = generate_triangles();
     let n = triangles.len();
+    let timer_prepare = Stopwatch::start_new();
+    let mut bounds = triangles.into_iter()
+        .map(|triangle| AABB::from_points(&[triangle.a, triangle.b, triangle.c]))
+        .map(|aabb| [aabb.min.into_arr(), aabb.max.into_arr()])
+        .map(|p| [p[0][0],p[0][1],p[0][2],p[1][0],p[1][1],p[1][2]])
+        // .flatten()
+        // .flatten()
+        .collect::<Vec<[f32;6]>>();
+
+    // TEST: are bounds valid?
+    for aabb in &bounds {
+        assert!(aabb[0] <= aabb[3]);
+        assert!(aabb[1] <= aabb[4]);
+        assert!(aabb[2] <= aabb[5]);
+    }
+    // println!("{:?}", bounds.as_slice()[0]);
+    // TEST end
+
     let count = n;
-    let bins = 12;
     let mut is = (0..n).into_iter().collect::<Vec<_>>();
     let mut vs = vec![Vertex::default(); n * 2];
-    let mut _bounds = (0..n).into_iter().map(|i|
-        AABB::from_points(&[triangles[i].a, triangles[i].b, triangles[i].c])
-    ).collect::<Vec<_>>();
-    let mut bounds = _bounds.as_mut_slice();
+    let bins = 12;
+    println!("{}", timer_prepare.elapsed_ms());
 
     // build bvh
     let current = 0;
@@ -743,21 +767,21 @@ fn main() {
     let mut stack = vec![]; // [(current,first,count,step)]
     stack.push(StackItem {current,first,count,depth});
 
-    let mut lerps = vec![Vec3::ZERO; bins];
-    let mut binbounds = vec![AABB::new();bins];
+    let mut lerps = vec![[0.0,0.0,0.0]; bins-1];
+    let mut binbounds = vec![[0.0;6];bins];
     let mut bincounts : Vec<usize> = vec![0;bins];
-    let aabb_null = AABB::default();
 
-    let (mut lb, mut rb) = (AABB::default(), AABB::default());
+    let mut lb = AABB_NULL;
+    let mut rb = AABB_NULL;
 
-    let mut best_aabb_left = AABB::default();
-    let mut best_aabb_right = AABB::default();
-    let mut best_axis = Axis::X;
+    let mut best_aabb_left = AABB_NULL;
+    let mut best_aabb_right = AABB_NULL;
+    let mut best_axis = 0;
     let mut best_split = 0.0;
 
     let mut sub_is: &[usize];
     let mut v : &mut Vertex = &mut Vertex::default();
-    let mut top_bound;
+    let mut top_bound : [f32;6];
 
     let mut current = 0;
     let mut first = 0;
@@ -772,6 +796,9 @@ fn main() {
 
     let mut timer = Stopwatch::start_new();
     let mut depth_timers = vec![];
+    let mut depth_counters = vec![];
+    let mut depth_items = vec![];
+
     while stack.len() > 0 {
         // if handled / 100000 > last_handled {
         //     println!("{}", handled);
@@ -784,15 +811,18 @@ fn main() {
         depth = x.depth;
         if depth >= depth_timers.len() {
             depth_timers.push(0);
+            depth_counters.push(0);
+            depth_items.push(0);
         }
+        depth_counters[depth] += 1;
+        depth_items[depth] += x.count;
 
         current = x.current;
         count = x.count;
         first = x.first;
-        // println!("{:?}", x);
         v = &mut vs[current];
+
         // sub_is = &is[first..first + count];
-        // top_bound = union_bound(sub_is, bounds);
         let sub_range = first..first + count;
         top_bound = union_bound(&bounds[sub_range.clone()]);
         v.bound = top_bound;
@@ -805,62 +835,77 @@ fn main() {
         }
 
         // sah binned
-        let diff = top_bound.max.subed(top_bound.min);
-        let axis_valid = [diff.x > binsf * EPSILON, diff.y > binsf * EPSILON, diff.z > binsf * EPSILON];
 
         // precompute lerps
-        // lerps.fill(Vec3::ZERO);
-        for (i, item) in lerps.iter_mut().enumerate(){
-            *item = top_bound.lerp(i as f32 * binsf_inf);
+        for (i, item) in lerps.iter_mut().enumerate(){ // lerp
+            item[0] = top_bound[0] + (top_bound[3] - top_bound[0]) * (i+1) as f32 * binsf_inf;
+            item[1] = top_bound[1] + (top_bound[4] - top_bound[1]) * (i+1) as f32 * binsf_inf;
+            item[2] = top_bound[2] + (top_bound[5] - top_bound[2]) * (i+1) as f32 * binsf_inf;
         }
 
         // compute best combination; minimal cost
         let (mut ls, mut rs) = (0, 0);
-        lb.set_default();
-        rb.set_default();
-        let max_cost = count as f32 * top_bound.surface_area();
+        lb = AABB_NULL;
+        rb = AABB_NULL;
+        let max_cost = count as f32 * surface_area(top_bound);
         let mut best_cost = max_cost;
 
-        for axis in [Axis::X, Axis::Y, Axis::Z] {
+        for axis in [0, 1, 2] {
 
-            let u = axis.as_usize();
-            if !axis_valid[u] {
-                continue;
-            }
-            let k1 = (binsf*(1.0-EPSILON))/(top_bound.max.fake_arr(axis)-top_bound.min.fake_arr(axis));
-            let k0 = top_bound.min.fake_arr(axis);
+            // if !axis_valid[u] { continue; }
+            let k1 = (binsf*(1.0-EPSILON))/(top_bound[3+axis]-top_bound[axis]);
+            let k0 = top_bound[axis];
 
             // place bounds in bins
             // generate bounds of bins
-            binbounds.fill(aabb_null);
+            binbounds.fill(AABB_NULL);
             bincounts.fill(0);
             let mut index: usize ;
             for index_triangle in sub_range.clone() {
-                index = (k1*(bounds[index_triangle].midpoint().as_array()[u]-k0)) as usize;
-                binbounds[index].combine(bounds[index_triangle]);
+                let midpoint = 0.5 * (bounds[index_triangle][axis] + bounds[index_triangle][axis + 3]);
+                index = (k1*(midpoint-k0)) as usize;
+                // combine
+                binbounds[index][0] = binbounds[index][0].min(bounds[index_triangle][0]);
+                binbounds[index][1] = binbounds[index][1].min(bounds[index_triangle][1]);
+                binbounds[index][2] = binbounds[index][2].min(bounds[index_triangle][2]);
+                binbounds[index][3] = binbounds[index][3].max(bounds[index_triangle][3]);
+                binbounds[index][4] = binbounds[index][4].max(bounds[index_triangle][4]);
+                binbounds[index][5] = binbounds[index][5].max(bounds[index_triangle][5]);
                 bincounts[index] += 1;
             }
 
             // iterate over bins
             for (lerp_index,lerp) in lerps.iter().enumerate(){
-                let split = lerp.fake_arr(axis);
+                let split = lerp[axis];
                 // reset values
                 ls = 0;
                 rs = 0;
-                lb.set_default();
-                rb.set_default();
-                // construct bounds
+                lb = AABB_NULL;
+                rb = AABB_NULL;
+                // construct lerpbounds
                 for j in 0..lerp_index { // left of split
                     ls += bincounts[j];
-                    lb.combine(binbounds[j]);
+                    // combine
+                    lb[0] = lb[0].min(binbounds[j][0]);
+                    lb[1] = lb[1].min(binbounds[j][1]);
+                    lb[2] = lb[2].min(binbounds[j][2]);
+                    lb[3] = lb[3].max(binbounds[j][3]);
+                    lb[4] = lb[4].max(binbounds[j][4]);
+                    lb[5] = lb[5].max(binbounds[j][5]);
                 }
                 for j in lerp_index..bins { // right of split
                     rs += bincounts[j];
-                    rb.combine(binbounds[j]);
+                    // combine
+                    rb[0] = rb[0].min(binbounds[j][0]);
+                    rb[1] = rb[1].min(binbounds[j][1]);
+                    rb[2] = rb[2].min(binbounds[j][2]);
+                    rb[3] = rb[3].max(binbounds[j][3]);
+                    rb[4] = rb[4].max(binbounds[j][4]);
+                    rb[5] = rb[5].max(binbounds[j][5]);
                 }
 
                 // get cost
-                let cost = 3.0 + 1.0 + lb.surface_area() * ls as f32 + 1.0 + rb.surface_area() * rs as f32;
+                let cost = 3.0 + 1.0 + surface_area(lb) * ls as f32 + 1.0 + surface_area(rb) * rs as f32;
                 if cost < best_cost {
                     best_cost = cost;
                     best_axis = axis;
@@ -872,6 +917,7 @@ fn main() {
         }
 
         if best_cost == max_cost { // leaf
+            depth_timers[depth] += timer.elapsed().as_micros();
             handled += count;
             v.left_first = first; // first
             v.count = count;
@@ -881,12 +927,14 @@ fn main() {
         // partition
         let mut a = first; // first
         let mut b = first + count - 1; // last
-        let u = best_axis.as_usize();
-        while a <= b{
-            if bounds[a].midpoint().as_array()[u] < best_split{
+
+        while a <= b {
+            let bound = bounds[a];
+            if ((bound[3+best_axis]-bound[best_axis])*0.5) < best_split{ // midpoint < best_split
                 a += 1;
             } else {
                 is.swap(a, b);
+                // swap bounds a with b
                 bounds.swap(a, b);
                 b -= 1;
             }
@@ -894,6 +942,7 @@ fn main() {
         let l_count = a - first;
 
         if l_count == 0 || l_count == count{ // leaf
+            depth_timers[depth] += timer.elapsed().as_micros();
             handled += count;
             v.left_first = first; // first
             v.count = count;
@@ -905,29 +954,58 @@ fn main() {
         let lf = v.left_first;
 
         depth_timers[depth] += timer.elapsed().as_micros();
+        // todo prevent this stack push?
         stack.push(StackItem {current: lf,first,count: l_count, depth: depth + 1});
         stack.push(StackItem {current: lf+1,first: first+l_count,count: count-l_count, depth: depth + 1});
     }
-    println!("counter: {}" , counter);
+    // println!("counter: {}" , counter);
+
+    println!("depth_timers");
     let x = depth_timers.into_iter().map(|v| v / 1000).collect::<Vec<u128>>();
     let total_time : u128= x.iter().sum();
-    let mut tmp: Vec<(usize,u128)> = (0..x.len()).zip(x.into_iter()).collect();
-    tmp.sort_by(|a,b| a.1.partial_cmp(&b.1).unwrap());
-    println!("depth_timers: {:?}" , tmp);
-    // println!("depth_timers: {:?}" , tmp.sort_by(|a,b| (a.1).cmp(b.1)));
-    // println!("depth_timers: {:?}" , tmp.sort_by_key(|a| a.1));
-    // println!("depth_timers: {:?}" , tmp.sort_by(|a,b| a.1.partial_cmp(&b.1).unwrap()));
-    for item in tmp.into_iter() {
-        println!("{:?}", item);
-    }
-    println!("depth_timers: {:?}" , total_time);
+    println!("total_time: {:?}" , total_time);
+    let mut depth_timer_sorted: Vec<(usize,u128)> = (0..x.len()).zip(x.into_iter()).collect();
+    depth_timer_sorted.sort_by(|a,b| a.1.partial_cmp(&b.1).unwrap());
+    for item in depth_timer_sorted.into_iter() { println!("{:?}", item); }
 
+    println!("depth_counters");
+    let x = depth_counters;
+    let mut depth_counter_sorted: Vec<(usize,u128)> = (0..x.len()).zip(x.into_iter()).collect();
+    depth_counter_sorted.sort_by(|a,b| a.1.partial_cmp(&b.1).unwrap());
+    for item in depth_counter_sorted.into_iter() { println!("{:?}", item); }
+
+    println!("depth_items");
+    let x = depth_items;
+    let total_items : usize = x.iter().sum();
+    let mut depth_items_sorted: Vec<(usize,usize)> = (0..x.len()).zip(x.into_iter()).collect();
+    depth_items_sorted.sort_by(|a,b| a.1.partial_cmp(&b.1).unwrap());
+    for item in depth_items_sorted.into_iter() { println!("{:?}", item); }
+    println!("total_items: {:?}" , total_items);
 
 }
-fn union_bound(bounds: &[AABB]) -> AABB {
-    let mut bound = AABB::default();
+
+const AABB_NULL : [f32;6] = [f32::MAX,f32::MAX,f32::MAX,f32::MIN,f32::MIN,f32::MIN];
+#[inline]
+fn union_bound(bounds: &[[f32;6]]) -> [f32;6] {
+    let mut bound = AABB_NULL;
     for other in bounds{
-        bound.combine(*other);
+        bound[0] = bound[0].min(other[0]) - EPSILON;
+        bound[1] = bound[1].min(other[1]) - EPSILON;
+        bound[2] = bound[2].min(other[2]) - EPSILON;
+        bound[3] = bound[3].max(other[3]) + EPSILON;
+        bound[4] = bound[4].max(other[4]) + EPSILON;
+        bound[5] = bound[5].max(other[5]) + EPSILON;
     }
-    bound.grown(Vec3::EPSILON)
+    bound
+}
+
+// #[inline]
+// fn lerp(bound: [f32;6], ) -> {
+//
+// }
+
+#[inline]
+fn surface_area(bound: [f32;6]) -> f32 {
+    let v = [bound[3] - bound[0], bound[4] - bound[1], bound[5] - bound[2]];
+    v[0] * v[1] * 2.0 + v[0] * v[2] * 2.0 + v[1] * v[2] * 2.0
 }
