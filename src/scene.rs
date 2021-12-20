@@ -2,12 +2,10 @@ use crate::vec3::{ Vec3, Orientation };
 use crate::trace_tex::{ TexType, TraceTex };
 use crate::misc::{ Incrementable, build_vec, make_nonzero_len };
 use crate::info::Info;
-use crate::aabb::AABB;
 use crate::bvh::Bvh;
+use crate::mesh::Mesh;
 
 use std::collections::HashMap;
-use crate::mesh::Mesh;
-use std::sync::Arc;
 
 type MaterialIndex = u8;
 

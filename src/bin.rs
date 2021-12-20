@@ -13,10 +13,6 @@ use clr::state::{ State, Settings, log_update_fn, fps_input_fn };
 use sdl2::keyboard::Keycode;
 use clrays_rs::consts::*;
 use clrays_rs::scene::{Model, SceneItem};
-use clrays_rs::vec3::Orientation;
-use clrays_rs::bvh::Bvh;
-use clrays_rs::mesh::Mesh;
-use stopwatch::Stopwatch;
 // use clrays_rs::mesh::build_triangle_wall;
 
 pub const USE_WATERFLOOR : bool = false;
@@ -99,40 +95,40 @@ pub fn main() -> Result<(), String>{
                 .add_to_scene(&mut scene)
         }.add(&mut scene);
     }
-    //
-    // Sphere{
-    //     pos: Vec3::new(2.0, 0.0, -5.0),
-    //     rad: 1.0 - EPSILON,
-    //     mat: Material::basic()
-    //         .with_texture(scene.get_texture("tiles-alb"))
-    //         .with_normal_map(scene.get_texture("tiles-nor"))
-    //         .with_roughness_map(scene.get_texture("tiles-rou"))
-    //         .add_to_scene(&mut scene)
-    // }.add(&mut scene);
-    //
-    // Sphere{
-    //     pos: Vec3::new(0.0, 0.0, -5.0),
-    //     rad: 1.0 - EPSILON,
-    //     mat: Material::basic()
-    //         .with_reflectivity(0.3)
-    //         .with_texture(scene.get_texture("solar-alb"))
-    //         .with_normal_map(scene.get_texture("solar-nor"))
-    //         .with_roughness_map(scene.get_texture("solar-rou"))
-    //         .with_metalic_map(scene.get_texture("solar-met"))
-    //         .add_to_scene(&mut scene)
-    // }.add(&mut scene);
-    //
-    // Sphere{
-    //     pos: Vec3::new(-2.0, 0.1, -5.0),
-    //     rad: 1.0 - EPSILON,
-    //     mat: Material::basic()
-    //         .with_texture(scene.get_texture("scifi-alb"))
-    //         .with_normal_map(scene.get_texture("scifi-nor"))
-    //         .with_roughness_map(scene.get_texture("scifi-rou"))
-    //         .with_metalic_map(scene.get_texture("scifi-met"))
-    //         .with_reflectivity(0.9)
-    //         .add_to_scene(&mut scene)
-    // }.add(&mut scene);
+
+    Sphere{
+        pos: Vec3::new(2.0, 0.0, -5.0),
+        rad: 1.0 - EPSILON,
+        mat: Material::basic()
+            .with_texture(scene.get_texture("tiles-alb"))
+            .with_normal_map(scene.get_texture("tiles-nor"))
+            .with_roughness_map(scene.get_texture("tiles-rou"))
+            .add_to_scene(&mut scene)
+    }.add(&mut scene);
+
+    Sphere{
+        pos: Vec3::new(0.0, 0.0, -5.0),
+        rad: 1.0 - EPSILON,
+        mat: Material::basic()
+            .with_reflectivity(0.3)
+            .with_texture(scene.get_texture("solar-alb"))
+            .with_normal_map(scene.get_texture("solar-nor"))
+            .with_roughness_map(scene.get_texture("solar-rou"))
+            .with_metalic_map(scene.get_texture("solar-met"))
+            .add_to_scene(&mut scene)
+    }.add(&mut scene);
+
+    Sphere{
+        pos: Vec3::new(-2.0, 0.1, -5.0),
+        rad: 1.0 - EPSILON,
+        mat: Material::basic()
+            .with_texture(scene.get_texture("scifi-alb"))
+            .with_normal_map(scene.get_texture("scifi-nor"))
+            .with_roughness_map(scene.get_texture("scifi-rou"))
+            .with_metalic_map(scene.get_texture("scifi-met"))
+            .with_reflectivity(0.9)
+            .add_to_scene(&mut scene)
+    }.add(&mut scene);
     //
     // Triangle{
     //     a: Vec3::new(-1.0, 1.0, -7.0),
@@ -216,20 +212,19 @@ pub fn main() -> Result<(), String>{
             // .with_refraction(2.0);
     // load_model("assets/models/teapot.obj", model_mat.add_to_scene(&mut scene), &mut scene);
 
-
     let mut dragon = Model{
         pos: Default::default(),
         rot: Default::default(),
         mat: scene.add_material(Material::basic()),
-        mesh: scene.add_mesh("assets/models/dragon.obj".parse().unwrap())
+        mesh: scene.add_mesh("assets/models/teapot.obj".parse().unwrap())
     };
-    let n = 1;
+    let n = 10;
     for i in 0..n {
         println!("{}",i);
         let theta = (i as f32 / n as f32) * 2.0*PI;
         println!("{}",theta);
         println!("{}",FRAC_2_PI);
-        let mut pos = Vec3::BACKWARD.scaled(16.0).yawed(theta).added(Vec3::FORWARD.scaled(6.0)).subed(Vec3::UP.scaled(5.0));
+        let pos = Vec3::BACKWARD.scaled(16.0).yawed(theta).added(Vec3::FORWARD.scaled(6.0)).subed(Vec3::UP.scaled(5.0));
         // pos = pos.subed(Vec3::UP.scaled(3.0));
         println!("{:?}",pos);
         let mut ori = Vec3::ZERO.subed(pos).orientation();
@@ -251,24 +246,6 @@ pub fn main() -> Result<(), String>{
         col: Vec3::ONE,
     }.add(&mut scene);
 
-    // println!("build bvh...");
-    // scene.generate_bvh_sah();
-    // scene.generate_bvh_mid();
-    // println!("bvh is build");
-    // scene.bvh.node.print(0);
-    // let mut v0 = Vec::new();
-    // scene.bvh.node.get_prim_counts(&mut v0);
-    // println!("{:?}, {}, {}", v0, v0.len(), v0.iter().sum::<usize>());
-
-    // scene.generate_bvh_nightly(16);
-    // let mut v1 = Vec::new();
-    // scene.bvh_nightly.get_prim_counts(0, &mut v1);
-    // println!("{:?}, {}, {}", v1, v1.len(), v1.iter().sum::<usize>());
-
-    // println!("{:?}, {:?}", scene.bvh.node.bounds, scene.bvh_nightly.vertices[0].bound);
-    // println!("{:?}, {:?}", scene.bvh.node.left.as_ref().unwrap().bounds, scene.bvh_nightly.vertices[2].bound);
-    // println!("{:?}, {:?}", scene.bvh.node.right.as_ref().unwrap().bounds, scene.bvh_nightly.vertices[3].bound);
-
     info.set_time_point("Setting up scene");
     scene.pack_textures(&mut info);
 
@@ -278,8 +255,8 @@ pub fn main() -> Result<(), String>{
         start_in_focus_mode: false,
         max_render_depth: 4,
     };
-    let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O, T), settings);
-    // let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O, F, B, W), settings);
+    // let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O, T), settings);
+    let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O, F, B, W), settings);
 
     // let (w, h) = (960, 540);
     let (w, h) = (1600, 900);

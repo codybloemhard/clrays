@@ -30,8 +30,7 @@ impl Bvh{
         let binsf = bins as f32;
         let binsf_inf = 1.0 / binsf;
 
-        let mut stack = vec![]; // [(current,first,count,step)]
-        stack.push(StackItem {current,first,count,depth});
+        let mut stack = vec![StackItem{ current, first, count, depth }]; // [(current,first,count,step)]
 
         let mut lerps = vec![Vec3::ZERO; bins-1];
         let mut binbounds = vec![AABB::new();bins];
@@ -40,24 +39,21 @@ impl Bvh{
 
         let (mut lb, mut rb) = (AABB::default(), AABB::default());
 
-        let mut best_aabb_left = AABB::default();
-        let mut best_aabb_right = AABB::default();
         let mut best_axis = Axis::X;
         let mut best_split = 0.0;
 
-        let mut v : &mut Vertex = &mut Vertex::default();
+        let mut v;
         let mut top_bound;
 
-        let mut current = 0;
-        let mut first = 0;
-        let mut count = 0;
+        let mut current;
+        let mut first;
+        let mut count;
 
         let mut depth_timers = vec![];
         let mut depth_items = vec![];
 
-        while stack.len() > 0 {
-
-            let mut x = stack.pop().unwrap();
+        while !stack.is_empty() {
+            let x = stack.pop().unwrap();
             // println!("{:?}", x);
             // measure time in depth
             depth = x.depth;
@@ -94,7 +90,7 @@ impl Bvh{
             }
 
             // compute best combination; minimal cost
-            let (mut ls, mut rs) = (0, 0);
+            let (mut ls, mut rs);
             lb.set_default();
             rb.set_default();
             let max_cost = count as f32 * top_bound.surface_area();
@@ -145,8 +141,6 @@ impl Bvh{
                         best_cost = cost;
                         best_axis = axis;
                         best_split = split;
-                        best_aabb_left = lb;
-                        best_aabb_right = rb;
                     }
                 }
             }
@@ -242,8 +236,7 @@ impl Bvh{
         if self.vertices.is_empty() { return (0, 0); }
         let inv_dir = ray.inverted().dir;
         let dir_is_neg : [usize; 3] = ray.direction_negations();
-        let result = internal_intersect(self, 0, ray, scene, hit, inv_dir, dir_is_neg);
-        result
+        internal_intersect(self, 0, ray, scene, hit, inv_dir, dir_is_neg)
     }
 
     pub fn from_mesh(mesh: Mesh, triangles: &mut Vec<Triangle>, bins: usize) -> Self{
@@ -265,27 +258,35 @@ impl Bvh{
     }
 }
 
-
 const STACK_SIZE : usize = 100000;
 pub struct CustomStack<T> {
     pub stack: [T; STACK_SIZE],
     pub index: usize
 }
 
+impl<T: Default + Copy> Default for CustomStack<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: Default + Copy> CustomStack<T> {
     pub fn new() -> Self{
         Self { stack: [T::default(); STACK_SIZE], index: 0 }
     }
+
     #[inline]
     pub fn current(&self) -> &T{
         &self.stack[self.index]
     }
+
     pub fn push(&mut self, item: T){
         self.index += 1;
         self.stack[self.index] = item;
     }
+
     pub fn pop(&mut self) -> T{
-        self.index = self.index-1;
+        self.index -= 1;
         self.stack[self.index + 1]
     }
 }

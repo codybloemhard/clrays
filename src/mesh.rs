@@ -72,10 +72,9 @@ impl Mesh {
         triangles
     }
 
-    pub fn build_triangle_wall(mat: u8, scene: &mut Scene, diff: f32, offset: f32) -> Vec<Triangle>{
+    pub fn build_triangle_wall(diff: f32, offset: f32) -> Vec<Triangle>{
         let z = 0.0;
         let mut x = -offset;
-        let mut total = 0;
         let mut triangles = vec![];
         while x < offset { // (2.0*offset)/diff
             let mut y = -offset;
@@ -105,12 +104,10 @@ impl Mesh {
                     b: Vec3::new(x2, y2, z2),
                     c: Vec3::new(x3, y3, z3),
                 });
-                total += 2;
                 y += diff;
             }
             x += diff;
         }
-        // println!("total:{}", total);
         triangles
     }
 }
