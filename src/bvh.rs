@@ -388,7 +388,7 @@ impl Bvh{
         let count = data.is.len();
         let mut depth = 0;
 
-        let bounds = &data.bounds;
+        let mut bounds = &data.bounds;
         let mut is = &mut data.is;
         let mut vs = &mut data.vs;
         let bins = data.bins;
@@ -477,9 +477,9 @@ impl Bvh{
                 binbounds.fill(aabb_null);
                 bincounts.fill(0);
                 let mut index: usize ;
-                for index_triangle in sub_is {
-                    index = (k1*(data.bounds[*index_triangle].midpoint().as_array()[u]-k0)) as usize;
-                    binbounds[index].combine(data.bounds[*index_triangle]);
+                for index_triangle in 0..count {
+                    index = (k1*(data.bounds[index_triangle].midpoint().as_array()[u]-k0)) as usize;
+                    binbounds[index].combine(data.bounds[index_triangle]);
                     bincounts[index] += 1;
                 }
 
@@ -523,6 +523,7 @@ impl Bvh{
                     a += 1;
                 } else {
                     is.swap(a, b);
+                    bounds.swap(a, b);
                     b -= 1;
                 }
             }
@@ -657,40 +658,4 @@ pub struct StackItem {
     pub first : usize,
     pub count : usize,
     pub depth : usize
-}
-
-#[cfg(test)]
-mod test {
-    use crate::bvh;
-    use core::simd::*;
-    use crate::bvh::{iterator_stuff, min_box_aabbs};
-
-    #[test]
-    fn first_test() {
-        let vec: Vec<i32> = vec![10, 11, 12, 13, 14, 15, 16, 17, 18];
-        let idxs = Simd::from_array([9, 3, 0, 5]);
-        let alt = Simd::from_array([-5, -4, -3, -2]);
-        let result = Simd::gather_or(&vec, idxs, alt); // Note the lane that is out-of-bounds.
-        assert_eq!(result, Simd::from_array([-5, 13, 10, 15]));
-    }
-
-    #[test]
-    fn simd_sum() {
-        bvh::my_simd_sum();
-        panic!();
-    }
-
-    #[test]
-    fn test_simd_aab_min() {
-        iterator_stuff();
-        // simd_aabb_min();
-        panic!();
-    }
-
-    #[test]
-    fn unit_aabb_min() {
-        min_box_aabbs();
-        panic!();
-    }
-
 }

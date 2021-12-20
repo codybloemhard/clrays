@@ -332,6 +332,7 @@ impl Vec3{
 
     #[inline]
     pub fn mix(&mut self, o: Self, t: f32){
+        #[inline]
         fn lerp(a: f32, b: f32, t: f32) -> f32{
             a + t * (b - a)
         }

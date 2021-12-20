@@ -1,8 +1,3 @@
-// imports
-// use core::simd::*;
-// use arrayvec::ArrayVec;
-
-
 // import stopwatch
 use std::default::Default;
 use std::fmt;
@@ -199,8 +194,9 @@ impl Vec3{
     pub const EPSILON: Vec3 =   Self { x: EPSILON, y: EPSILON, z: EPSILON};
 
     #[inline]
-    pub fn as_array(&self) -> [f32;3]{ [self.x,self.y,self.z] }
-    pub fn into_arr(&self) -> [f32;3]{ [self.x,self.y,self.z] }
+    pub fn as_array(&self) -> [f32;3]{
+        [self.x,self.y,self.z]
+    }
 
     #[inline]
     pub fn new(x: f32, y: f32, z: f32) -> Self{
@@ -621,7 +617,9 @@ impl AABB {
     #[inline]
     pub fn surface_area(self) -> f32{
         let v = self.max.subed(self.min);
-        v.x * v.y * 2.0 + v.x * v.z * 2.0 + v.y * v.z * 2.0
+        v.x * v.y * 2.0 +
+        v.x * v.z * 2.0 +
+        v.y * v.z * 2.0
     }
 
     #[inline]
@@ -635,47 +633,6 @@ impl AABB {
     }
 }
 
-// Bvh
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Vertex{
-    pub bound: [f32; 6],
-    left_first: usize,
-    count: usize,
-}
-
-const STACK_SIZE : usize = 100000;
-pub struct CustomStack<T> {
-    pub stack: [T; STACK_SIZE],
-    pub index: usize
-}
-
-impl<T: Default + Copy> CustomStack<T> {
-    pub fn new() -> Self{
-        Self { stack: [T::default(); STACK_SIZE], index: 0 }
-    }
-    #[inline]
-    pub fn current(&self) -> &T{
-        &self.stack[self.index]
-    }
-    pub fn push(&mut self, item: T){
-        self.index += 1;
-        self.stack[self.index] = item;
-    }
-    pub fn pop(&mut self) -> T{
-        self.index = self.index-1;
-        self.stack[self.index + 1]
-    }
-}
-
-#[derive(Default, Copy, Clone, Debug)]
-pub struct StackItem {
-    pub current : usize,
-    pub first : usize,
-    pub count : usize,
-    pub depth : usize
-}
-
-
 // main
 #[inline]
 fn xor32(seed: &mut u32) -> u32{
@@ -685,321 +642,174 @@ fn xor32(seed: &mut u32) -> u32{
     *seed
 }
 
-// const TRIANGLES: usize = 20000000;
-// const TRIANGLES: usize = 10000000;
-const TRIANGLES: usize = 5000000;
-// const TRIANGLES: usize = 2500000;
-// const TRIANGLES: usize = 1000000;
-// const TRIANGLES: usize = 100000;
-// const TRIANGLES: usize = 50;
+// type Vectorf32 = Simd<f32, 32>;
+// type Vectorusize = Simd<usize, 32>;
+// struct SimdCacher {
+//     pub idxs: Vec<Vectorusize>
+// }
+// impl SimdCacher {
+//     fn init() -> Self {
+//         // const reshuffle indices
+//         let mut idxs = vec![0;32]; // todo: use arrayvec
+//         let mut idxs_slices: Vec<Vectorusize> = vec![];  // todo: use arrayvec
+//         for i in 0..6{
+//             for j in 0..32 {
+//                 idxs[j] = j*6+i;
+//             }
+//             idxs_slices.push(Vectorusize::from_slice(idxs.as_slice()));
+//         }
+//         Self {
+//             idxs: idxs_slices
+//         }
+//     }
+// }
+// fn min_box_aabbs() {
+//     // generate bounding boxes
+//     let mut aabbs = vec![];
+//     let mut seed:u32 = 81349324; // guaranteed to be random
+//     let timer = Stopwatch::start_new();
+//     for i in 0..50000000{
+//         aabbs.push(AABB {
+//             min: Vec3 {
+//                 x: xor32(&mut seed) as f32,
+//                 y: xor32(&mut seed) as f32,
+//                 z: xor32(&mut seed) as f32
+//             },
+//             max: Vec3 {
+//                 x: xor32(&mut seed) as f32,
+//                 y: xor32(&mut seed) as f32,
+//                 z: xor32(&mut seed) as f32
+//             }
+//         });
+//     }
+//     println!("generating bounding boxes:  {:?}", timer.elapsed_ms());
+//     // combine  box as usual
+//     let timer = Stopwatch::start_new();
+//     let mut combox = AABB::default();
+//     for i in &aabbs {
+//         combox.combine(*i);
+//     }
+//     println!("normal {:?}", timer.elapsed_ms());
+//     println!("combox {:?}", combox);
+//
+//     // convert aabbs to large vec
+//     let mut combox: Vec<f32> = aabbs.into_iter().map(|v| vec![v.min.x, v.min.y, v.min.z, v.max.x, v.max.y, v.max.z]).flatten().collect();
+//     let mut index = 1;
+//     let combox_len = combox.len();
+//     // while index + 35*6 < combox_len { combox[0] = }
+//     // while combox.len() > 32*6 { combox = combox.chunks_exact(32*6).map(|aabbs| aab_min_32(aabbs)).collect(); }
+//     // while combox.len() > 6 { combox = combox.combine(*i); }
+//     let cacher = SimdCacher::init();
+//     let aabb_chunk_size = 31*6;
+//     let timer = Stopwatch::start_new();
+//     while index + aabb_chunk_size < combox_len {
+//         for i in 0..6 {
+//             // combox[i] = combox.chunks_exact(32*6).map(|aabbs| aab_min_32(aabbs)).collect();
+//             combox[i] = Vectorf32::gather_or_default(&combox, cacher.idxs[i]).horizontal_min();
+//         }
+//         index += aabb_chunk_size;
+//     }
+//     println!("simd {:?}", timer.elapsed_ms());
+//     let combox = AABB {
+//         min: Vec3 {
+//             x: combox[0],
+//             y: combox[1],
+//             z: combox[2],
+//         },
+//         max: Vec3 {
+//             x: combox[3],
+//             y: combox[4],
+//             z: combox[5],
+//         },
+//     };
+//     println!("combox {:?}", combox);
+// }
 
-fn generate_triangles() -> Vec<Triangle>{
-    // generate triangles
-    let mut triangles = vec![];
-    let mut seed:u32 = 81349324; // guaranteed to be random
-    for i in 0..TRIANGLES{
-        if i % 100000 == 0 {
-            println!("{}",i);
-        }
-        triangles.push(Triangle{
-            a: Vec3 {
+fn generate_aabbs() -> Vec<AABB> {
+    let mut aabbs = vec![];
+    let mut seed :u32 = 81349324; // guaranteed to be random
+    let first = seed;
+    // for i in 0..50000000{
+        // assert_ne!(xor32(&mut seed), first);
+    // }
+    for i in 0..50000000{
+        aabbs.push(AABB {
+            min: Vec3 {
                 x: xor32(&mut seed) as f32,
                 y: xor32(&mut seed) as f32,
                 z: xor32(&mut seed) as f32
             },
-            b: Vec3 {
+            max: Vec3 {
                 x: xor32(&mut seed) as f32,
                 y: xor32(&mut seed) as f32,
                 z: xor32(&mut seed) as f32
-            },
-            c: Vec3 {
-                x: xor32(&mut seed) as f32,
-                y: xor32(&mut seed) as f32,
-                z: xor32(&mut seed) as f32
-            },
+            }
         });
-        // println!("{},{:?}",i, triangles[i]);
     }
-    triangles
+    aabbs
+}
 
-    // // convert to builder data
-    // let n = triangles.len();
-    // (0..n).into_iter().map(|i|
-    //     AABB::from_points(&[triangles[i].a, triangles[i].b, triangles[i].c])
-    // ).collect::<Vec<_>>()
+fn bench_combine(aabbs: &[AABB]) {
+    let mut combox = AABB::default();
+    for i in aabbs {
+        combox.combine(*i);
+    }
+}
+
+fn bench_lerp(aabbs: &[AABB]) {
+    let bins = 12;
+    let binsf = bins as f32;
+    let binsf_inf = 1.0 / binsf;
+    let mut lerps = vec![Vec3::ZERO; bins];
+    for i in 0..100 {
+        for bound in aabbs {
+            for (i, item) in lerps.iter_mut().enumerate(){
+                *item = bound.lerp(i as f32 * binsf_inf);
+            }
+        }
+    }
+}
+
+fn bench_place_bins(aabbs: &[AABB]) {
+    // let bins = 12;
+    // let binsf = bins as f32;
+    // let binsf_inf = 1.0 / binsf;
+    // let mut binbounds = vec![AABB::new();bins];
+    // let mut bincounts : Vec<usize> = vec![0;bins];
+    // binbounds.fill(aabb_null);
+    // bincounts.fill(0);
+    // let mut index: usize ;
+    // for index_triangle in sub_range.clone() {
+    //     index = (k1*(bounds[index_triangle].midpoint().as_array()[u]-k0)) as usize;
+    //     binbounds[index].combine(bounds[index_triangle]);
+    //     bincounts[index] += 1;
+    // }
+}
+
+fn benchmarker(aabbs: &[AABB], call: Box<Fn(&[AABB]) -> ()>) {
+    let timer = Stopwatch::start_new();
+    call(aabbs);
+    println!("bench: {}", timer.elapsed_ms());
 }
 
 fn main() {
-    let triangles = generate_triangles();
-    let n = triangles.len();
-    let timer_prepare = Stopwatch::start_new();
-    let mut bounds = triangles.into_iter()
-        .map(|triangle| AABB::from_points(&[triangle.a, triangle.b, triangle.c]))
-        .map(|aabb| [aabb.min.into_arr(), aabb.max.into_arr()])
-        .map(|p| [p[0][0],p[0][1],p[0][2],p[1][0],p[1][1],p[1][2]])
-        // .flatten()
-        // .flatten()
-        .collect::<Vec<[f32;6]>>();
+    println!("start");
+    let aabbs = generate_aabbs();
+    let mut f32s: Vec<f32> = aabbs.iter().map(|v| vec![v.min.x, v.min.y, v.min.z, v.max.x, v.max.y, v.max.z]).flatten().collect();
 
-    // TEST: are bounds valid?
-    for aabb in &bounds {
-        assert!(aabb[0] <= aabb[3]);
-        assert!(aabb[1] <= aabb[4]);
-        assert!(aabb[2] <= aabb[5]);
-    }
-    // println!("{:?}", bounds.as_slice()[0]);
-    // TEST end
+    benchmarker(aabbs.as_slice(), Box::new(bench_combine));
+    benchmarker(aabbs.as_slice(), Box::new(bench_lerp));
+    benchmarker(aabbs.as_slice(), Box::new(bench_place_bins));
 
-    let count = n;
-    let mut is = (0..n).into_iter().collect::<Vec<_>>();
-    let mut vs = vec![Vertex::default(); n * 2];
-    let bins = 12;
-    println!("{}", timer_prepare.elapsed_ms());
+    // bench_combine(aabbs.as_slice());
+    // bench_lerp(aabbs.as_slice());
+    // println!("{}", f32s.len());
+    // let mut combox = AABB::default();
+    // for i in &aabbs {
+    //     combox.combine(*i);
+    // }
+    // println!("{:?}", combox);
+    // println!("{:?}", &aabbs[0..10]);
 
-    // build bvh
-    let current = 0;
-    let first = 0;
-    let mut poolptr = 2;
-    let mut depth = 0;
 
-    let binsf = bins as f32;
-    let binsf_inf = 1.0 / binsf;
-
-    let mut stack = vec![]; // [(current,first,count,step)]
-    stack.push(StackItem {current,first,count,depth});
-
-    let mut lerps = vec![[0.0,0.0,0.0]; bins-1];
-    let mut binbounds = vec![[0.0;6];bins];
-    let mut bincounts : Vec<usize> = vec![0;bins];
-
-    let mut lb = AABB_NULL;
-    let mut rb = AABB_NULL;
-
-    let mut best_aabb_left = AABB_NULL;
-    let mut best_aabb_right = AABB_NULL;
-    let mut best_axis = 0;
-    let mut best_split = 0.0;
-
-    let mut sub_is: &[usize];
-    let mut v : &mut Vertex = &mut Vertex::default();
-    let mut top_bound : [f32;6];
-
-    let mut current = 0;
-    let mut first = 0;
-    let mut count = 0;
-    let mut step = 0;
-
-    // debug info
-    let mut handled = 0;
-    let mut counter = 0;
-    let mut last_handled = 0;
-    // end of debug info
-
-    let mut timer = Stopwatch::start_new();
-    let mut depth_timers = vec![];
-    let mut depth_counters = vec![];
-    let mut depth_items = vec![];
-
-    while stack.len() > 0 {
-        // if handled / 100000 > last_handled {
-        //     println!("{}", handled);
-        //     last_handled = handled / 100000;
-        // }
-        timer.start();
-
-        let mut x = stack.pop().unwrap();
-		// println!("{:?}", x);
-        // measure time in depth
-        depth = x.depth;
-        if depth >= depth_timers.len() {
-            depth_timers.push(0);
-            depth_counters.push(0);
-            depth_items.push(0);
-        }
-        depth_counters[depth] += 1;
-        depth_items[depth] += x.count;
-
-        current = x.current;
-        count = x.count;
-        first = x.first;
-        v = &mut vs[current];
-
-        // sub_is = &is[first..first + count];
-        let sub_range = first..first + count;
-        top_bound = union_bound(&bounds[sub_range.clone()]);
-        v.bound = top_bound;
-
-        if count < 3 { // leaf
-            handled += count;
-            v.left_first = first; // first
-            v.count = count;
-            continue;
-        }
-
-        // sah binned
-
-        // precompute lerps
-        for (i, item) in lerps.iter_mut().enumerate(){ // lerp
-            item[0] = top_bound[0] + (top_bound[3] - top_bound[0]) * (i+1) as f32 * binsf_inf;
-            item[1] = top_bound[1] + (top_bound[4] - top_bound[1]) * (i+1) as f32 * binsf_inf;
-            item[2] = top_bound[2] + (top_bound[5] - top_bound[2]) * (i+1) as f32 * binsf_inf;
-        }
-
-        // compute best combination; minimal cost
-        let (mut ls, mut rs) = (0, 0);
-        lb = AABB_NULL;
-        rb = AABB_NULL;
-        let max_cost = count as f32 * surface_area(top_bound);
-        let mut best_cost = max_cost;
-
-        for axis in [0, 1, 2] {
-
-            // if !axis_valid[u] { continue; }
-            let k1 = (binsf*(1.0-EPSILON))/(top_bound[3+axis]-top_bound[axis]);
-            let k0 = top_bound[axis];
-
-            // place bounds in bins
-            // generate bounds of bins
-            binbounds.fill(AABB_NULL);
-            bincounts.fill(0);
-            let mut index: usize ;
-            for index_triangle in sub_range.clone() {
-                let midpoint = 0.5 * (bounds[index_triangle][axis] + bounds[index_triangle][axis + 3]);
-                index = (k1*(midpoint-k0)) as usize;
-                binbounds[index] = combine(binbounds[index], bounds[index_triangle]);
-                bincounts[index] += 1;
-            }
-
-            // iterate over bins
-            for (lerp_index,lerp) in lerps.iter().enumerate(){
-                let split = lerp[axis];
-                // reset values
-                ls = 0;
-                rs = 0;
-                lb = AABB_NULL;
-                rb = AABB_NULL;
-                // construct lerpbounds
-                for j in 0..lerp_index { // left of split
-                    ls += bincounts[j];
-                    lb = combine(lb, binbounds[j]);
-                }
-                for j in lerp_index..bins { // right of split
-                    rs += bincounts[j];
-                    rb = combine(rb, binbounds[j]);
-                }
-
-                // get cost
-                let cost = 3.0 + 1.0 + surface_area(lb) * ls as f32 + 1.0 + surface_area(rb) * rs as f32;
-                if cost < best_cost {
-					// println!("{},{},{}", cost,axis,split);
-                    best_cost = cost;
-                    best_axis = axis;
-                    best_split = split;
-                    best_aabb_left = lb;
-                    best_aabb_right = rb;
-                }
-            }
-        }
-
-        if best_cost == max_cost { // leaf
-			// println!("no cost improv");
-            depth_timers[depth] += timer.elapsed().as_micros();
-            handled += count;
-            v.left_first = first; // first
-            v.count = count;
-            continue;
-        }
-
-        // partition
-        let mut a = first; // first
-        let mut b = first + count - 1; // last
-
-        while a <= b {
-            let bound = bounds[a];
-            if ((bound[best_axis]+bound[3+best_axis])*0.5) < best_split{ // midpoint < best_split
-                a += 1;
-            } else {
-                is.swap(a, b);
-                // swap bounds a with b
-                bounds.swap(a, b);
-                b -= 1;
-            }
-        }
-        let l_count = a - first;
-
-        if l_count == 0 || l_count == count{ // leaf
-			// println!("l_count == 0 || l_count == count");
-            depth_timers[depth] += timer.elapsed().as_micros();
-            handled += count;
-            v.left_first = first; // first
-            v.count = count;
-            continue;
-        }
-        v.count = 0; // internal vertex, not a leaf
-        v.left_first = poolptr; // left = poolptr, right = poolptr + 1
-        poolptr += 2;
-        let lf = v.left_first;
-
-        depth_timers[depth] += timer.elapsed().as_micros();
-        // todo prevent this stack push?
-        stack.push(StackItem {current: lf,first,count: l_count, depth: depth + 1});
-        stack.push(StackItem {current: lf+1,first: first+l_count,count: count-l_count, depth: depth + 1});
-    }
-    // println!("counter: {}" , counter);
-
-    println!("depth_timers");
-    let x = depth_timers.into_iter().map(|v| v / 1000).collect::<Vec<u128>>();
-    let total_time : u128= x.iter().sum();
-    println!("total_time: {:?}" , total_time);
-    let mut depth_timer_sorted: Vec<(usize,u128)> = (0..x.len()).zip(x.into_iter()).collect();
-    depth_timer_sorted.sort_by(|a,b| a.1.partial_cmp(&b.1).unwrap());
-    for item in depth_timer_sorted.into_iter() { println!("{:?}", item); }
-
-    println!("depth_counters");
-    let x = depth_counters;
-    let mut depth_counter_sorted: Vec<(usize,u128)> = (0..x.len()).zip(x.into_iter()).collect();
-    depth_counter_sorted.sort_by(|a,b| a.1.partial_cmp(&b.1).unwrap());
-    for item in depth_counter_sorted.into_iter() { println!("{:?}", item); }
-
-    println!("depth_items");
-    let x = depth_items;
-    let total_items : usize = x.iter().sum();
-    let mut depth_items_sorted: Vec<(usize,usize)> = (0..x.len()).zip(x.into_iter()).collect();
-    depth_items_sorted.sort_by(|a,b| a.1.partial_cmp(&b.1).unwrap());
-    for item in depth_items_sorted.into_iter() { println!("{:?}", item); }
-    println!("total_items: {:?}" , total_items);
-
-}
-
-const AABB_NULL : [f32;6] = [f32::MAX,f32::MAX,f32::MAX,f32::MIN,f32::MIN,f32::MIN];
-#[inline]
-fn union_bound(bounds: &[[f32;6]]) -> [f32;6] {
-    let mut bound = AABB_NULL;
-    for other in bounds{
-		bound = combine(bound, *other);
-    }
-    bound[0] -= EPSILON;
-    bound[1] -= EPSILON;
-    bound[2] -= EPSILON;
-    bound[3] += EPSILON;
-    bound[4] += EPSILON;
-    bound[5] += EPSILON;
-    bound
-}
-
-// #[inline]
-// fn lerp(bound: [f32;6], ) -> {
-//
-// }
-
-#[inline]
-fn surface_area(bound: [f32;6]) -> f32 {
-    let v = [bound[3] - bound[0], bound[4] - bound[1], bound[5] - bound[2]];
-    v[0] * v[1] * 2.0 + v[0] * v[2] * 2.0 + v[1] * v[2] * 2.0
-}
-
-#[inline]
-fn combine(a: [f32;6], b: [f32;6]) -> [f32;6] {
-    [a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2]),
-    a[3].max(b[3]), a[4].max(b[4]), a[5].max(b[5])]
 }
