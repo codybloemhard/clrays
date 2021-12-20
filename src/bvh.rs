@@ -304,3 +304,43 @@ fn union_bound(bounds: &[AABB]) -> AABB {
     }
     bound.grown(Vec3::EPSILON)
 }
+
+#[cfg(test)]
+mod tests {
+    extern crate test;
+    use test::Bencher;
+    use crate::scene::Triangle;
+    use crate::vec3::Vec3;
+    use crate::bvh::Bvh;
+    use crate::mesh::Mesh;
+
+    #[bench]
+    fn bench_bvh(b: &mut Bencher) {
+
+        // credit: George Marsaglia
+        #[inline]
+        fn xor32(seed: &mut u32) -> u32{
+            *seed ^= *seed << 13;
+            *seed ^= *seed >> 17;
+            *seed ^= *seed << 5;
+            *seed
+        }
+
+        // generate 5.000.000 triangles randomly
+        let mut triangles = vec![];
+        let mut seed:u32 = 81349324; // guaranteed to be random
+
+        for i in 0..5000000{
+            if i % 100000 == 0 {
+                println!("{}",i);
+            }
+            triangles.push(Triangle{
+                a: Vec3 { x: xor32(&mut seed) as f32, y: xor32(&mut seed) as f32, z: xor32(&mut seed) as f32 },
+                b: Vec3 { x: xor32(&mut seed) as f32, y: xor32(&mut seed) as f32, z: xor32(&mut seed) as f32 },
+                c: Vec3 { x: xor32(&mut seed) as f32, y: xor32(&mut seed) as f32, z: xor32(&mut seed) as f32 },
+            });
+            // println!("{},{:?}",i, triangles[i]);
+        }
+        b.bench(|_| { Bvh::from_mesh(Mesh::default(), &mut triangles, 12); });
+    }
+}
