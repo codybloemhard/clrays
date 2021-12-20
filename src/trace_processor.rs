@@ -16,29 +16,29 @@ pub trait TraceProcessor{
     fn render(&mut self, scene: &mut Scene, state: &mut State) -> &[u32];
 }
 
-pub struct RealTracer{
-    kernel: Box<TraceKernelReal>,
+pub struct GpuWhitted{
+    kernel: Box<TraceKernelWhitted>,
     queue: Queue,
 }
 
-impl RealTracer{
+impl GpuWhitted{
     pub fn new((width, height): (u32, u32), scene: &mut Scene, info: &mut Info) -> Result<Self, String>{
-        let src = unpackdb!(load_source("assets/kernels/raytrace.cl"), "Could not load RealTracer's kernel!");
+        let src = unpackdb!(load_source("assets/kernels/raytrace.cl"), "Could not load GpuWhitted's kernel!");
         info.set_time_point("Loading source file");
-        let (_, _, _, program, queue) = unpackdb!(create_five(&src), "Could not init RealTracer's program and queue!");
+        let (_, _, _, program, queue) = unpackdb!(create_five(&src), "Could not init GpuWhitted's program and queue!");
         info.set_time_point("Creating OpenCL objects");
-        let kernel = unpackdb!(TraceKernelReal::new("raytracing", (width, height), &program, &queue, scene, info), "Could not create RealTracer!");
+        let kernel = unpackdb!(TraceKernelWhitted::new("raytracing", (width, height), &program, &queue, scene, info), "Could not create GpuWhitted!");
         info.set_time_point("Last time stamp");
-        Ok(RealTracer{
+        Ok(Self{
             kernel: Box::new(kernel),
             queue,
         })
     }
 }
 
-impl TraceProcessor for RealTracer{
+impl TraceProcessor for GpuWhitted{
     fn update(&mut self, scene: &mut Scene){
-        self.kernel.update(&self.queue, scene).expect("Could not update RealTracer's kernel!");
+        self.kernel.update(&self.queue, scene).expect("Could not update GpuWhitted's kernel!");
     }
 
     fn render(&mut self, _: &mut Scene, state: &mut State) -> &[u32]{
@@ -46,54 +46,61 @@ impl TraceProcessor for RealTracer{
             RenderMode::Full | RenderMode::Reduced => {
                 state.last_frame = RenderMode::Full;
                 state.render_mode = RenderMode::None;
-                self.kernel.execute(&self.queue).expect("Could not execute RealTracer's kernel!");
-                self.kernel.get_result(&self.queue).expect("Could not get result of RealTracer!")
+                self.kernel.execute(&self.queue).expect("Could not execute GpuWhitted's kernel!");
+                self.kernel.get_result(&self.queue).expect("Could not get result of GpuWhitted!")
             },
             _ => {
                 state.last_frame = RenderMode::None;
-                self.kernel.get_result(&self.queue).expect("Could not get result of RealTracer!")
+                self.kernel.get_result(&self.queue).expect("Could not get result of GpuWhitted!")
             },
         }
     }
 }
 
-pub struct AaTracer{
-    trace_kernel: Box<TraceKernelAa>,
-    clear_kernel: Box<ClearKernel>,
+pub struct GpuPath{
+    trace_kernel: Box<TraceKernelPath>,
     image_kernel: Box<ImageKernel>,
+    clear_kernel: Box<ClearKernel>,
     queue: Queue,
 }
 
-impl AaTracer{
-    pub fn new((width, height): (u32, u32), aa: u32, scene: &mut Scene, info: &mut Info) -> Result<Self, String>{
-        let src = unpackdb!(load_source("assets/kernels/raytrace.cl"), "Could not load AaTracer's kernel!");
+impl GpuPath{
+    pub fn new((width, height): (u32, u32), scene: &mut Scene, info: &mut Info) -> Result<Self, String>{
+        let src = unpackdb!(load_source("assets/kernels/raytrace.cl"), "Could not load GpuPath's kernel!");
         info.set_time_point("Loading source file");
-        let (_, _, _, program, queue) = unpackdb!(create_five(&src), "Could not init AaTracer's program and queue!");
+        let (_, _, _, program, queue) = unpackdb!(create_five(&src), "Could not init GpuPath's program and queue!");
         info.set_time_point("Creating OpenCL objects");
-        let trace_kernel = unpackdb!(TraceKernelAa::new("raytracingAA", (width,height), aa, &program, &queue, scene, info), "Could not create AaTracer's trace kernel!");
-        let clear_kernel = unpackdb!(ClearKernel::new("clear", (width,height), &program, &queue, trace_kernel.get_buffer_rc()), "Could not create AaTracer's clear kernel!");
-        let image_kernel = unpackdb!(ImageKernel::new("image_from_floatmap", (width, height), &program, &queue, trace_kernel.get_buffer()), "Could not create AaTracer's image kernel!");
+        let trace_kernel = unpackdb!(TraceKernelPath::new("pathtracing", (width, height), &program, &queue, scene, info), "Could not create GpuPath's trace kernel!");
+        let image_kernel = unpackdb!(ImageKernel::new("image_from_floatmap", (width, height), &program, &queue, trace_kernel.get_buffer()), "Could not create GpuPath's image kernel!");
+        let clear_kernel = unpackdb!(ClearKernel::new("clear", (width, height), &program, &queue, trace_kernel.get_buffer()), "Could not create GpuPath's clear kernel!");
         info.set_time_point("Last time stamp");
-        Ok(AaTracer{
+        Ok(Self{
             trace_kernel: Box::new(trace_kernel),
-            clear_kernel: Box::new(clear_kernel),
             image_kernel: Box::new(image_kernel),
+            clear_kernel: Box::new(clear_kernel),
             queue,
         })
     }
 
 }
 
-impl TraceProcessor for AaTracer{
-    fn update(&mut self, _: &mut Scene){
-        self.trace_kernel.update(&self.queue).expect("Could not update AaTracer's trace kernel!");
+impl TraceProcessor for GpuPath{
+    fn update(&mut self, scene: &mut Scene){
+        self.trace_kernel.update(&self.queue, scene).expect("Could not update GpuPath's trace kernel!");
     }
 
-    fn render(&mut self, _: &mut Scene, _: &mut State) -> &[u32]{
-        self.clear_kernel.execute(&self.queue).expect("Could not execute AaTracer's clear kernel!");
-        self.trace_kernel.execute(&self.queue).expect("Could not execute AaTracer's trace kernel!");
-        self.image_kernel.execute(&self.queue).expect("Could not execute AaTracer's image kernel!");
-        self.image_kernel.get_result(&self.queue).expect("Could not get result of AaTracer's image kernel!")
+    fn render(&mut self, _: &mut Scene, state: &mut State) -> &[u32]{
+        state.last_frame = RenderMode::Full;
+        state.render_mode = RenderMode::Full;
+        if state.moved{
+            self.clear_kernel.execute(&self.queue).expect("Could not execute GpuPath's clearn kernel!");
+            state.samples_taken = 0;
+        }
+        self.trace_kernel.execute(&self.queue).expect("Could not execute GpuPath's trace kernel!");
+        state.samples_taken += 1;
+        self.image_kernel.set_divider(state.samples_taken as f32).expect("Could not set GpuPath's clear kernel's divider argument!");
+        self.image_kernel.execute(&self.queue).expect("Could not execute GpuPath's image kernel!");
+        self.image_kernel.get_result(&self.queue).expect("Could not get result of GpuPath's image kernel!")
     }
 }
 

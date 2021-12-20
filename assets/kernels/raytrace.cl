@@ -600,31 +600,51 @@ __kernel void raytracing(
     intmap[pixid] = res;
 }
 
-__kernel void clear(
+__kernel void pathtracing(
     __global float *floatmap,
     const uint w,
-    const uint h
+    const uint h,
+    __global uint *sc_params,
+    __global float *sc_items,
+    __global uint *bvh,
+    __global uint *tx_params,
+    __global uchar *tx_items
 ){
+    uint x = get_global_id(0);
+    uint y = get_global_id(1);
+    uint pixid = x + y * w;
+    float3 col = RayTracing(w, h, x, y,
+        sc_params, sc_items, tx_params, tx_items, bvh);
+    uint fid = pixid * 3;
+    floatmap[fid + 0] += col.x;
+    floatmap[fid + 1] += col.y;
+    floatmap[fid + 2] += col.z;
+}
+
+__kernel void clear(
+    __global float *floatmap,
+    const uint w
+ ){
     uint x = get_global_id(0);
     uint y = get_global_id(1);
     uint pixid = (x + y * w) * 3;
     floatmap[pixid + 0] = 0.0f;
     floatmap[pixid + 1] = 0.0f;
     floatmap[pixid + 2] = 0.0f;
-}
+ }
 
 __kernel void image_from_floatmap(
     __global float *floatmap,
     __global uint *imagemap,
     const uint w,
-    const uint h
+    const float mult
 ){
     uint x = get_global_id(0);
     uint y = get_global_id(1);
-    uint pix_int = (x + y * w);
-    uint pix_float = pix_int * 3;
-    float r = clamp(floatmap[pix_float + 0], 0.0f, 1.0f) * 255.0f;
-    float g = clamp(floatmap[pix_float + 1], 0.0f, 1.0f) * 255.0f;
-    float b = clamp(floatmap[pix_float + 2], 0.0f, 1.0f) * 255.0f;
-    imagemap[pix_int] = ((uint)((uchar)r) << 16) + ((uint)((uchar)g) << 8) + (uint)((uchar)b);
+    uint pixid = (x + y * w);
+    uint pix_float = pixid * 3;
+    float r = clamp(floatmap[pix_float + 0] * mult, 0.0f, 1.0f) * 255.0f;
+    float g = clamp(floatmap[pix_float + 1] * mult, 0.0f, 1.0f) * 255.0f;
+    float b = clamp(floatmap[pix_float + 2] * mult, 0.0f, 1.0f) * 255.0f;
+    imagemap[pixid] = ((uint)((uchar)r) << 16) + ((uint)((uchar)g) << 8) + (uint)((uchar)b);
 }

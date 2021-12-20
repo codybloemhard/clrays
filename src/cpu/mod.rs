@@ -25,24 +25,24 @@ pub fn whitted(
     let pixels = usize::min(rw, rh);
     let radius = pixels as f32 * 0.5;
 
-    if reduce != 1 || state.aa_count == 0 {
+    if reduce != 1 || state.samples_taken == 0 {
         acc.iter_mut().take(rw * rh).for_each(|v| *v = Vec3::ZERO);
     }
 
-    if reduce == 1 && state.aa_count == state.aa{
+    if reduce == 1 && state.samples_taken == state.aa{
         state.last_frame = RenderMode::None;
         return;
     } else if reduce == 1{
-        state.aa_count += 1;
+        state.samples_taken += 1;
         state.last_frame = RenderMode::Full;
     } else {
-        state.aa_count = 0;
+        state.samples_taken = 0;
         state.last_frame = RenderMode::Reduced;
     }
 
-    let (aa_count, max_depth) = match state.render_mode{
+    let (samples_taken, max_depth) = match state.render_mode{
         RenderMode::Reduced => (1, 1),
-        _ => (state.aa_count, state.settings.max_render_depth),
+        _ => (state.samples_taken, state.settings.max_render_depth),
     };
 
     let threads = threads.max(1);
@@ -134,7 +134,7 @@ pub fn whitted(
                     uv.x *= 1.0 - uv.x;
                     uv.y *= 1.0 - uv.y;
                     let vignette = (uv.x * uv.y * 32.0).powf(vst).min(1.0).max(0.0);
-                    col.div_scalar_fast(aa_count as f32);
+                    col.div_scalar_fast(samples_taken as f32);
                     col.scale(vignette);
                     col.clamp(0.0, 1.0);
                     col.scale(255.0);

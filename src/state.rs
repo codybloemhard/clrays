@@ -71,9 +71,10 @@ pub struct State{
     pub last_frame: RenderMode,
     pub reduced_rate: usize,
     pub aa: usize,
-    pub aa_count: usize,
+    pub samples_taken: usize,
     pub show_bvh: bool,
     pub settings: Settings,
+    pub moved: bool,
 }
 
 impl State{
@@ -85,14 +86,15 @@ impl State{
             last_frame: RenderMode::None,
             reduced_rate: 4,
             aa: settings.start_aa(),
-            aa_count: 0,
+            samples_taken: 0,
             settings,
             show_bvh: false,
+            moved: true,
         }
     }
 
     pub fn toggle_focus_mode(&mut self){
-        self.aa_count = 0;
+        self.samples_taken = 0;
         self.render_mode = RenderMode::Reduced;
         self.aa = if self.aa == 1 {
             self.settings.aa_samples
@@ -104,7 +106,7 @@ impl State{
     pub fn toggle_show_bvh(&mut self){
         self.show_bvh = !self.show_bvh;
         self.render_mode = RenderMode::Reduced;
-        self.aa_count = 0;
+        self.samples_taken = 0;
     }
 }
 
@@ -232,5 +234,6 @@ pub fn fps_input_fn(events: &[Event], scene: &mut Scene, state: &mut State) -> L
         (false, RenderMode::Reduced) => RenderMode::Full,
         _ => RenderMode::None,
     };
+    state.moved = moved;
     LoopRequest::Continue
 }
