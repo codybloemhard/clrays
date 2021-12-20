@@ -388,7 +388,7 @@ impl Bvh{
         let count = data.is.len();
         let mut depth = 0;
 
-        let mut bounds = &data.bounds;
+        let mut bounds = &mut data.bounds;
         let mut is = &mut data.is;
         let mut vs = &mut data.vs;
         let bins = data.bins;
@@ -396,10 +396,10 @@ impl Bvh{
         let binsf = bins as f32;
         let binsf_inf = 1.0 / binsf;
 
-        let mut stack = &mut CustomStack::<StackItem>::new(); // [(current,first,count,step)]
+        let mut stack = vec![]; // [(current,first,count,step)]
         stack.push(StackItem {current,first,count,depth});
 
-        let mut lerps = vec![Vec3::ZERO; bins];
+        let mut lerps = vec![Vec3::ZERO; bins-1];
         let mut binbounds = vec![AABB::new();bins];
         let mut bincounts : Vec<usize> = vec![0;bins];
         let aabb_null = AABB::default();
@@ -420,48 +420,68 @@ impl Bvh{
         let mut count = 0;
         let mut step = 0;
 
+        // debug info
+        let mut handled = 0;
         let mut counter = 0;
+        let mut last_handled = 0;
+        // end of debug info
 
+        let mut total_timer = Stopwatch::start_new();
         let mut timer = Stopwatch::start_new();
         let mut depth_timers = vec![];
-        while stack.index >= 1 {
-            let mut x =  stack.pop();
+        let mut depth_items = vec![];
+
+        while stack.len() > 0 {
+            // if handled / 100000 > last_handled {
+            //     println!("{}", handled);
+            //     last_handled = handled / 100000;
+            // }
+            timer.start();
+
+            let mut x = stack.pop().unwrap();
+            // println!("{:?}", x);
             // measure time in depth
             depth = x.depth;
             if depth >= depth_timers.len() {
                 depth_timers.push(0);
+                depth_items.push(0);
             }
-            timer = Stopwatch::start_new();
 
+            depth_items[depth] += x.count;
             current = x.current;
             count = x.count;
             first = x.first;
             // println!("{:?}", x);
             v = &mut vs[current];
-            sub_is = &is[first..first + count];
-            top_bound = Self::union_bound(sub_is, bounds);
+            // sub_is = &is[first..first + count];
+            // top_bound = union_bound(sub_is, bounds);
+            let sub_range = first..first + count;
+            top_bound = union_bound(&bounds[sub_range.clone()]);
             v.bound = top_bound;
 
             if count < 3 { // leaf
+                depth_timers[depth] += timer.elapsed().as_micros();
+                handled += count;
                 v.left_first = first; // first
                 v.count = count;
                 continue;
             }
+
             // sah binned
             let diff = top_bound.max.subed(top_bound.min);
             let axis_valid = [diff.x > binsf * EPSILON, diff.y > binsf * EPSILON, diff.z > binsf * EPSILON];
 
             // precompute lerps
-            // lerps.fill(Vec3::ZERO);
             for (i, item) in lerps.iter_mut().enumerate(){
-                *item = top_bound.lerp(i as f32     * binsf_inf);
+                *item = top_bound.lerp((i+1) as f32 * binsf_inf);
             }
 
             // compute best combination; minimal cost
             let (mut ls, mut rs) = (0, 0);
             lb.set_default();
             rb.set_default();
-            let mut best_cost = f32::MAX;
+            let max_cost = count as f32 * top_bound.surface_area();
+            let mut best_cost = max_cost;
 
             for axis in [Axis::X, Axis::Y, Axis::Z] {
 
@@ -477,9 +497,9 @@ impl Bvh{
                 binbounds.fill(aabb_null);
                 bincounts.fill(0);
                 let mut index: usize ;
-                for index_triangle in 0..count {
-                    index = (k1*(data.bounds[index_triangle].midpoint().as_array()[u]-k0)) as usize;
-                    binbounds[index].combine(data.bounds[index_triangle]);
+                for index_triangle in sub_range.clone() {
+                    index = (k1*(bounds[index_triangle].midpoint().as_array()[u]-k0)) as usize;
+                    binbounds[index].combine(bounds[index_triangle]);
                     bincounts[index] += 1;
                 }
 
@@ -504,6 +524,7 @@ impl Bvh{
                     // get cost
                     let cost = 3.0 + 1.0 + lb.surface_area() * ls as f32 + 1.0 + rb.surface_area() * rs as f32;
                     if cost < best_cost {
+                        // println!("{},{:?},{}", cost,axis,split);
                         best_cost = cost;
                         best_axis = axis;
                         best_split = split;
@@ -513,13 +534,20 @@ impl Bvh{
                 }
             }
 
+            if best_cost == max_cost { // leaf
+                depth_timers[depth] += timer.elapsed().as_micros();
+                handled += count;
+                v.left_first = first; // first
+                v.count = count;
+                continue;
+            }
+
             // partition
-            data.info.watch.start();
             let mut a = first; // first
             let mut b = first + count - 1; // last
             let u = best_axis.as_usize();
             while a <= b{
-                if data.bounds[is[a]].midpoint().as_array()[u] < best_split{
+                if bounds[a].midpoint().as_array()[u] < best_split{
                     a += 1;
                 } else {
                     is.swap(a, b);
@@ -530,6 +558,8 @@ impl Bvh{
             let l_count = a - first;
 
             if l_count == 0 || l_count == count{ // leaf
+                depth_timers[depth] += timer.elapsed().as_micros();
+                handled += count;
                 v.left_first = first; // first
                 v.count = count;
                 continue;
@@ -539,25 +569,10 @@ impl Bvh{
             poolptr += 2;
             let lf = v.left_first;
 
-            depth_timers[depth] += timer.elapsed().as_micros() as u128;
-
             stack.push(StackItem {current: lf,first,count: l_count, depth: depth + 1});
             stack.push(StackItem {current: lf+1,first: first+l_count,count: count-l_count, depth: depth + 1});
+            depth_timers[depth] += timer.elapsed().as_micros();
         }
-        println!("counter: {}" , counter);
-        let x = depth_timers.into_iter().map(|v| v as f64 * 0.001 as f64).collect::<Vec<f64>>();
-        let total_time : f64= x.iter().sum();
-        let mut tmp: Vec<(usize,f64)> = (0..x.len()).zip(x.into_iter()).collect();
-        tmp.sort_by(|a,b| a.1.partial_cmp(&b.1).unwrap());
-        println!("depth_timers: {:?}" , tmp);
-        // println!("depth_timers: {:?}" , tmp.sort_by(|a,b| (a.1).cmp(b.1)));
-        // println!("depth_timers: {:?}" , tmp.sort_by_key(|a| a.1));
-        // println!("depth_timers: {:?}" , tmp.sort_by(|a,b| a.1.partial_cmp(&b.1).unwrap()));
-        println!("depth_timers: {:?}" , total_time);
-        for item in tmp.into_iter() {
-            println!("{:?}", item);
-        }
-
     }
 
     fn union_bound(is: &[usize], bounds: &[AABB]) -> AABB {
@@ -580,7 +595,54 @@ impl Bvh{
         }
     }
 
-    pub fn intersect(&self, ray: Ray, scene: &Scene, hit: &mut RayHit) -> (usize, usize){ (0,0) }
+    pub fn intersect(&self, ray: Ray, scene: &Scene, hit: &mut RayHit) -> (usize, usize){
+
+        fn internal_intersect(bvh: &Bvh, current: usize, ray: Ray, scene: &Scene, hit: &mut RayHit, inv_dir: Vec3, dir_is_neg: [usize; 3]) -> (usize, usize){
+            let vs = &bvh.vertices;
+            let is = &bvh.indices;
+            let v = vs[current];
+            if v.count > 0{ // leaf
+                for i in is.iter().skip(v.left_first as usize).take(v.count as usize).map(|i| *i as usize){
+                    inter_triangle(ray,scene.get_mesh_triangle(&bvh.mesh, i), hit);
+                }
+                (0, v.count as usize)
+            } else { // vertex
+                let nodes = [
+                    v.left_first as usize,
+                    v.left_first as usize + 1,
+                ];
+
+                let ts = [
+                    vs[nodes[0]].bound.intersection(ray, inv_dir, dir_is_neg),
+                    vs[nodes[1]].bound.intersection(ray, inv_dir, dir_is_neg),
+                ];
+
+                let order = if ts[0] <= ts[1] { [0, 1] } else { [1, 0] };
+                let mut x1: (usize, usize) = (0, 0);
+                let mut x2: (usize, usize) = (0, 0);
+
+                if ts[order[0]] < hit.t {
+                    x1 = internal_intersect(bvh, nodes[order[0]], ray, scene, hit, inv_dir, dir_is_neg);
+                    if ts[order[1]] < hit.t {
+                        x2 = internal_intersect(bvh, nodes[order[1]], ray, scene, hit, inv_dir, dir_is_neg);
+                    }
+                }
+                (2 + x1.0 + x2.0, 1 + x1.1.max(x2.1))
+            }
+        }
+
+        // future: transform ray
+        // -> ray.transform(self.transform.inverted())
+
+        // TODO: doesn't work anymore with bvh? Problem in texture code
+        // for plane in &scene.planes { inter_plane(ray, plane, hit); }
+        if self.vertices.is_empty() { return (0, 0); }
+        let inv_dir = ray.inverted().dir;
+        let dir_is_neg : [usize; 3] = ray.direction_negations();
+        let result = internal_intersect(self, 0, ray, scene, hit, inv_dir, dir_is_neg);
+        result
+    }
+
     pub fn from_mesh(mesh: Mesh, triangles: &Vec<Triangle>, bins: usize) -> Self{
         let n = triangles.len();
         if n == 0 {
@@ -658,4 +720,11 @@ pub struct StackItem {
     pub first : usize,
     pub count : usize,
     pub depth : usize
+}
+fn union_bound(bounds: &[AABB]) -> AABB {
+    let mut bound = AABB::default();
+    for other in bounds{
+        bound.combine(*other);
+    }
+    bound.grown(Vec3::EPSILON)
 }
