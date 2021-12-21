@@ -29,7 +29,8 @@ pub struct Material{
     pub metalic_map: u32,
     pub tex_scale: f32,
     pub is_checkerboard: bool,
-    pub is_dielectric: bool
+    pub is_dielectric: bool,
+    pub emittance: f32,
 }
 
 impl Material{
@@ -56,7 +57,14 @@ impl Material{
             tex_scale: 1.0,
             is_checkerboard: false,
             is_dielectric: false,
+            emittance: 0.0,
         }
+    }
+
+    pub fn into_light(mut self, col: Vec3, emittance: f32) -> Self{
+        self.col = col;
+        self.emittance = emittance;
+        self
     }
 
     pub fn with_colour(mut self, col: Vec3) -> Self{
@@ -134,7 +142,7 @@ impl SceneItem for Material{
     fn get_data(&self) -> Vec<f32>{
         vec![
             self.col.x, self.col.y, self.col.z,
-            self.reflectivity, self.roughness,
+            self.reflectivity, self.roughness, self.emittance,
             self.texture as f32, self.normal_map as f32,
             self.roughness_map as f32, self.metalic_map as f32,
             self.tex_scale
@@ -206,16 +214,15 @@ impl SceneItem for Triangle{
 
 pub struct Light{
     pub pos: Vec3,
-    pub rad: f32,
-    pub col: Vec3,
     pub intensity: f32,
+    pub col: Vec3,
 }
 
 impl SceneItem for Light{
     fn get_data(&self) -> Vec<f32>{
         vec![
-            self.pos.x, self.pos.y, self.pos.z, self.rad,
-            self.col.x, self.col.y, self.col.z, self.intensity,
+            self.pos.x, self.pos.y, self.pos.z, self.intensity,
+            self.col.x, self.col.y, self.col.z
         ]
     }
 
@@ -239,7 +246,14 @@ pub struct Camera{
     pub distortion_coefficient: f32
 }
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum SceneType{
+    Whitted,
+    GI,
+}
+
 pub struct Scene{
+    pub stype: SceneType,
     pub spheres: Vec<Sphere>,
     pub planes: Vec<Plane>,
     pub triangles: Vec<Triangle>,
@@ -270,15 +284,16 @@ impl Default for Scene {
 impl Scene{
     const SCENE_SIZE: u32 = 11;
     const SCENE_PARAM_SIZE: usize = 5 * 2 + Self::SCENE_SIZE as usize;
-    const MATERIAL_SIZE: u32 = 10;
+    const MATERIAL_SIZE: u32 = 11;
     const MATERIAL_INDEX_SIZE: u32 = 1;
-    const LIGHT_SIZE: u32 = 8;
+    const LIGHT_SIZE: u32 = 7;
     const PLANE_SIZE: u32 = 6 + Self::MATERIAL_INDEX_SIZE;
     const SPHERE_SIZE: u32 = 4 + Self::MATERIAL_INDEX_SIZE;
     const TRIANGLE_SIZE: u32 = 9 + Self::MATERIAL_INDEX_SIZE;
 
     pub fn new() -> Self{
         Self{
+            stype: SceneType::GI,
             spheres: Vec::new(),
             planes: Vec::new(),
             triangles: Vec::new(),
@@ -439,7 +454,7 @@ impl Scene{
             i as MaterialIndex
         } else {
             self.mats.push(mat);
-            assert!(self.mats.len() < 255);
+            assert!(self.mats.len() < MaterialIndex::MAX as usize);
             (self.mats.len() - 1) as MaterialIndex
         }
     }
@@ -480,17 +495,39 @@ impl Scene{
         self.sky_box = self.skybox;
     }
 
-    pub fn add_light(&mut self, l: Light){ self.lights.push(l); }
-    pub fn add_sphere(&mut self, s: Sphere){ self.spheres.push(s); }
-    pub fn add_plane(&mut self, p: Plane){ self.planes.push(p); }
-    pub fn add_triangle(&mut self, b: Triangle){ self.triangles.push(b); }
+    pub fn add_light(&mut self, l: Light){
+        if self.stype == SceneType::GI { return; }
+        self.lights.push(l);
+    }
+
+    pub fn is_not_ok(&self, mat: MaterialIndex) -> bool{
+        let e = self.mats[mat as usize].emittance;
+        e > 0.0 && self.stype == SceneType::Whitted
+    }
+
+    pub fn add_sphere(&mut self, s: Sphere){
+        if self.is_not_ok(s.mat) { return; }
+        self.spheres.push(s);
+    }
+
+    pub fn add_plane(&mut self, p: Plane){
+        if self.is_not_ok(p.mat) { return; }
+        self.planes.push(p);
+    }
+
+    pub fn add_triangle(&mut self, t: Triangle){
+        if self.is_not_ok(t.mat) { return; }
+        self.triangles.push(t);
+    }
 
     pub fn generate_bvh_sah(&mut self) {
         self.bvh = BVH::build(self, true);
     }
+
     pub fn generate_bvh_mid(&mut self) {
         self.bvh_mid = BVH::build(self, false);
     }
+
     pub fn generate_bvh_nightly(&mut self, bins: usize){
         self.bvh_nightly = Bvh::from(self, bins);
     }

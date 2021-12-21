@@ -2,6 +2,9 @@
 #define MAX_RENDER_DEPTH 4
 #define EPSILON 0.0001f
 #define PI4 12.5663f
+#define PI2 6.28317f
+#define PI 3.141592f
+#define INV_PI 0.3183098f
 #define AMBIENT 0.05f
 #define GAMMA 2.2f
 
@@ -9,6 +12,7 @@ struct Material{
     float3 col;
     float reflectivity;
     float roughness;
+    float emittance;
     uint texture;
     uint normalmap;
     uint roughnessmap;
@@ -48,8 +52,8 @@ struct Ray{
 #define SC_TRI 4
 #define SC_SCENE 5
 // sizes, must be the same as rust provides
-#define SC_MAT_SIZE 10
-#define SC_LIGHT_SIZE 8
+#define SC_MAT_SIZE 11
+#define SC_LIGHT_SIZE 7
 #define SC_PLANE_SIZE 7
 #define SC_SPHERE_SIZE 5
 #define SC_TRI_SIZE 10
@@ -80,11 +84,12 @@ struct Material ExtractMaterial(uint off, global float *arr){
     mat.col = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
     mat.reflectivity = arr[off + 3];
     mat.roughness = arr[off + 4] + EPSILON;
-    mat.texture = (uint)arr[off + 5];
-    mat.normalmap = (uint)arr[off + 6];
-    mat.roughnessmap = (uint)arr[off + 7];
-    mat.metalicmap  = (uint)arr[off + 8];
-    mat.texscale = arr[off + 9];
+    mat.emittance = arr[off + 5];
+    mat.texture = (uint)arr[off + 6];
+    mat.normalmap = (uint)arr[off + 7];
+    mat.roughnessmap = (uint)arr[off + 8];
+    mat.metalicmap  = (uint)arr[off + 9];
+    mat.texscale = arr[off + 10];
     return mat;
 }
 
@@ -457,8 +462,8 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 colou
     for(uint i = 0; i < count; i++){
         uint off = start + i * SC_LIGHT_SIZE;
         float3 lpos = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
+        float lpow = arr[off + 3];
         float3 lcol = (float3)(arr[off + 4], arr[off + 5], arr[off + 6]);
-        float lpow = arr[off + 7];
         float2 res = BlinnSingle(lpos, lpow, viewdir, roughness, hit, scene);
         col += res.x * lcol;
         spec += res.y * lcol;
@@ -466,6 +471,49 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 colou
     *out_diff = col * colour;
     *out_spec = spec * (1.0f - roughness);
 }
+
+#define HANDLE_TEXTURES\
+    /*texture*/\
+    float2 uv;\
+    float3 texcol = (float3)(1.0f);\
+    if(mat.texture > 0){\
+        uchar ptype = hit.ptype;\
+        if(ptype == pPLANE || ptype == pTRI)\
+            uv = PlaneUV(hit.pos, hit.nor);\
+        else if(ptype == pSPHERE)\
+            uv = SphereUV(hit.nor);\
+        uv *= mat.texscale;\
+        texcol = GetTexCol(mat.texture - 1, uv, scene);\
+    }\
+    /*normalmap*/\
+    if(mat.normalmap > 0){\
+        float3 rawnor = GetTexVal(mat.normalmap - 1, uv, scene);\
+        float3 t = cross(hit.nor, (float3)(0.0f,1.0f,0.0f));\
+        if(fast_length(t) < EPSILON)\
+            t = cross(hit.nor, (float3)(0.0f,0.0f,1.0f));\
+        t = fast_normalize(t);\
+        float3 b = fast_normalize(cross(hit.nor, t));\
+        rawnor = rawnor * 2 - 1;\
+        rawnor = fast_normalize(rawnor);\
+        float3 newnor;\
+        float3 row = (float3)(t.x, b.x, hit.nor.x);\
+        newnor.x = dot(row, rawnor);\
+        row = (float3)(t.y, b.y, hit.nor.y);\
+        newnor.y = dot(row, rawnor);\
+        row = (float3)(t.z, b.z, hit.nor.z);\
+        newnor.z = dot(row, rawnor);\
+        hit.nor = fast_normalize(newnor);\
+    }\
+    /*roughnessmap*/\
+    if(mat.roughnessmap > 0){\
+        float value = GetTexScalar(mat.roughnessmap - 1, uv, scene);\
+        mat.roughness = value * mat.roughness;\
+    }\
+    /*metalicmap*/\
+    if(mat.metalicmap > 0){\
+        float value = GetTexScalar(mat.metalicmap - 1, uv, scene);\
+        mat.reflectivity *= value;\
+    }\
 
 //Recursion only works with one function
 float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
@@ -475,53 +523,9 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
     struct RayHit hit = INTER_SCENE(ray, scene);
     if(hit.t >= MAX_RENDER_DIST)
         return SkyCol(ray->dir, scene);
-
-    //texture
-    float2 uv;
-    float3 texcol = (float3)(1.0f);
     struct Material mat = GetMaterialFromIndex(hit.mat_index, scene);
 
-    if(mat.texture > 0){
-        uchar ptype = hit.ptype;
-        if(ptype == pPLANE || ptype == pTRI)
-            uv = PlaneUV(hit.pos, hit.nor);
-        else if(ptype == pSPHERE)
-            uv = SphereUV(hit.nor);
-        uv *= mat.texscale;
-        texcol = GetTexCol(mat.texture - 1, uv, scene);
-    }
-
-    //normalmap
-    if(mat.normalmap > 0){
-        float3 rawnor = GetTexVal(mat.normalmap - 1, uv, scene);
-        float3 t = cross(hit.nor, (float3)(0.0f,1.0f,0.0f));
-        if(fast_length(t) < EPSILON)
-            t = cross(hit.nor, (float3)(0.0f,0.0f,1.0f));
-        t = fast_normalize(t);
-        float3 b = fast_normalize(cross(hit.nor, t));
-        rawnor = rawnor * 2 - 1;
-        rawnor = fast_normalize(rawnor);
-        float3 newnor;
-        float3 row = (float3)(t.x, b.x, hit.nor.x);
-        newnor.x = dot(row, rawnor);
-        row = (float3)(t.y, b.y, hit.nor.y);
-        newnor.y = dot(row, rawnor);
-        row = (float3)(t.z, b.z, hit.nor.z);
-        newnor.z = dot(row, rawnor);
-        hit.nor = fast_normalize(newnor);
-    }
-
-    //roughnessmap
-    if(mat.roughnessmap > 0){
-        float value = GetTexScalar(mat.roughnessmap - 1, uv, scene);
-        mat.roughness = value * mat.roughness;
-    }
-
-    //metalicmap
-    if(mat.metalicmap > 0){
-        float value = GetTexScalar(mat.metalicmap - 1, uv, scene);
-        mat.reflectivity *= value;
-    }
+    HANDLE_TEXTURES;
 
     //diffuse, specular
     float3 diff, spec;
@@ -542,41 +546,122 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
     return (diff * (1.0f - refl_mul)) + (refl * refl_mul) + spec;
 }
 
-float3 RayTracing(
-    const uint w,
-    const uint h,
-    const uint x,
-    const uint y,
-    __global uint *sc_params, __global float *sc_items,
-    __global uint *tx_params, __global uchar *tx_items,
-    __global uint *bvh
+// credit: George Marsaglia
+uint Xor32(uint* seed){
+    *seed ^= *seed << 13;
+    *seed ^= *seed >> 17;
+    *seed ^= *seed << 5;
+    return *seed;
+}
+
+float U32tf01(uint i){
+   return (float)i * 2.3283064e-10;
+}
+
+// Wang hash
+// https://riptutorial.com/opencl/example/20715/using-thomas-wang-s-integer-hash-function
+uint WangHash(uint seed)
+{
+    seed = (seed ^ 61) ^ (seed >> 16);
+    seed *= 9;
+    seed = seed ^ (seed >> 4);
+    seed *= 0x27d4eb2d;
+    seed = seed ^ (seed >> 15);
+    return seed;
+}
+
+// Sphere sampling adapted from University of Mons lecture slides
+// https://angms.science/doc/RM/randUnitVec.pdf
+float3 RandomSpherePoint(uint* seed){
+    float a = U32tf01(Xor32(seed)) * PI2;
+    float b = U32tf01(Xor32(seed)) * PI2;
+    float z = cos(b);
+    float z2 = z * z;
+    return (float3)(sqrt(1.0f - z2) * cos(a), sqrt(1.0f - z2) * sin(a), z);
+}
+
+// https://www.shadertoy.com/view/4s3cRr
+// Align along normal method taken from a shadertoy
+float3 RandomHemispherePoint(uint* seed, float3 normal){
+    float3 dir = RandomSpherePoint(seed);
+    return dot(dir, normal) < 0.0 ? -dir : dir;
+}
+
+float3 PathTrace(struct Ray *ray, struct Scene *scene, uint* seed, uint depth){
+    if(depth == 0) return (float3)(0.0);//return SkyCol(ray->dir, scene);
+
+    struct RayHit hit = INTER_SCENE(ray, scene);
+    if(hit.t >= MAX_RENDER_DIST)
+        return SkyCol(ray->dir, scene);
+    struct Material mat = GetMaterialFromIndex(hit.mat_index, scene);
+
+    if (mat.emittance > EPSILON)
+        return mat.col * mat.emittance;
+
+    // HANDLE_TEXTURES;
+
+    struct Ray nray;
+    nray.pos = hit.pos + hit.nor * EPSILON;
+    nray.dir = RandomHemispherePoint(seed, hit.nor);
+    float3 BRDF = mat.col * INV_PI;
+    float3 Ei = PathTrace(&nray, scene, seed, depth - 1) * dot(hit.nor, nray.dir);
+    return PI * 2.0f * BRDF * Ei;
+}
+
+#define SETUP_SCENE\
+    struct Scene scene;\
+    scene.params = sc_params;\
+    scene.items = sc_items;\
+    scene.tex_params = tx_params;\
+    scene.textures = tx_items;\
+    scene.bvh = bvh;\
+    scene.skybox = sc_params[2 * SC_SCENE + 0];\
+    scene.skycol = ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 1);\
+    scene.skyintens = as_float(sc_params[2 * SC_SCENE + 4]);\
+
+#define CREATE_RAY(uv)\
+    struct Ray ray;\
+    ray.pos = ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 5);\
+    float3 cd = fast_normalize(ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 8));\
+    float3 hor = fast_normalize(cross(cd, (float3)(0.0f, 1.0f, 0.0f)));\
+    float3 ver = fast_normalize(cross(hor,cd));\
+    float3 to = ray.pos + cd;\
+    to += uv.x * hor;\
+    to += uv.y * ver;\
+    ray.dir = fast_normalize(to - ray.pos);\
+
+float3 RayTracing(const uint w, const uint h, const uint x, const uint y,
+    __global uint *sc_params, __global float *sc_items, __global uint *tx_params,
+    __global uchar *tx_items, __global uint *bvh
 ){
-    //Scene
-    struct Scene scene;
-    scene.params = sc_params;
-    scene.items = sc_items;
-    scene.tex_params = tx_params;
-    scene.textures = tx_items;
-    scene.bvh = bvh;
-    scene.skybox = sc_params[2 * SC_SCENE + 0];
-    scene.skycol = ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 1);
-    scene.skyintens = as_float(sc_params[2 * SC_SCENE + 4]);
-    struct Ray ray;
-    ray.pos = ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 5);
-    float3 cd = fast_normalize(ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 8));
-    float3 hor = fast_normalize(cross(cd, (float3)(0.0f, 1.0f, 0.0f)));
-    float3 ver = fast_normalize(cross(hor,cd));
+    SETUP_SCENE;
     float2 uv = (float2)((float)x / w, (float)y / h);
     uv -= 0.5f;
     uv *= (float2)((float)w / h, -1.0f);
-    float3 to = ray.pos + cd;
-    to += uv.x * hor;
-    to += uv.y * ver;
-    ray.dir = fast_normalize(to - ray.pos);
+    CREATE_RAY(uv);
 
     float3 col = RayTrace(&ray, &scene, MAX_RENDER_DEPTH);
     col = pow(col, (float3)(1.0f / GAMMA));
     col = clamp(col, 0.0f, 1.0f);
+    return col;
+}
+
+float3 PathTracing(const uint w, const uint h, const uint x, const uint y, const uint rseed,
+    __global uint *sc_params, __global float *sc_items, __global uint *tx_params,
+    __global uchar *tx_items, __global uint *bvh
+){
+    SETUP_SCENE;
+
+    uint hash = WangHash(rseed);
+    float u = U32tf01(Xor32(&hash));
+    float v = U32tf01(Xor32(&hash));
+    float2 uv = (float2)(((float)x + u) / w, ((float)y + v) / h);
+    uv -= 0.5f;
+    uv *= (float2)((float)w / h, -1.0f);
+    CREATE_RAY(uv);
+
+    float3 col = PathTrace(&ray, &scene, &hash, 5);
+    col = pow(col, (float3)(1.0f / GAMMA));
     return col;
 }
 
@@ -604,6 +689,7 @@ __kernel void pathtracing(
     __global float *floatmap,
     const uint w,
     const uint h,
+    const uint t,
     __global uint *sc_params,
     __global float *sc_items,
     __global uint *bvh,
@@ -613,7 +699,7 @@ __kernel void pathtracing(
     uint x = get_global_id(0);
     uint y = get_global_id(1);
     uint pixid = x + y * w;
-    float3 col = RayTracing(w, h, x, y,
+    float3 col = PathTracing(w, h, x, y, pixid * (t + 1),
         sc_params, sc_items, tx_params, tx_items, bvh);
     uint fid = pixid * 3;
     floatmap[fid + 0] += col.x;

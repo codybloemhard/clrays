@@ -4,7 +4,7 @@ extern crate clrays_rs;
 use clrays_rs as clr;
 use clr::window;
 use clr::trace_processor;
-use clr::scene::{ Scene, Camera, SceneItem, Material, Plane, Triangle, Sphere, Light };
+use clr::scene::{ Scene, SceneType, Camera, SceneItem, Material, Plane, Triangle, Sphere, Light };
 use clr::vec3::{ Vec3 };
 use clr::info::{ Info };
 use clr::trace_tex::{ TexType };
@@ -24,6 +24,7 @@ pub fn main() -> Result<(), String>{
     info.start_time();
 
     let mut scene = Scene::new();
+    scene.stype = SceneType::GI;
     scene.cam = Camera{
         // pos: Vec3::new(0.0, 5.0, -8.0),
         // dir: Vec3::new(0.0, -1.0, 2.0).normalized(),
@@ -118,7 +119,7 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     Sphere{
-        pos: Vec3::new(-2.0, 0.1, -5.0),
+        pos: Vec3::new(-2.0, 0.0, -5.0),
         rad: 1.0 - EPSILON,
         mat: Material::basic()
             .with_texture(scene.get_texture("scifi-alb"))
@@ -214,9 +215,15 @@ pub fn main() -> Result<(), String>{
 
     Light{
         pos: Vec3::new(0.0, 2.0, -3.0),
-        rad: 1.0,
         intensity: 100.0,
         col: Vec3::ONE,
+    }.add(&mut scene);
+
+    Sphere{
+        pos: vec3::new(0.0, 2.0, -3.0),
+        rad: 0.5,
+        mat: material::basic().into_light(vec3::uni(1.0), 100.0)
+            .add_to_scene(&mut scene)
     }.add(&mut scene);
 
     scene.generate_bvh_nightly(16);

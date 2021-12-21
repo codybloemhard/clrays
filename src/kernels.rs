@@ -1,6 +1,7 @@
 use crate::cl_helpers::{ ClBuffer };
 use crate::scene::Scene;
 use crate::info::Info;
+use crate::state::State;
 
 use ocl::{ Kernel, Program, Queue };
 
@@ -231,6 +232,7 @@ impl TraceKernelPath{
         kbuilder.arg(buffer.get_ocl_buffer());
         kbuilder.arg(w as u32);
         kbuilder.arg(h as u32);
+        kbuilder.arg(0 as u32);
         kbuilder.arg(scene_params.get_ocl_buffer());
         kbuilder.arg(scene_items.get_ocl_buffer());
         kbuilder.arg(bvh.get_ocl_buffer());
@@ -251,9 +253,10 @@ impl TraceKernelPath{
         Ok(Self{ kernel, buffer, scene_params })
     }
 
-    pub fn update(&mut self, queue: &Queue, scene: &mut Scene) -> Result<(), ocl::Error>{
+    pub fn update(&mut self, queue: &Queue, scene: &mut Scene, state: &State) -> Result<(), ocl::Error>{
         let scene_params_raw = scene.get_scene_params_buffer();
         self.scene_params.upload_new(queue, &scene_params_raw)?;
+        self.kernel.set_arg(3, state.samples_taken as u32)?;
         Ok(())
     }
 }

@@ -12,7 +12,7 @@ use ocl::{ Queue };
 use rand::prelude::*;
 
 pub trait TraceProcessor{
-    fn update(&mut self, scene: &mut Scene);
+    fn update(&mut self, scene: &mut Scene, state: &State);
     fn render(&mut self, scene: &mut Scene, state: &mut State) -> &[u32];
 }
 
@@ -37,7 +37,7 @@ impl GpuWhitted{
 }
 
 impl TraceProcessor for GpuWhitted{
-    fn update(&mut self, scene: &mut Scene){
+    fn update(&mut self, scene: &mut Scene, _: &State){
         self.kernel.update(&self.queue, scene).expect("Could not update GpuWhitted's kernel!");
     }
 
@@ -85,8 +85,8 @@ impl GpuPath{
 }
 
 impl TraceProcessor for GpuPath{
-    fn update(&mut self, scene: &mut Scene){
-        self.trace_kernel.update(&self.queue, scene).expect("Could not update GpuPath's trace kernel!");
+    fn update(&mut self, scene: &mut Scene, state: &State){
+        self.trace_kernel.update(&self.queue, scene, state).expect("Could not update GpuPath's trace kernel!");
     }
 
     fn render(&mut self, _: &mut Scene, state: &mut State) -> &[u32]{
@@ -138,7 +138,7 @@ impl CpuWhitted{
 }
 
 impl TraceProcessor for CpuWhitted{
-    fn update(&mut self, _: &mut Scene){ }
+    fn update(&mut self, _: &mut Scene, _: &State){ }
 
     fn render(&mut self, scene: &mut Scene, state: &mut State) -> &[u32]{
         whitted(
