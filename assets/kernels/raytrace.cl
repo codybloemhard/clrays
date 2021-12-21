@@ -447,9 +447,9 @@ float2 BlinnSingle(float3 lpos, float lpow, float3 viewdir, float roughness, str
         return (float2)(0.0f);
     //specular
     float3 halfdir = fast_normalize(toL + -viewdir);
-    float specangle = max(dot(halfdir,nor),0.0f);
-    float spec = pow(specangle,16.0f / roughness);
-    return power * (float2)(angle,spec);
+    float specangle = max(dot(halfdir, nor), 0.0f);
+    float spec = pow(specangle, 16.0f / roughness);
+    return power * (float2)(angle, spec);
 }
 
 //get diffuse light incl colour of hit with all lights
@@ -475,7 +475,6 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 colou
 #define HANDLE_TEXTURES\
     /*texture*/\
     float2 uv;\
-    float3 texcol = (float3)(1.0f);\
     if(mat.texture > 0){\
         uchar ptype = hit.ptype;\
         if(ptype == pPLANE || ptype == pTRI)\
@@ -483,7 +482,7 @@ void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 colou
         else if(ptype == pSPHERE)\
             uv = SphereUV(hit.nor);\
         uv *= mat.texscale;\
-        texcol = GetTexCol(mat.texture - 1, uv, scene);\
+        mat.col *= GetTexCol(mat.texture - 1, uv, scene);\
     }\
     /*normalmap*/\
     if(mat.normalmap > 0){\
@@ -530,7 +529,6 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
     //diffuse, specular
     float3 diff, spec;
     Blinn(&hit, scene, ray->dir, mat.col, mat.roughness, &diff, &spec);
-    diff *= texcol;
 
     //reflection
     float3 newdir = fast_normalize(reflect(ray->dir, hit.nor));
@@ -587,25 +585,43 @@ float3 RandomHemispherePoint(uint* seed, float3 normal){
     return dot(dir, normal) < 0.0 ? -dir : dir;
 }
 
-float3 PathTrace(struct Ray *ray, struct Scene *scene, uint* seed, uint depth){
-    if(depth == 0) return (float3)(0.0);//return SkyCol(ray->dir, scene);
+float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
+    float3 E = (float3)(1.0f);
+    while(true){
+        struct RayHit hit = INTER_SCENE(&ray, scene);
+        if(hit.t >= MAX_RENDER_DIST){
+            E *= SkyCol(ray.dir, scene);
+            break;
+        }
 
-    struct RayHit hit = INTER_SCENE(ray, scene);
-    if(hit.t >= MAX_RENDER_DIST)
-        return SkyCol(ray->dir, scene);
-    struct Material mat = GetMaterialFromIndex(hit.mat_index, scene);
+        struct Material mat = GetMaterialFromIndex(hit.mat_index, scene);
+        if (mat.emittance > EPSILON){
+            E *= mat.col * mat.emittance;
+            break;
+        }
 
-    if (mat.emittance > EPSILON)
-        return mat.col * mat.emittance;
+        HANDLE_TEXTURES;
 
-    // HANDLE_TEXTURES;
+        struct Ray nray;
+        nray.pos = hit.pos + hit.nor * EPSILON;
 
-    struct Ray nray;
-    nray.pos = hit.pos + hit.nor * EPSILON;
-    nray.dir = RandomHemispherePoint(seed, hit.nor);
-    float3 BRDF = mat.col * INV_PI;
-    float3 Ei = PathTrace(&nray, scene, seed, depth - 1) * dot(hit.nor, nray.dir);
-    return PI * 2.0f * BRDF * Ei;
+        float decider = U32tf01(Xor32(seed));
+        if(decider <= mat.reflectivity){ // mirror
+            nray.dir = fast_normalize(reflect(ray.dir, hit.nor));
+            E *= mat.col;
+            ray = nray;
+            continue;
+        }
+
+        nray.dir = RandomHemispherePoint(seed, hit.nor);
+        float3 BRDF = mat.col * INV_PI;
+        float INV_PDF = PI2; // PDF = 1 / 2PI
+        float3 Ei = max(dot(hit.nor, nray.dir), 0.0f) * INV_PDF;
+
+        E *= BRDF * Ei;
+        ray = nray;
+    }
+    return E;
 }
 
 #define SETUP_SCENE\
@@ -624,7 +640,7 @@ float3 PathTrace(struct Ray *ray, struct Scene *scene, uint* seed, uint depth){
     ray.pos = ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 5);\
     float3 cd = fast_normalize(ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 8));\
     float3 hor = fast_normalize(cross(cd, (float3)(0.0f, 1.0f, 0.0f)));\
-    float3 ver = fast_normalize(cross(hor,cd));\
+    float3 ver = fast_normalize(cross(hor, cd));\
     float3 to = ray.pos + cd;\
     to += uv.x * hor;\
     to += uv.y * ver;\
@@ -660,7 +676,7 @@ float3 PathTracing(const uint w, const uint h, const uint x, const uint y, const
     uv *= (float2)((float)w / h, -1.0f);
     CREATE_RAY(uv);
 
-    float3 col = PathTrace(&ray, &scene, &hash, 5);
+    float3 col = PathTrace(ray, &scene, &hash);
     col = pow(col, (float3)(1.0f / GAMMA));
     return col;
 }

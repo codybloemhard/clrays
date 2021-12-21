@@ -18,7 +18,7 @@ must be an improvement over 2-way BVH traversal (good for Kajiya, packets are be
 ### GPU Pathtracing
 - [ ] Basic pathtracer (area lights, materials, speculars, dielectrics, beer's law)
 - [ ] Frame energy
-- [ ] Accumulator buffer
+- [x] Accumulator buffer
 - [x] Movement
 - [ ] Next event estimation (NEE), 1pt
 - [ ] Russian roulette (RR), 0.5pts

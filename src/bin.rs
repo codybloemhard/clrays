@@ -126,7 +126,7 @@ pub fn main() -> Result<(), String>{
             .with_normal_map(scene.get_texture("scifi-nor"))
             .with_roughness_map(scene.get_texture("scifi-rou"))
             .with_metalic_map(scene.get_texture("scifi-met"))
-            .with_reflectivity(0.9)
+            .with_reflectivity(1.0)
             .add_to_scene(&mut scene)
     }.add(&mut scene);
 
@@ -205,12 +205,12 @@ pub fn main() -> Result<(), String>{
     // // println!("wall is build");
 
     // https://groups.csail.mit.edu/graphics/classes/6.837/F03/models/
-    let model_mat = Material::basic()
-            .with_reflectivity(0.3)
-            // .as_dielectric()
-            // .with_refraction(2.0);
-            .add_to_scene(&mut scene);
-    load_model("assets/models/teapot.obj", model_mat, &mut scene);
+    // let model_mat = Material::basic()
+    //         .with_reflectivity(0.3)
+    //         // .as_dielectric()
+    //         // .with_refraction(2.0);
+    //         .add_to_scene(&mut scene);
+    // load_model("assets/models/teapot.obj", model_mat, &mut scene);
     // load_model("assets/models/object-scene.obj", model_mat, &mut scene);
 
     Light{
@@ -220,9 +220,9 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     Sphere{
-        pos: vec3::new(0.0, 2.0, -3.0),
+        pos: Vec3::new(0.0, 2.0, -3.0),
         rad: 0.5,
-        mat: material::basic().into_light(vec3::uni(1.0), 100.0)
+        mat: Material::basic().into_light(Vec3::uni(1.0), 10000.0)
             .add_to_scene(&mut scene)
     }.add(&mut scene);
 

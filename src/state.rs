@@ -124,7 +124,7 @@ pub fn log_update_fn(dt: f32, state: &mut State) -> LoopRequest {
     if state.last_frame == RenderMode::Reduced{
         println!("{:?}({}): {} ms, ", state.last_frame, state.reduced_rate, dt);
     } else if state.last_frame == RenderMode::Full{
-        println!("{:?}: {} ms, ", state.last_frame, dt);
+        println!("{:?}({}): {} ms, ", state.last_frame, state.samples_taken, dt);
     }
     std_update_fn(dt, state)
 }
