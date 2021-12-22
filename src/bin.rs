@@ -13,6 +13,7 @@ use clr::state::{ State, Settings, log_update_fn, fps_input_fn };
 use sdl2::keyboard::Keycode;
 use clrays_rs::consts::*;
 use clrays_rs::scene::{Model, SceneItem};
+use clrays_rs::vec3::Orientation;
 // use clrays_rs::mesh::build_triangle_wall;
 
 pub const USE_WATERFLOOR : bool = false;
@@ -210,26 +211,29 @@ pub fn main() -> Result<(), String>{
             // .with_reflectivity(0.3);
             // .as_dielectric()
             // .with_refraction(2.0);
-    // load_model("assets/models/teapot.obj", model_mat.add_to_scene(&mut scene), &mut scene);
 
-    let mut teapot = Model{
-        pos: Default::default(),
-        rot: Default::default(),
-        mat: scene.add_material(Material::basic()),
-        mesh: scene.add_mesh("assets/models/teapot.obj".parse().unwrap())
-    };
+    // let mut teapot = Model{
+    //     pos: Default::default(),
+    //     rot: Default::default(),
+    //     mat: scene.add_material(Material::basic()),
+    //     mesh: scene.add_mesh("assets/models/teapot.obj".parse().unwrap())
+    // };
     let mut dragon = Model{
         pos: Default::default(),
         rot: Default::default(),
         mat: scene.add_material(Material::basic()),
         mesh: scene.add_mesh("assets/models/dragon.obj".parse().unwrap())
     };
-    let n = 10;
-    for i in 0..1 {
-        let theta = (i as f32 / n as f32) * 2.0*PI;
-        let pos = Vec3::BACKWARD.scaled(16.0).yawed(theta).added(Vec3::FORWARD.scaled(6.0)).subed(Vec3::UP.scaled(5.0));
-        let mut ori = Vec3::ZERO.subed(pos).orientation();
-        ori.yaw = theta + FRAC_2_PI ;
+    // 10000 dragons = 1 billion triangles
+    for i in 0..10000 {
+        let theta = rand::random::<f32>() * 2.0*PI;
+        let pos = Vec3 {
+            x: rand::random::<f32>() * 300.0 - 300.0 * 0.5,
+            y: rand::random::<f32>() * 300.0 - 300.0 * 0.5,
+            z: rand::random::<f32>() * 300.0 - 300.0 * 0.5,
+        };
+        let mut ori = Orientation { yaw: 0.0, roll: 0.0 };
+        ori.yaw = theta;
         dragon.pos = pos;
         dragon.rot = Vec3::from_orientation( &ori);
         scene.add_model(dragon);
@@ -237,8 +241,8 @@ pub fn main() -> Result<(), String>{
     scene.gen_top_bvh();
 
     Light{
-        pos: Vec3::new(0.0, 3.0, -5.0),
-        intensity: 100.0,
+        pos: Vec3::new(0.0, 3.0, 0.0),
+        intensity: 10000.0,
         col: Vec3::ONE,
     }.add(&mut scene);
 
