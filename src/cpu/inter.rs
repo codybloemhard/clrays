@@ -61,7 +61,7 @@ impl RayHit<'_>{
 pub fn inter_sphere<'a>(ray: Ray, sphere: &'a Sphere, closest: &mut RayHit<'a>){
     let l = Vec3::subed(sphere.pos, ray.pos);
     let tca = Vec3::dot(ray.dir, l);
-    let d = tca*tca - Vec3::dot(l, l) + sphere.rad*sphere.rad;
+    let d = tca * tca - Vec3::dot(l, l) + sphere.rad * sphere.rad;
     if d < 0.0 { return; }
     let dsqrt = d.sqrt();
     let mut t = tca - dsqrt;

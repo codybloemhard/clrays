@@ -140,9 +140,10 @@ impl Material{
 
 impl SceneItem for Material{
     fn get_data(&self) -> Vec<f32>{
+        let refraction = if self.is_dielectric { self.refraction } else { -1.0 };
         vec![
             self.col.x, self.col.y, self.col.z,
-            self.reflectivity, self.roughness, self.emittance,
+            self.reflectivity, refraction, self.roughness, self.emittance,
             self.texture as f32, self.normal_map as f32,
             self.roughness_map as f32, self.metalic_map as f32,
             self.tex_scale
@@ -284,7 +285,7 @@ impl Default for Scene {
 impl Scene{
     const SCENE_SIZE: u32 = 11;
     const SCENE_PARAM_SIZE: usize = 5 * 2 + Self::SCENE_SIZE as usize;
-    const MATERIAL_SIZE: u32 = 11;
+    const MATERIAL_SIZE: u32 = 12;
     const MATERIAL_INDEX_SIZE: u32 = 1;
     const LIGHT_SIZE: u32 = 7;
     const PLANE_SIZE: u32 = 6 + Self::MATERIAL_INDEX_SIZE;

@@ -25,6 +25,7 @@ pub fn main() -> Result<(), String>{
 
     let mut scene = Scene::new();
     scene.stype = SceneType::GI;
+    // scene.stype = SceneType::Whitted;
     scene.cam = Camera{
         // pos: Vec3::new(0.0, 5.0, -8.0),
         // dir: Vec3::new(0.0, -1.0, 2.0).normalized(),
@@ -137,14 +138,14 @@ pub fn main() -> Result<(), String>{
     //     mat: Material::basic().as_checkerboard().add_to_scene(&mut scene),
     // }.add(&mut scene);
 
-    // Sphere{
-    //     pos: Vec3::new(3.0, 3.0, -5.0),
-    //     rad: 1.0 - EPSILON,
-    //     mat: Material::basic()
-    //         .as_dielectric()
-    //         .with_refraction(0.7)
-    //         .add_to_scene(&mut scene)
-    // }.add(&mut scene);
+    Sphere{
+        pos: Vec3::new(-4.0, 0.0, -5.0),
+        rad: 1.0 - EPSILON,
+        mat: Material::basic()
+            .as_dielectric()
+            .with_refraction(1.5)
+            .add_to_scene(&mut scene)
+    }.add(&mut scene);
     //
     // Sphere{
     //     pos: Vec3::new(-0.0, 3.0, -5.0),

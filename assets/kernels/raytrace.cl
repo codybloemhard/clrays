@@ -11,6 +11,7 @@
 struct Material{
     float3 col;
     float reflectivity;
+    float refraction;
     float roughness;
     float emittance;
     uint texture;
@@ -52,7 +53,7 @@ struct Ray{
 #define SC_TRI 4
 #define SC_SCENE 5
 // sizes, must be the same as rust provides
-#define SC_MAT_SIZE 11
+#define SC_MAT_SIZE 12
 #define SC_LIGHT_SIZE 7
 #define SC_PLANE_SIZE 7
 #define SC_SPHERE_SIZE 5
@@ -83,13 +84,14 @@ struct Material ExtractMaterial(uint off, global float *arr){
     struct Material mat;
     mat.col = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
     mat.reflectivity = arr[off + 3];
-    mat.roughness = arr[off + 4] + EPSILON;
-    mat.emittance = arr[off + 5];
-    mat.texture = (uint)arr[off + 6];
-    mat.normalmap = (uint)arr[off + 7];
-    mat.roughnessmap = (uint)arr[off + 8];
-    mat.metalicmap  = (uint)arr[off + 9];
-    mat.texscale = arr[off + 10];
+    mat.refraction = arr[off + 4];
+    mat.roughness = arr[off + 5] + EPSILON;
+    mat.emittance = arr[off + 6];
+    mat.texture = (uint)arr[off + 7];
+    mat.normalmap = (uint)arr[off + 8];
+    mat.roughnessmap = (uint)arr[off + 9];
+    mat.metalicmap  = (uint)arr[off + 10];
+    mat.texscale = arr[off + 11];
     return mat;
 }
 
@@ -172,12 +174,12 @@ float3 reflect(float3 vec, float3 nor){
 bool InterSphere(struct Ray* r, struct RayHit* hit, float3 spos, float srad){
     float3 l = spos - r->pos;
     float tca = dot(r->dir, l);
-    float d = tca*tca - dot(l, l) + srad*srad;
-    if(d < 0) return false;
+    float d = tca * tca - dot(l, l) + srad * srad;
+    if(d < 0.0f) return false;
     float t = tca - sqrt(d);
-    if(t < 0){
+    if(t < 0.0f){
         t = tca + sqrt(d);
-        if (t < 0) return false;
+        if (t < 0.0f) return false;
     }
     if(t >= hit->t) return false;
     hit->t = t;
@@ -587,7 +589,10 @@ float3 RandomHemispherePoint(uint* seed, float3 normal){
 
 float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
     float3 E = (float3)(1.0f);
-    while(true){
+    float ncontext = 1.0f;
+    uint i = 0;
+    while(i < 50){
+        i++;
         struct RayHit hit = INTER_SCENE(&ray, scene);
         if(hit.t >= MAX_RENDER_DIST){
             E *= SkyCol(ray.dir, scene);
@@ -595,24 +600,70 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
         }
 
         struct Material mat = GetMaterialFromIndex(hit.mat_index, scene);
-        if (mat.emittance > EPSILON){
+        if(mat.emittance > EPSILON){
             E *= mat.col * mat.emittance;
             break;
         }
 
-        HANDLE_TEXTURES;
-
         struct Ray nray;
         nray.pos = hit.pos + hit.nor * EPSILON;
 
-        float decider = U32tf01(Xor32(seed));
-        if(decider <= mat.reflectivity){ // mirror
-            nray.dir = fast_normalize(reflect(ray.dir, hit.nor));
-            E *= mat.col;
+        // handle dielectrics
+        float mf = mat.refraction;
+        if(mf > EPSILON){
+            bool inside = dot(hit.nor, ray.dir) < 0.0;
+            float n1, n2;
+            if(inside){
+                n2 = mf;
+                n1 = ncontext;
+            } else {
+                hit.nor *= -1.0f;
+                n2 = ncontext;
+                n1 = mf;
+            }
+            float n = n1 / n2;
+            float cost1 = dot(hit.nor, -ray.dir);
+            float k = 1.0f - n * n * (1.0f - cost1 * cost1);
+            float costt = sqrt(k);
+            float3 refldir = reflect(ray.dir, hit.nor);
+            if(k < 0.0f){ // total internal reflection
+                nray.dir = refldir;
+                nray.pos = hit.pos + hit.nor * EPSILON;
+                ray = nray;
+                continue;
+            }
+
+            float spol = (n1 * cost1 - n2 * costt) / (n1 * cost1 + n2 * costt);
+            float ppol = (n1 * costt - n2 * cost1) / (n1 * costt + n2 * cost1);
+            float fr = 0.5f * (spol * spol + ppol * ppol);
+
+            // choose reflect or refract
+            float decider = U32tf01(Xor32(seed));
+            if(decider <= fr){
+                nray.dir = refldir;
+                nray.pos = hit.pos + hit.nor * EPSILON;
+            }else{
+                nray.dir = fast_normalize((ray.dir - hit.nor * -cost1) * n + hit.nor * -sqrt(k));
+                nray.pos = hit.pos - hit.nor * EPSILON;
+                ncontext = mf;
+            }
+
             ray = nray;
             continue;
         }
 
+        // handle non-dielectrics: blend of specular and diffuse
+        HANDLE_TEXTURES;
+
+        if(mat.reflectivity > EPSILON){ // mirror
+            float decider = U32tf01(Xor32(seed));
+            if(decider <= mat.reflectivity){
+                nray.dir = reflect(ray.dir, hit.nor);
+                E *= mat.col;
+                ray = nray;
+                continue;
+            }
+        }
         nray.dir = RandomHemispherePoint(seed, hit.nor);
         float3 BRDF = mat.col * INV_PI;
         float INV_PDF = PI2; // PDF = 1 / 2PI
