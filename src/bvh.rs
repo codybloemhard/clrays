@@ -318,7 +318,7 @@ impl Bvh{
 
         // TODO: doesn't work anymore with bvh? Problem in texture code
         // for plane in &scene.planes { inter_plane(ray, plane, hit); }
-        if self.vertices.is_empty() { return (0, 0); }
+        assert!(!self.vertices.is_empty());
         let inv_dir = ray.inverted().dir;
         let dir_is_neg : [usize; 3] = ray.direction_negations();
         internal_intersect(self, 0, ray, scene, hit, inv_dir, dir_is_neg)

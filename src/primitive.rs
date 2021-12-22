@@ -66,10 +66,9 @@ impl Primitive {
                 // rotate dir clockwise x-axis
                 ray.dir = ray.dir.yawed(-yaw);
                 let (a,b) = scene.sub_bvhs[model.mesh as usize].intersect_mesh(ray, scene, hit);
-                if hit.t < t {
-                    // apply
+                if hit.t < t { // apply
+                    hit.pos.added(model.pos);
                     hit.mat = model.mat;
-                    // hit.model_index = self.index as u8;
                     hit.nor = hit.nor.yawed(yaw);
                 }
                 return (a,b);

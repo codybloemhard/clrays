@@ -608,13 +608,39 @@ impl Scene{
             let sub_bvh: &Bvh = &self.sub_bvhs[model.mesh as usize];
             let aabb = sub_bvh.vertices.first().unwrap().bound;
             // rotate aabb and recompute surrounding aabb
-            let a: Vec3= aabb.min.clone()
-                .subed(aabb.midpoint()).yawed(-model.rot.x).added(aabb.midpoint())
-                .added(model.pos);// add model position offset
-            let b: Vec3= aabb.max.clone()
-                .subed(aabb.midpoint()).yawed(-model.rot.x).added(aabb.midpoint())
-                .added(model.pos);// add model position offset
-            let aabb = AABB::from_points(&[a,b]);
+
+            // obtain 8 corner points
+            let a = aabb.min;
+            let b = aabb.max;
+            let d = b.subed(a);
+
+            let mut points = vec![a; 8];
+
+            points[1].x += d.x;
+
+            points[2].x += d.x;
+            points[2].z += d.z;
+
+            points[3].z += d.z;
+
+            points[4].y += d.y;
+            points[5].y += d.y;
+            points[6].y += d.y;
+            points[7].y += d.y;
+
+            points[5].x += d.x;
+
+            points[6].x += d.x;
+            points[6].z += d.z;
+
+            points[7].z += d.z;
+
+            points = points.iter_mut().map(|point| point
+                .subed(aabb.midpoint()).yawed(model.rot.x).added(aabb.midpoint()) // apply model rotation
+                .added(model.pos) // add model position
+            ).collect();
+
+            let aabb = AABB::from_points(&points);
             aabbs.push(aabb);
             prims.push(Primitive {
                 shape_type: Shape::MODEL,
