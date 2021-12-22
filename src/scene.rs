@@ -6,6 +6,10 @@ use crate::bvh::Bvh;
 use crate::mesh::Mesh;
 
 use std::collections::HashMap;
+use crate::aabb::AABB;
+use crate::primitive::{Primitive, Shape};
+use crate::cpu::inter::{Ray, RayHit};
+use crate::consts::{EPSILON, UV_SPHERE, UV_PLANE};
 
 type MaterialIndex = u8;
 
@@ -148,6 +152,24 @@ impl Bufferizable for Plane {
     }
 }
 
+impl Intersectable for Plane {
+    // ray-plane intersection
+    #[inline]
+    fn intersect(&self, ray: Ray, hit: &mut RayHit) {
+        let divisor = Vec3::dot(ray.dir, self.nor);
+        if divisor.abs() < EPSILON { return; }
+        let planevec = Vec3::subed(self.pos, ray.pos);
+        let t = Vec3::dot(planevec, self.nor) / divisor;
+        if t < EPSILON { return; }
+        if t > hit.t { return; }
+        hit.t = t;
+        hit.pos = ray.pos.added(ray.dir.scaled(t));
+        hit.nor = self.nor;
+        hit.mat = self.mat;
+        hit.uvtype = UV_PLANE;
+    }
+}
+
 impl SceneItem for Plane{
     fn add(self, scene: &mut Scene){
         scene.add_plane(self);
@@ -173,13 +195,31 @@ impl SceneItem for Sphere{
     fn add(self, scene: &mut Scene){
         scene.add_sphere(self);
     }
-
-    // fn bound(&self) -> AABB{
-    //     AABB::from_point_radius(self.pos, self.rad)
-    // }
+}
+impl Intersectable for Sphere {
+    #[inline]
+    fn intersect(&self, ray: Ray, hit: &mut RayHit){
+        let l = Vec3::subed(self.pos, ray.pos);
+        let tca = Vec3::dot(ray.dir, l);
+        let d = tca*tca - Vec3::dot(l, l) + self.rad*self.rad;
+        if d < 0.0 { return; }
+        let dsqrt = d.sqrt();
+        let mut t = tca - dsqrt;
+        if t < 0.0 {
+            t = tca + dsqrt;
+            if t < 0.0 { return; }
+        }
+        if t > hit.t { return; }
+        hit.t = t;
+        hit.pos = ray.pos.added(ray.dir.scaled(t));
+        hit.nor = Vec3::subed(hit.pos, self.pos).scaled(1.0 / self.rad);
+        hit.mat = self.mat;
+        hit.uvtype = UV_SPHERE;
+    }
 }
 
-#[derive(Default,Debug)]
+
+#[derive(Default,Debug,Clone)]
 pub struct Triangle{ // 37 byte
     pub a: Vec3, // Vec3: 12 byte
     pub b: Vec3, // Vec3: 12 byte
@@ -193,6 +233,36 @@ impl Bufferizable for Triangle {
             self.c.x, self.c.y, self.c.z,
         ]
     }
+}
+impl Intersectable for Triangle {
+    // ray-triangle intersection
+// https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm?oldformat=true
+    #[inline]
+    #[allow(clippy::many_single_char_names)]
+    fn intersect(&self, ray: Ray, hit: &mut RayHit){
+        let edge1 = Vec3::subed(self.b, self.a);
+        let edge2 = Vec3::subed(self.c, self.a);
+        let h = Vec3::crossed(ray.dir, edge2);
+        let a = Vec3::dot(edge1, h);
+        if a > -EPSILON * 0.01 && a < EPSILON * 0.01 { return; } // ray parallel to tri
+        let f = 1.0 / a;
+        let s = Vec3::subed(ray.pos, self.a);
+        let u = f * Vec3::dot(s, h);
+        if !(0.0..=1.0).contains(&u) { return; }
+        let q = Vec3::crossed(s, edge1);
+        let v = f * Vec3::dot(ray.dir, q);
+        if v < 0.0 || u + v > 1.0 { return; }
+        let t = f * Vec3::dot(edge2, q);
+        if t >= EPSILON && t < hit.t {
+            hit.t = t;
+            hit.pos = ray.pos.added(ray.dir.scaled(t));
+            hit.nor = Vec3::crossed(edge1, edge2).normalized_fast();
+        }
+    }
+}
+
+pub trait Intersectable {
+    fn intersect(&self, ray: Ray, hit: &mut RayHit);
 }
 
 pub type MeshIndex = u8;
@@ -274,7 +344,9 @@ pub struct Scene{
     pub triangles: Vec<Triangle>,
     pub meshes: Vec<Mesh>,
     pub models: Vec<Model>,
-    pub bvhs: Vec<Bvh>,
+    pub primitives: Vec<Primitive>,
+    pub sub_bvhs: Vec<Bvh>,
+    pub top_bvh: Bvh,
     scene_params: [u32; Self::SCENE_PARAM_SIZE],
     next_texture: u32,
     ghost_textures: HashMap<String, (String, TexType)>,
@@ -311,7 +383,9 @@ impl Scene{
             triangles: Vec::new(),
             meshes: Vec::new(),
             models: Vec::new(),
-            bvhs: Vec::new(),
+            primitives: Vec::new(),
+            sub_bvhs: Vec::new(),
+            top_bvh: Bvh::default(),
             lights: Vec::new(),
             scene_params: [0; Self::SCENE_PARAM_SIZE],
             next_texture: 0,
@@ -491,6 +565,7 @@ impl Scene{
         if let Some(i) = self.meshes.iter().position(|m| *m.name == mesh_name) {
             i as u8
         } else {
+            assert!(self.meshes.len() < 255);
             // todo: mesh references to index of first triangle, including count
             let mut triangles = Mesh::load_model(&*mesh_name);
             let mesh = Mesh {
@@ -498,13 +573,12 @@ impl Scene{
                 start: self.triangles.len(),
                 count: triangles.len()
             };
-            let bvh = Bvh::from_mesh(mesh.clone(), &mut triangles, 12);
+            let bvh = Bvh::from_mesh(self.meshes.len() as u8, &mut triangles, 12);
             for tri in triangles {
                 self.add_triangle(tri);
             }
-            self.bvhs.push(bvh);
+            self.sub_bvhs.push(bvh);
             self.meshes.push(mesh);
-            assert!(self.meshes.len() < 255);
             (self.meshes.len() - 1) as u8
         }
     }
@@ -513,6 +587,45 @@ impl Scene{
     pub fn get_mesh_triangle(&self, mesh: &Mesh, index: usize) -> &Triangle{
         &self.triangles[mesh.start + index]
     }
+
+    #[inline]
+    pub fn gen_top_bvh(&mut self) {
+        let quality = 0;
+
+        // gather aabbs
+        let mut prims: Vec<Primitive> = vec![];
+        let mut aabbs: Vec<AABB> = vec![];
+        // build primitives
+        // spheres
+        for (i,sphere) in self.spheres.iter().enumerate() {
+            aabbs.push(AABB::from_point_radius(sphere.pos, sphere.rad));
+            prims.push(Primitive{
+                shape_type: Shape::SPHERE,
+                index: i
+            });
+        }
+        for (i,model) in self.models.iter().enumerate() {
+            let sub_bvh: &Bvh = &self.sub_bvhs[model.mesh as usize];
+            let aabb = sub_bvh.vertices.first().unwrap().bound;
+            // rotate aabb and recompute surrounding aabb
+            let a: Vec3= aabb.min.clone()
+                .subed(aabb.midpoint()).yawed(-model.rot.x).added(aabb.midpoint())
+                .added(model.pos);// add model position offset
+            let b: Vec3= aabb.max.clone()
+                .subed(aabb.midpoint()).yawed(-model.rot.x).added(aabb.midpoint())
+                .added(model.pos);// add model position offset
+            let aabb = AABB::from_points(&[a,b]);
+            aabbs.push(aabb);
+            prims.push(Primitive {
+                shape_type: Shape::MODEL,
+                index: i as usize
+            });
+        }
+        // build bvh over aabbs
+        self.top_bvh = Bvh::from_primitives(&mut aabbs, &mut prims);
+        self.primitives = prims;
+    }
+
 
 
     // pub fn either_sphere_or_triangle(&self, index: usize) -> Either<&Sphere, &Triangle>{

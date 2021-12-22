@@ -208,7 +208,7 @@ impl Bvh{
 
     pub fn from_primitives(bounds: &mut Vec<AABB>, primitives: &mut Vec<Primitive>) -> Self{
         let bins = 12;
-        let quality = 0;
+        let quality = 1;
         let n = primitives.len();
         let mut vs = vec![Vertex::default(); n * 2];
         Self::subdivide::<Primitive>(bounds, &mut vs, primitives, bins, quality);
@@ -300,11 +300,17 @@ impl Bvh{
                 let mut x1: (usize, usize) = (0, 0);
                 let mut x2: (usize, usize) = (0, 0);
 
-                if ts[order[0]] < hit.t {
+                // assert!(ts[order[0]] >= 0.0);
+                // assert!(ts[order[1]] >= 0.0);
+                // assert!(ts[order[1]] >= ts[order[0]]);
+
+                if ts[order[0]] >= 0.0 && ts[order[0]] < hit.t {
                     x1 = internal_intersect(bvh, nodes[order[0]], ray, scene, hit, inv_dir, dir_is_neg);
-                    if ts[order[1]] < hit.t {
+                    if ts[order[1]] >= 0.0 && ts[order[1]] < hit.t {
                         x2 = internal_intersect(bvh, nodes[order[1]], ray, scene, hit, inv_dir, dir_is_neg);
                     }
+                } else if ts[order[1]] >= 0.0 && ts[order[1]] < hit.t {
+                    x2 = internal_intersect(bvh, nodes[order[1]], ray, scene, hit, inv_dir, dir_is_neg);
                 }
                 (2 + x1.0 + x2.0, 1 + x1.1.max(x2.1))
             }

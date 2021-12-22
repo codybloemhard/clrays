@@ -113,8 +113,7 @@ impl AABB {
 
     // intersection formula, including inv_dir and dir_is_neg taken from:
     //  [source](http://www.pbr-book.org/3ed-2018/Shapes/Basic_Shape_Interface.html#Bounds3::IntersectP)
-    // however, it required such non-trivial changes after spending significant time debugging
-    // I feel like calling this code my own
+    // however, it required non-trivial changes after spending significant time debugging
     pub fn intersection(&self, ray: Ray, inv_dir: Vec3, dir_is_neg: [usize; 3]) -> f32 {
         let ss = [&self.min, &self.max];
 

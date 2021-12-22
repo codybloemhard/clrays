@@ -65,7 +65,6 @@ impl Primitive {
                 ray.pos = ray.pos.yawed(-yaw);
                 // rotate dir clockwise x-axis
                 ray.dir = ray.dir.yawed(-yaw);
-                // let ray = ray.transformed(model.pos.neged(), Vec3::ZERO);
                 let (a,b) = scene.sub_bvhs[model.mesh as usize].intersect_mesh(ray, scene, hit);
                 if hit.t < t {
                     // apply
