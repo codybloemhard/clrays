@@ -615,25 +615,9 @@ impl Scene{
             let d = b.subed(a);
 
             let mut points = vec![a; 8];
-
-            points[1].x += d.x;
-
-            points[2].x += d.x;
-            points[2].z += d.z;
-
-            points[3].z += d.z;
-
-            points[4].y += d.y;
-            points[5].y += d.y;
-            points[6].y += d.y;
-            points[7].y += d.y;
-
-            points[5].x += d.x;
-
-            points[6].x += d.x;
-            points[6].z += d.z;
-
-            points[7].z += d.z;
+            points[1].x += d.x; points[2].x += d.x; points[5].x += d.x; points[6].x += d.x;
+            points[4].y += d.y; points[5].y += d.y; points[6].y += d.y; points[7].y += d.y;
+            points[2].z += d.z; points[3].z += d.z; points[6].z += d.z; points[7].z += d.z;
 
             points = points.iter_mut().map(|point| point
                 .subed(aabb.midpoint()).yawed(model.rot.x).added(aabb.midpoint()) // apply model rotation

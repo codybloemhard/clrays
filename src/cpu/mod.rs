@@ -509,9 +509,9 @@ fn blinn_single(roughness: f32, lpos: Vec3, lpow: f32, viewdir: Vec3, hit: &RayH
     // exposed to light or not
     let lray = Ray { pos: hit.pos.added(hit.nor.scaled(EPSILON)), dir: to_l };
 
-    // if scene.bvh_nightly.occluded(lray, scene, dist){
-    //     return (0.0, 0.0);
-    // }
+    if scene.top_bvh.occluded(lray, scene, dist){
+        return (0.0, 0.0);
+    }
     // specular
     let halfdir = Vec3::normalized_fast(to_l.subed(viewdir));
     let specangle = Vec3::dot(halfdir, hit.nor).max(0.0);

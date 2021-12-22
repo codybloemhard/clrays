@@ -2,7 +2,7 @@ use crate::scene::{Scene, MeshIndex, Triangle, Intersectable};
 use crate::cpu::inter::*;
 use crate::aabb::*;
 use crate::vec3::Vec3;
-use crate::consts::{ EPSILON };
+use crate::consts::{EPSILON, MAX_RENDER_DIST};
 use crate::primitive::Primitive;
 use crate::mesh::Mesh;
 
@@ -322,6 +322,77 @@ impl Bvh{
         let inv_dir = ray.inverted().dir;
         let dir_is_neg : [usize; 3] = ray.direction_negations();
         internal_intersect(self, 0, ray, scene, hit, inv_dir, dir_is_neg)
+    }
+
+    // this occluded function is a hard copy of intersect with trivial changes to return early.
+    // any non-trivial changes should be made in intersect and be duplicated to this occluded function.
+    pub fn occluded(&self, ray: Ray, scene: &Scene, dist: f32) -> bool{
+
+        fn internal_intersect(bvh: &Bvh, current: usize, ray: Ray, scene: &Scene, hit: &mut RayHit, dist: f32, inv_dir: Vec3, dir_is_neg: [usize; 3]) -> bool{
+            let vs = &bvh.vertices;
+            let v = vs[current];
+            let mut a = 0; let mut b = 0;
+            if v.count > 0{ // leaf
+                match bvh.container_type {
+                    ContainerType::MESH => { // triangle from mesh
+                        let mesh = &scene.meshes[bvh.mesh_index as usize];
+                        for i in (v.left_first) as usize..(v.left_first+v.count) as usize {
+                            // intersect triangle
+                            mesh.get_triangle(i, scene).intersect(ray, hit);
+                            if hit.t < dist {
+
+                            }
+                        }
+                    },
+                    ContainerType::TOP => { // primitive from scene
+                        for i in (v.left_first) as usize..(v.left_first+v.count) as usize {
+                            // intersect primitive
+                            let primitive = &scene.primitives[i];
+                            let (_a, _b) = primitive.intersect(ray, scene, hit);
+                            a += _a;
+                            b += _b;
+                        }
+                    }
+                }
+                hit.t < dist
+            } else { // vertex
+                let nodes = [
+                    v.left_first as usize,
+                    v.left_first as usize + 1,
+                ];
+
+                let ts = [
+                    vs[nodes[0]].bound.intersection(ray, inv_dir, dir_is_neg),
+                    vs[nodes[1]].bound.intersection(ray, inv_dir, dir_is_neg),
+                ];
+
+                let order = if ts[0] <= ts[1] { [0, 1] } else { [1, 0] };
+                let mut x1: (usize, usize) = (0, 0);
+                let mut x2: (usize, usize) = (0, 0);
+
+                // assert!(ts[order[0]] >= 0.0);
+                // assert!(ts[order[1]] >= 0.0);
+                // assert!(ts[order[1]] >= ts[order[0]]);
+
+                if ts[order[0]] >= 0.0 && ts[order[0]] < dist {
+                    if internal_intersect(bvh, nodes[order[0]], ray, scene, hit, dist, inv_dir, dir_is_neg) { return true; }
+                    if ts[order[1]] >= 0.0 && ts[order[1]] < dist {
+                        if internal_intersect(bvh, nodes[order[1]], ray, scene, hit, dist, inv_dir, dir_is_neg) { return true; }
+                    }
+                } else if ts[order[1]] >= 0.0 && ts[order[1]] < dist {
+                    if internal_intersect(bvh, nodes[order[1]], ray, scene, hit, dist, inv_dir, dir_is_neg) { return true; }
+                }
+                false
+            }
+        }
+
+        // TODO: doesn't work anymore with bvh? Problem in texture code
+        // for plane in &scene.planes { inter_plane(ray, plane, hit); }
+        assert!(!self.vertices.is_empty());
+        let mut hit = RayHit::NULL;
+        let inv_dir = ray.inverted().dir;
+        let dir_is_neg : [usize; 3] = ray.direction_negations();
+        internal_intersect(self, 0, ray, scene, &mut hit, dist, inv_dir, dir_is_neg)
     }
 }
 
