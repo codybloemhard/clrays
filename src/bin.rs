@@ -212,33 +212,29 @@ pub fn main() -> Result<(), String>{
             // .with_refraction(2.0);
     // load_model("assets/models/teapot.obj", model_mat.add_to_scene(&mut scene), &mut scene);
 
-    let mut dragon = Model{
+    let mut teapot = Model{
         pos: Default::default(),
         rot: Default::default(),
         mat: scene.add_material(Material::basic()),
         mesh: scene.add_mesh("assets/models/teapot.obj".parse().unwrap())
     };
+    let mut dragon = Model{
+        pos: Default::default(),
+        rot: Default::default(),
+        mat: scene.add_material(Material::basic()),
+        mesh: scene.add_mesh("assets/models/dragon.obj".parse().unwrap())
+    };
     let n = 10;
-    for i in 0..n {
-        println!("{}",i);
+    for i in 0..1 {
         let theta = (i as f32 / n as f32) * 2.0*PI;
-        println!("{}",theta);
-        println!("{}",FRAC_2_PI);
         let pos = Vec3::BACKWARD.scaled(16.0).yawed(theta).added(Vec3::FORWARD.scaled(6.0)).subed(Vec3::UP.scaled(5.0));
-        // pos = pos.subed(Vec3::UP.scaled(3.0));
-        println!("{:?}",pos);
         let mut ori = Vec3::ZERO.subed(pos).orientation();
-        println!("{}",theta);
-        println!("{}",FRAC_2_PI);
         ori.yaw = theta + FRAC_2_PI ;
-        // ori.yaw = FRAC_2_PI;
-        // assert_eq!(ori.yaw, FRAC_2_PI );
-        println!("{:?}",ori);
         dragon.pos = pos;
         dragon.rot = Vec3::from_orientation( &ori);
         scene.add_model(dragon);
     }
-    // scene.generate_top_level_bvh();
+    scene.gen_top_bvh();
 
     Light{
         pos: Vec3::new(0.0, 3.0, -5.0),

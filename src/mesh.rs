@@ -1,9 +1,7 @@
-use crate::scene::{Scene, Material, Triangle};
+use crate::scene::{Scene, Triangle};
 use crate::vec3::Vec3;
 
 use obj::*;
-use crate::bvh::{Bvh, Vertex};
-use crate::aabb::AABB;
 
 #[derive(Clone, Default)]
 pub struct Mesh{
@@ -14,10 +12,9 @@ pub struct Mesh{
 
 impl Mesh {
     #[inline]
-    pub fn get_triangle(self, index: usize, scene: &Scene) -> &Triangle {
-        &scene.triangles[self.start + index]
+    pub fn get_triangle(&self, index: usize, scene: &Scene) -> Triangle {
+        scene.triangles[self.start + index].clone()
     }
-
     pub fn teapot() -> Vec<Triangle>{
         Mesh::load_model("assets/models/teapot.obj")
     }
@@ -71,7 +68,6 @@ impl Mesh {
         }
         triangles
     }
-
     pub fn build_triangle_wall(diff: f32, offset: f32) -> Vec<Triangle>{
         let z = 0.0;
         let mut x = -offset;

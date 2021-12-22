@@ -171,11 +171,10 @@ fn debug_trace(ray: Ray, scene: &Scene) -> Vec3{
     let mut hit = RayHit::NULL;
     let mut aabb_hits = 0;
     let mut dep = 0;
-    for (i, model) in scene.models.iter().enumerate() {
-        let (a,b) = scene.bvhs[model.mesh as usize].intersect(ray, scene, &mut hit);
-        aabb_hits += a;
-        dep += b;
-    }
+    let (a,b) = scene.top_bvh.intersect_top(ray, scene, &mut hit);
+    aabb_hits += a;
+    dep += b;
+
     let lim1 = 10.0;
     let lim2 = 100.0;
 
@@ -194,26 +193,8 @@ fn debug_trace(ray: Ray, scene: &Scene) -> Vec3{
 // trace light ray through scene
 fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, contexts: Contexts) -> Vec3{
     let mut hit = RayHit::NULL;
-    for (i, model) in scene.models.iter().enumerate() {
-        let t = hit.t;
-        // transform ray
-        let ori = model.rot.orientation();
-        let yaw = ori.yaw;
-
-        let mut ray = ray;
-        ray.pos = ray.pos.subed(model.pos);
-        // rotate pos clockwise x-axis
-        ray.pos = ray.pos.yawed(-yaw);
-        // rotate dir clockwise x-axis
-        ray.dir = ray.dir.yawed(-yaw);
-        // let ray = ray.transformed(model.pos.neged(), Vec3::ZERO);
-        scene.bvhs[model.mesh as usize].intersect(ray, scene, &mut hit);
-        if hit.t < t {
-            // apply
-            hit.model = i as u8;
-            hit.nor = hit.nor.yawed(yaw);
-        }
-    }
+    // trace top-level bvh
+    scene.top_bvh.intersect_top(ray, scene, &mut hit);
 
     if depth == 0 || hit.is_null() {
         return get_sky_col(ray.dir, scene, tps, ts);
