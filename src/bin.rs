@@ -146,9 +146,18 @@ pub fn main() -> Result<(), String>{
             .with_refraction(1.5)
             .add_to_scene(&mut scene)
     }.add(&mut scene);
-    //
+
+    Sphere{
+        pos: Vec3::new(-6.0, 0.0, -5.0),
+        rad: 1.0 - EPSILON,
+        mat: Material::basic()
+            .as_dielectric()
+            .with_refraction(2.0)
+            .add_to_scene(&mut scene)
+    }.add(&mut scene);
+
     // Sphere{
-    //     pos: Vec3::new(-0.0, 3.0, -5.0),
+    //     pos: Vec3::new(-6.0, 0.0, -5.0),
     //     rad: 1.0 - EPSILON,
     //     mat: Material::basic()
     //         .as_dielectric()
@@ -156,29 +165,20 @@ pub fn main() -> Result<(), String>{
     //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
     // Sphere{
-    //     pos: Vec3::new(-0.0, 3.0, -5.0),
+    //     pos: Vec3::new(-6.0, 0.0, -5.0),
     //     rad: 0.95 - EPSILON,
     //     mat: Material::basic()
     //         .as_dielectric()
     //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
-    //
-    // Sphere{
-    //     pos: Vec3::new(-3.0, 3.0, -5.0),
-    //     rad: 1.0 - EPSILON,
-    //     mat: Material::basic()
-    //         .as_dielectric()
-    //         .with_refraction(2.0)
-    //         .add_to_scene(&mut scene)
-    // }.add(&mut scene);
-    //
+
     // Sphere{
     //     pos: Vec3::new(0.0, 2.0, -10.0),
     //     rad: 1.0 - EPSILON,
     //     mat: Material::basic()
     //         .as_dielectric()
     //         .with_absorption(Vec3 { x: 0.8, y: 0.3, z: 0.3 })
-    //         .with_refraction(AIR_REFRACTION)
+    //         .with_refraction(DIAMOND_REFRACTION)
     //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
     //
@@ -201,15 +201,17 @@ pub fn main() -> Result<(), String>{
     //         .with_refraction(AIR_REFRACTION)
     //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
-    // // println!("build wall...");
-    // // build_triangle_wall(Material::basic(), &mut scene, 0.5, 10.0,);
-    // // println!("wall is build");
+
+    // println!("build wall...");
+    // build_triangle_wall(Material::basic(), &mut scene, 0.5, 10.0,);
+    // println!("wall is build");
 
     // https://groups.csail.mit.edu/graphics/classes/6.837/F03/models/
     // let model_mat = Material::basic()
-    //         .with_reflectivity(0.3)
-    //         // .as_dielectric()
-    //         // .with_refraction(2.0);
+    //         // .with_reflectivity(0.3)
+    //         .as_dielectric()
+    //         .with_refraction(DIAMOND_REFRACTION)
+    //         .with_absorption(Vec3::new(0.05, 0.05, 0.1))
     //         .add_to_scene(&mut scene);
     // load_model("assets/models/teapot.obj", model_mat, &mut scene);
     // load_model("assets/models/object-scene.obj", model_mat, &mut scene);

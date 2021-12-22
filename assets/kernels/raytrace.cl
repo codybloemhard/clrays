@@ -11,6 +11,7 @@
 struct Material{
     float3 col;
     float reflectivity;
+    float3 absorption;
     float refraction;
     float roughness;
     float emittance;
@@ -53,7 +54,7 @@ struct Ray{
 #define SC_TRI 4
 #define SC_SCENE 5
 // sizes, must be the same as rust provides
-#define SC_MAT_SIZE 12
+#define SC_MAT_SIZE 15
 #define SC_LIGHT_SIZE 7
 #define SC_PLANE_SIZE 7
 #define SC_SPHERE_SIZE 5
@@ -84,14 +85,15 @@ struct Material ExtractMaterial(uint off, global float *arr){
     struct Material mat;
     mat.col = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
     mat.reflectivity = arr[off + 3];
-    mat.refraction = arr[off + 4];
-    mat.roughness = arr[off + 5] + EPSILON;
-    mat.emittance = arr[off + 6];
-    mat.texture = (uint)arr[off + 7];
-    mat.normalmap = (uint)arr[off + 8];
-    mat.roughnessmap = (uint)arr[off + 9];
-    mat.metalicmap  = (uint)arr[off + 10];
-    mat.texscale = arr[off + 11];
+    mat.absorption = (float3)(arr[off + 4], arr[off + 5], arr[off + 6]);
+    mat.refraction = arr[off + 7];
+    mat.roughness = arr[off + 8] + EPSILON;
+    mat.emittance = arr[off + 9];
+    mat.texture = (uint)arr[off + 10];
+    mat.normalmap = (uint)arr[off + 11];
+    mat.roughnessmap = (uint)arr[off + 12];
+    mat.metalicmap  = (uint)arr[off + 13];
+    mat.texscale = arr[off + 14];
     return mat;
 }
 
@@ -588,11 +590,12 @@ float3 RandomHemispherePoint(uint* seed, float3 normal){
 }
 
 float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
-    float3 E = (float3)(1.0f);
-    float ncontext = 1.0f;
-    uint i = 0;
-    while(i < 50){
-        i++;
+    float3 E = (float3)(1.0f); // emittance accumulator
+    float ncontext = 1.0f; // refraction index of current medium
+    uint tirs = 0; // total internal reflections
+    float3 hitpos = ray.pos;
+    float3 distacc = (float3)(1.0f);
+    while(tirs < 8){
         struct RayHit hit = INTER_SCENE(&ray, scene);
         if(hit.t >= MAX_RENDER_DIST){
             E *= SkyCol(ray.dir, scene);
@@ -611,16 +614,22 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
         // handle dielectrics
         float mf = mat.refraction;
         if(mf > EPSILON){
-            bool inside = dot(hit.nor, ray.dir) < 0.0;
+            bool outside = dot(hit.nor, ray.dir) < 0.0;
             float n1, n2;
-            if(inside){
+            if(outside){
                 n2 = mf;
                 n1 = ncontext;
             } else {
+                // do we have absorption that we should handle?
+                if(dot(mat.absorption, mat.absorption) > EPSILON){
+                    float dist = fast_length(hitpos - hit.pos);
+                    E *= exp(mat.absorption * dist);
+                }
                 hit.nor *= -1.0f;
                 n2 = ncontext;
                 n1 = mf;
             }
+            hitpos = hit.pos;
             float n = n1 / n2;
             float cost1 = dot(hit.nor, -ray.dir);
             float k = 1.0f - n * n * (1.0f - cost1 * cost1);
@@ -630,6 +639,7 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
                 nray.dir = refldir;
                 nray.pos = hit.pos + hit.nor * EPSILON;
                 ray = nray;
+                tirs++;
                 continue;
             }
 

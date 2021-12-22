@@ -430,9 +430,9 @@ fn absorp(color: &Vec3, absorption: &Vec3, d: f32) -> Vec3 {
         *color
     } else {
         Vec3 {
-            x: color.x * ((1.0-absorption.x).ln() * d).exp(),
-            y: color.y * ((1.0-absorption.y).ln() * d).exp(),
-            z: color.z * ((1.0-absorption.z).ln() * d).exp(),
+            x: color.x * (absorption.x * d).exp(),
+            y: color.y * (absorption.y * d).exp(),
+            z: color.z * (absorption.z * d).exp(),
         }
     }
 }

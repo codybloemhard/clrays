@@ -88,7 +88,12 @@ impl Material{
     }
 
     pub fn with_absorption(mut self, absorption: Vec3) -> Self{
-        self.absorption = absorption;
+        let ab = Vec3{
+            x: (1.0 - absorption.x).ln(),
+            y: (1.0 - absorption.y).ln(),
+            z: (1.0 - absorption.z).ln(),
+        };
+        self.absorption = ab;
         self
     }
 
@@ -142,8 +147,9 @@ impl SceneItem for Material{
     fn get_data(&self) -> Vec<f32>{
         let refraction = if self.is_dielectric { self.refraction } else { -1.0 };
         vec![
-            self.col.x, self.col.y, self.col.z,
-            self.reflectivity, refraction, self.roughness, self.emittance,
+            self.col.x, self.col.y, self.col.z, self.reflectivity,
+            self.absorption.x, self.absorption.y, self.absorption.z, refraction,
+            self.roughness, self.emittance,
             self.texture as f32, self.normal_map as f32,
             self.roughness_map as f32, self.metalic_map as f32,
             self.tex_scale
@@ -285,7 +291,7 @@ impl Default for Scene {
 impl Scene{
     const SCENE_SIZE: u32 = 11;
     const SCENE_PARAM_SIZE: usize = 5 * 2 + Self::SCENE_SIZE as usize;
-    const MATERIAL_SIZE: u32 = 12;
+    const MATERIAL_SIZE: u32 = 15;
     const MATERIAL_INDEX_SIZE: u32 = 1;
     const LIGHT_SIZE: u32 = 7;
     const PLANE_SIZE: u32 = 6 + Self::MATERIAL_INDEX_SIZE;
