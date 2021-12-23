@@ -1,4 +1,4 @@
-use crate::scene::{ Scene, SceneItem, Triangle, MaterialIndex };
+use crate::scene::{ Scene, Triangle };
 use crate::vec3::Vec3;
 
 use obj::*;

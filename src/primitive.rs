@@ -1,7 +1,7 @@
-use crate::scene::{Sphere, Plane, Scene, Triangle, Model, Intersectable};
+use crate::scene::{ Plane, Scene, Model, Intersectable};
 use crate::vec3::Vec3;
 use crate::consts::EPSILON;
-use crate::cpu::inter::{ Ray, RayHit};
+use crate::cpu::inter::{ Ray, RayHit, dist_sphere, dist_plane, dist_triangle};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Shape {
@@ -17,7 +17,6 @@ pub struct Primitive {
     pub index: usize,
 }
 impl Primitive {
-
     pub fn from_model(model: Model) -> Self {
         Self {
             // bounds: aabb,
@@ -26,7 +25,7 @@ impl Primitive {
         }
     }
 
-    pub fn from_sphere(sphere: &Sphere, index_sphere: usize) -> Self{
+    pub fn from_sphere(index_sphere: usize) -> Self{
         Self {
             shape_type: Shape::SPHERE,
             index: index_sphere,
@@ -44,14 +43,14 @@ impl Primitive {
         }
     }
 
-    pub fn from_triangle(triangle: Triangle, index_triangle: usize) -> Self{
+    pub fn from_triangle(index_triangle: usize) -> Self{
         Self {
             shape_type: Shape::TRIANGLE,
             index: index_triangle,
         }
     }
 
-    pub fn intersect(&self, ray: Ray, scene: &Scene, hit: &mut RayHit) -> (usize,usize) {
+    pub fn intersect(&self, ray: Ray, scene: &Scene, hit: &mut RayHit) -> (usize, usize){
         match self.shape_type {
             Shape::MODEL => {
                 let model = scene.models[self.index];
@@ -65,7 +64,7 @@ impl Primitive {
                 ray.pos = ray.pos.yawed(-yaw);
                 // rotate dir clockwise x-axis
                 ray.dir = ray.dir.yawed(-yaw);
-                let (a,b) = scene.sub_bvhs[model.mesh as usize].intersect_mesh(ray, scene, hit);
+                let (a, b) = scene.sub_bvhs[model.mesh as usize].intersect(ray, scene, hit);
                 if hit.t < t { // apply
                     hit.mat = model.mat;
                     hit.nor = hit.nor.yawed(yaw);
@@ -73,12 +72,33 @@ impl Primitive {
                     hit.pos = hit.pos.yawed(yaw);
                     hit.pos = hit.pos.added(model.pos);
                 }
-                return (a,b);
+                return (a, b);
             },
             Shape::SPHERE => scene.spheres[self.index].intersect(ray, hit),
             Shape::PLANE => scene.planes[self.index].intersect(ray, hit),
             Shape::TRIANGLE => scene.triangles[self.index].intersect(ray, hit),
         }
-        (0,1)
+        (0, 1)
+    }
+
+    pub fn occluded(&self, ray: Ray, scene: &Scene, dist: f32) -> bool{
+        match self.shape_type {
+            Shape::MODEL => {
+                let model = scene.models[self.index];
+                // transform ray
+                let ori = model.rot.orientation();
+                let yaw = ori.yaw;
+                let mut ray = ray;
+                ray.pos = ray.pos.subed(model.pos);
+                // rotate pos clockwise x-axis
+                ray.pos = ray.pos.yawed(-yaw);
+                // rotate dir clockwise x-axis
+                ray.dir = ray.dir.yawed(-yaw);
+                scene.sub_bvhs[model.mesh as usize].occluded(ray, scene, dist)
+            },
+            Shape::SPHERE => dist_sphere(ray, &scene.spheres[self.index]) <= dist,
+            Shape::PLANE => dist_plane(ray, &scene.planes[self.index]) <= dist,
+            Shape::TRIANGLE => dist_triangle(ray, &scene.triangles[self.index]) <= dist,
+        }
     }
 }

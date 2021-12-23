@@ -4,12 +4,11 @@ use crate::misc::{ Incrementable, build_vec, make_nonzero_len };
 use crate::info::Info;
 use crate::bvh::Bvh;
 use crate::mesh::Mesh;
+use crate::aabb::AABB;
+use crate::primitive::{ Primitive, Shape };
+use crate::cpu::inter::{ Ray, RayHit, inter_plane, inter_sphere, inter_triangle };
 
 use std::collections::HashMap;
-use crate::aabb::AABB;
-use crate::primitive::{Primitive, Shape};
-use crate::cpu::inter::{Ray, RayHit};
-use crate::consts::{EPSILON, UV_SPHERE, UV_PLANE};
 
 pub trait SceneItem{
     fn get_data(&self) -> Vec<f32>;
@@ -189,20 +188,9 @@ impl SceneItem for Plane{
 }
 
 impl Intersectable for Plane {
-    // ray-plane intersection
     #[inline]
     fn intersect(&self, ray: Ray, hit: &mut RayHit) {
-        let divisor = Vec3::dot(ray.dir, self.nor);
-        if divisor.abs() < EPSILON { return; }
-        let planevec = Vec3::subed(self.pos, ray.pos);
-        let t = Vec3::dot(planevec, self.nor) / divisor;
-        if t < EPSILON { return; }
-        if t > hit.t { return; }
-        hit.t = t;
-        hit.pos = ray.pos.added(ray.dir.scaled(t));
-        hit.nor = self.nor;
-        hit.mat = self.mat;
-        hit.uvtype = UV_PLANE;
+        inter_plane(ray, self, hit);
     }
 }
 
@@ -225,22 +213,7 @@ impl SceneItem for Sphere{
 impl Intersectable for Sphere {
     #[inline]
     fn intersect(&self, ray: Ray, hit: &mut RayHit){
-        let l = Vec3::subed(self.pos, ray.pos);
-        let tca = Vec3::dot(ray.dir, l);
-        let d = tca*tca - Vec3::dot(l, l) + self.rad*self.rad;
-        if d < 0.0 { return; }
-        let dsqrt = d.sqrt();
-        let mut t = tca - dsqrt;
-        if t < 0.0 {
-            t = tca + dsqrt;
-            if t < 0.0 { return; }
-        }
-        if t > hit.t { return; }
-        hit.t = t;
-        hit.pos = ray.pos.added(ray.dir.scaled(t));
-        hit.nor = Vec3::subed(hit.pos, self.pos).scaled(1.0 / self.rad);
-        hit.mat = self.mat;
-        hit.uvtype = UV_SPHERE;
+        inter_sphere(ray, self, hit);
     }
 }
 
@@ -268,29 +241,9 @@ impl SceneItem for Triangle{
 }
 
 impl Intersectable for Triangle {
-    // ray-triangle intersection
-    // https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm?oldformat=true
     #[inline]
-    #[allow(clippy::many_single_char_names)]
     fn intersect(&self, ray: Ray, hit: &mut RayHit){
-        let edge1 = Vec3::subed(self.b, self.a);
-        let edge2 = Vec3::subed(self.c, self.a);
-        let h = Vec3::crossed(ray.dir, edge2);
-        let a = Vec3::dot(edge1, h);
-        if a > -EPSILON * 0.01 && a < EPSILON * 0.01 { return; } // ray parallel to tri
-        let f = 1.0 / a;
-        let s = Vec3::subed(ray.pos, self.a);
-        let u = f * Vec3::dot(s, h);
-        if !(0.0..=1.0).contains(&u) { return; }
-        let q = Vec3::crossed(s, edge1);
-        let v = f * Vec3::dot(ray.dir, q);
-        if v < 0.0 || u + v > 1.0 { return; }
-        let t = f * Vec3::dot(edge2, q);
-        if t >= EPSILON && t < hit.t {
-            hit.t = t;
-            hit.pos = ray.pos.added(ray.dir.scaled(t));
-            hit.nor = Vec3::crossed(edge1, edge2).normalized_fast();
-        }
+        inter_triangle(ray, self, hit);
     }
 }
 
@@ -645,21 +598,19 @@ impl Scene{
 
     #[inline]
     pub fn gen_top_bvh(&mut self) {
-        let quality = 0;
-
         // gather aabbs
         let mut prims: Vec<Primitive> = vec![];
         let mut aabbs: Vec<AABB> = vec![];
         // build primitives
         // spheres
-        for (i,sphere) in self.spheres.iter().enumerate() {
+        for (i, sphere) in self.spheres.iter().enumerate() {
             aabbs.push(AABB::from_point_radius(sphere.pos, sphere.rad));
             prims.push(Primitive{
                 shape_type: Shape::SPHERE,
                 index: i
             });
         }
-        for (i,model) in self.models.iter().enumerate() {
+        for (i, model) in self.models.iter().enumerate() {
             let sub_bvh: &Bvh = &self.sub_bvhs[model.mesh as usize];
             let aabb = sub_bvh.vertices.first().unwrap().bound;
             // rotate aabb and recompute surrounding aabb

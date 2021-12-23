@@ -232,7 +232,7 @@ impl TraceKernelPath{
         kbuilder.arg(buffer.get_ocl_buffer());
         kbuilder.arg(w as u32);
         kbuilder.arg(h as u32);
-        kbuilder.arg(0 as u32);
+        kbuilder.arg(0u32);
         kbuilder.arg(scene_params.get_ocl_buffer());
         kbuilder.arg(scene_items.get_ocl_buffer());
         kbuilder.arg(bvh.get_ocl_buffer());

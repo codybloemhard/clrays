@@ -13,7 +13,7 @@ a demo to prove that your BVH handles animated scenes. 2pts
 - [ ] Construct Sah BVH for 5M tris scene in less than 1 second, 1pt
 - [ ] Construct a 4-way BVH by collapsing a 2-way BVH, and traverse this structure. The resulting traversal speed
 must be an improvement over 2-way BVH traversal (good for Kajiya, packets are better for Whitted). 1pt
-- [ ] Render a 1B poly scene in 5 seconds or less, 5pts
+- [x] Render a 1B poly scene in 5 seconds or less, 5pts
 - [x] GPU BVH traversal
 ### GPU Pathtracing
 - [ ] Basic pathtracer (area lights, materials, speculars, dielectrics, beer's law)

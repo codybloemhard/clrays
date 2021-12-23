@@ -171,7 +171,7 @@ fn debug_trace(ray: Ray, scene: &Scene) -> Vec3{
     let mut hit = RayHit::NULL;
     let mut aabb_hits = 0;
     let mut dep = 0;
-    let (a,b) = scene.top_bvh.intersect_top(ray, scene, &mut hit);
+    let (a,b) = scene.top_bvh.intersect(ray, scene, &mut hit);
     aabb_hits += a;
     dep += b;
 
@@ -194,7 +194,7 @@ fn debug_trace(ray: Ray, scene: &Scene) -> Vec3{
 fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, contexts: Contexts) -> Vec3{
     let mut hit = RayHit::NULL;
     // trace top-level bvh
-    scene.top_bvh.intersect_top(ray, scene, &mut hit);
+    scene.top_bvh.intersect(ray, scene, &mut hit);
 
     if depth == 0 || hit.is_null() {
         return get_sky_col(ray.dir, scene, tps, ts);
