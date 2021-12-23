@@ -28,26 +28,22 @@ pub fn main() -> Result<(), String>{
 
     let mut scene = Scene::new();
 
-    fn select_platform() {
+    fn select_target() {
         println!("Run program with:");
-        println!("TARGET=CPU cargo run --release");
+        println!("cargo run cpu --release");
         println!("or");
-        println!("TARGET=GPU cargo run --release");
+        println!("cargo run gpu --release");
         exit(0)
     }
-    if let Ok(target) = env::var("TARGET") {
-        if target == "GPU" {
-            println!("use gpu");
-            scene.stype = SceneType::GI;
-        } else if target == "CPU" {
-            println!("use cpu");
-            scene.stype = SceneType::Whitted;
-        } else {
-            select_platform();
-        }
-    } else {
-        select_platform();
-    }
+
+    let args: Vec<String> = env::args().collect();
+    if args.len() == 2 {
+        let target = &args[1];
+        if target == "cpu" { scene.stype = SceneType::Whitted }
+        else if *target == "gpu" { scene.stype = SceneType::GI }
+        else { select_target() }
+    } else { select_target() }
+
     scene.cam = Camera{
 
         // pos: Vec3::new(0.0, 5.0, -8.0),
@@ -297,13 +293,20 @@ pub fn main() -> Result<(), String>{
     // let (w, h) = (1600, 900);
     let (w, h) = (1920, 1080);
 
-    // let mut tracer = unpackdb!(trace_processor::GpuWhitted::new((w, h), &mut scene, &mut info), "Could not create GpuWhitted!");
-    let mut tracer = unpackdb!(trace_processor::GpuPath::new((w, h), &mut scene, &mut info), "Could not create GpuPath!");
-    // let mut tracer = trace_processor::CpuWhitted::new(w as usize, h as usize, 32, &mut scene, &mut info);
-
-    info.stop_time();
-    info.print_info();
-
     let mut window = window::Window::new("ClRays", w as u32, h as u32);
-    window.run(fps_input_fn, log_update_fn, &mut state, &mut tracer, &mut scene)
+    match scene.stype {
+        SceneType::GI => {
+            let mut tracer_gpu = unpackdb!(trace_processor::GpuWhitted::new((w, h), &mut scene, &mut info), "Could not create GpuWhitted!");
+            info.stop_time();
+            info.print_info();
+            window.run(fps_input_fn, log_update_fn, &mut state, &mut tracer_gpu, &mut scene)
+        },
+        SceneType::Whitted => {
+            let mut tracer_cpu = trace_processor::CpuWhitted::new(w as usize, h as usize, 32, &mut scene, &mut info);
+            info.stop_time();
+            info.print_info();
+            window.run(fps_input_fn, log_update_fn, &mut state, &mut tracer_cpu, &mut scene)
+        }
+    }
+
 }
