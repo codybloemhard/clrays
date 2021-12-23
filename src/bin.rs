@@ -13,6 +13,8 @@ use clr::consts::*;
 use clr::vec3::Orientation;
 
 use sdl2::keyboard::Keycode;
+use std::env;
+use std::process::exit;
 // use clrays_rs::mesh::build_triangle_wall;
 
 pub const USE_WATERFLOOR : bool = false;
@@ -25,9 +27,29 @@ pub fn main() -> Result<(), String>{
     info.start_time();
 
     let mut scene = Scene::new();
-    scene.stype = SceneType::GI;
-    // scene.stype = SceneType::Whitted;
+
+    fn select_platform() {
+        println!("Run program with:");
+        println!("TARGET=CPU cargo run --release");
+        println!("or");
+        println!("TARGET=GPU cargo run --release");
+        exit(0)
+    }
+    if let Ok(target) = env::var("TARGET") {
+        if target == "GPU" {
+            println!("use gpu");
+            scene.stype = SceneType::GI;
+        } else if target == "CPU" {
+            println!("use cpu");
+            scene.stype = SceneType::Whitted;
+        } else {
+            select_platform();
+        }
+    } else {
+        select_platform();
+    }
     scene.cam = Camera{
+
         // pos: Vec3::new(0.0, 5.0, -8.0),
         // dir: Vec3::new(0.0, -1.0, 2.0).normalized(),
         pos: Vec3::new(0.0, 1.5, 6.0),
