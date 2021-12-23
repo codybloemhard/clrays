@@ -5,10 +5,9 @@ use crate::cpu::inter::{ Ray, RayHit, dist_sphere, dist_plane, dist_triangle};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Shape {
-    MODEL,
-    SPHERE,
-    TRIANGLE,
-    PLANE
+    MODEL = 0,
+    SPHERE = 1,
+    TRIANGLE = 2,
 }
 
 #[derive(Clone, Copy)]
@@ -29,17 +28,6 @@ impl Primitive {
         Self {
             shape_type: Shape::SPHERE,
             index: index_sphere,
-        }
-    }
-
-    pub fn from_plane(plane: Plane, index_plane: usize) -> Self{
-        // todo: check normal
-        assert!(plane.nor.dot(Vec3::UP).abs().le(&EPSILON) ||
-                plane.nor.dot(Vec3::RIGHT).abs().le(&EPSILON) ||
-                plane.nor.dot(Vec3::FORWARD).abs().le(&EPSILON));
-        Self {
-            shape_type: Shape::PLANE,
-            index: index_plane,
         }
     }
 
@@ -75,7 +63,6 @@ impl Primitive {
                 return (a, b);
             },
             Shape::SPHERE => scene.spheres[self.index].intersect(ray, hit),
-            Shape::PLANE => scene.planes[self.index].intersect(ray, hit),
             Shape::TRIANGLE => scene.triangles[self.index].intersect(ray, hit),
         }
         (0, 1)
@@ -97,7 +84,6 @@ impl Primitive {
                 scene.sub_bvhs[model.mesh as usize].occluded(ray, scene, dist)
             },
             Shape::SPHERE => dist_sphere(ray, &scene.spheres[self.index]) <= dist,
-            Shape::PLANE => dist_plane(ray, &scene.planes[self.index]) <= dist,
             Shape::TRIANGLE => dist_triangle(ray, &scene.triangles[self.index]) <= dist,
         }
     }

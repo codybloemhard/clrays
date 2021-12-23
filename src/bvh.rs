@@ -24,8 +24,8 @@ pub struct Bvh{
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Vertex{
     pub bound: AABB,
-    left_first: usize,
-    count: usize,
+    pub left_first: usize,
+    pub count: usize,
 }
 
 impl Bvh{
@@ -290,10 +290,6 @@ impl Bvh{
                 let mut x1: (usize, usize) = (0, 0);
                 let mut x2: (usize, usize) = (0, 0);
 
-                // assert!(ts[order[0]] >= 0.0);
-                // assert!(ts[order[1]] >= 0.0);
-                // assert!(ts[order[1]] >= ts[order[0]]);
-
                 if ts[order[0]] >= 0.0 && ts[order[0]] < hit.t {
                     x1 = internal_intersect(bvh, nodes[order[0]], ray, scene, hit, inv_dir, dir_is_neg);
                     if ts[order[1]] >= 0.0 && ts[order[1]] < hit.t {
@@ -378,6 +374,7 @@ pub struct StackItem {
     pub count : usize,
     pub depth : usize
 }
+
 fn union_bound(bounds: &[AABB]) -> AABB {
     let mut bound = AABB::default();
     for other in bounds{

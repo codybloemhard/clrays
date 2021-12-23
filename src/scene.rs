@@ -9,6 +9,7 @@ use crate::primitive::{ Primitive, Shape };
 use crate::cpu::inter::{ Ray, RayHit, inter_plane, inter_sphere, inter_triangle };
 
 use std::collections::HashMap;
+use std::convert::TryInto;
 
 pub trait SceneItem{
     fn get_data(&self) -> Vec<f32>;
@@ -468,11 +469,46 @@ impl Scene{
     }
 
     pub fn get_bvh_buffer(&self) -> Vec<u32>{
-        // let bvhs = 1;
-        // let mut buffer = vec![0; bvhs * 2];
-        // self.bvh.into_buffer(0, &mut buffer);
-        // buffer
-        vec![]
+        let bvhs = 1 + self.sub_bvhs.len();
+        let mut buffer = vec![0; bvhs * 3 + 1];
+
+        buffer[1] = buffer.len() as u32; // bvh start
+        buffer[2] = self.meshes[self.top_bvh.mesh_index as usize].start.try_into().unwrap(); // bvh mesh
+        buffer[3] = self.meshes[self.top_bvh.mesh_index as usize].count.try_into().unwrap(); // bvh mesh
+        for v in &self.top_bvh.vertices{
+            buffer.push(v.bound.min.x.to_bits() as u32);
+            buffer.push(v.bound.min.y.to_bits() as u32);
+            buffer.push(v.bound.min.z.to_bits() as u32);
+            buffer.push(v.bound.max.x.to_bits() as u32);
+            buffer.push(v.bound.max.y.to_bits() as u32);
+            buffer.push(v.bound.max.z.to_bits() as u32);
+            buffer.push(v.left_first.try_into().unwrap());
+            buffer.push(v.count.try_into().unwrap());
+        }
+
+        for (i, sbvh) in self.sub_bvhs.iter().enumerate(){
+            buffer[(i + 1) * 3 + 1] = buffer.len() as u32; // bvh start
+            buffer[(i + 1) * 3 + 2] = self.meshes[sbvh.mesh_index as usize].start.try_into().unwrap(); // bvh mesh
+            buffer[(i + 1) * 3 + 3] = self.meshes[sbvh.mesh_index as usize].count.try_into().unwrap(); // bvh mesh
+            for v in &sbvh.vertices{
+                buffer.push(v.bound.min.x.to_bits() as u32);
+                buffer.push(v.bound.min.y.to_bits() as u32);
+                buffer.push(v.bound.min.z.to_bits() as u32);
+                buffer.push(v.bound.max.x.to_bits() as u32);
+                buffer.push(v.bound.max.y.to_bits() as u32);
+                buffer.push(v.bound.max.z.to_bits() as u32);
+                buffer.push(v.left_first.try_into().unwrap());
+                buffer.push(v.count.try_into().unwrap());
+            }
+        }
+
+        buffer[0] = buffer.len() as u32; // start primivites
+        for prim in &self.primitives{
+            buffer.push(prim.shape_type as u32);
+            buffer.push(prim.index.try_into().unwrap());
+        }
+
+        buffer
     }
 
     pub fn bufferize<T: SceneItem>(vec: &mut Vec<f32>, start: &mut usize, list: &[T], stride: usize){
@@ -641,16 +677,4 @@ impl Scene{
         self.top_bvh = Bvh::from_primitives(&mut aabbs, &mut prims);
         self.primitives = prims;
     }
-
-    // pub fn either_sphere_or_triangle(&self, index: usize) -> Either<&Sphere, &Triangle>{
-    //     let sl = self.spheres.len();
-    //     if index < sl{ // is sphere
-    //         Either::Left(&self.spheres[index])
-    //     } else { // is triangle
-    //         // figure out which model
-    //         Either::Right(&self.triangles[index - sl])
-    //     }
-    // }
 }
-
-pub enum Either<T, S> { Left(T), Right(S) }

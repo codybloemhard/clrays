@@ -310,12 +310,12 @@ struct RayHit InterScene(struct Ray *ray, struct Scene *scene){
 
 // adapted from our rust version and nvidia dev blog:
 // https://developer.nvidia.com/blog/thinking-parallel-part-ii-tree-traversal-gpu/
-struct RayHit InterSceneBvh(struct Ray *ray, struct Scene *scene){
+struct RayHit InterSceneBvhTop(struct Ray *ray, struct Scene *scene){
     struct RayHit closest = NullRayHit();
     float3 rpos = ray->pos;
     float3 rdinv = 1.0f / ray->dir;
 
-    uint index_start = scene->bvh[0];
+    uint primitive_start = scene->bvh[0];
     uint vertex_start = scene->bvh[1];
 
     uint sph_start = ScGetStart(SC_SPHERE, scene);
@@ -339,7 +339,7 @@ struct RayHit InterSceneBvh(struct Ray *ray, struct Scene *scene){
         }
     }
 
-    #define size 24
+    #define size 64
     uint stack[size];
     stack[0] = UINT_MAX;
     stack[1] = 0;
@@ -354,9 +354,13 @@ struct RayHit InterSceneBvh(struct Ray *ray, struct Scene *scene){
 
         if(count > 0){ // leaf
             for(uint i = left_first; i < left_first + count; i++){
-                uint k = scene->bvh[index_start + i]; // 2 = index_start for now
-                if(k < sph_count){ // sphere
-                    uint off = sph_start + k * SC_SPHERE_SIZE;
+                uint prim_type = scene->bvh[primitive_start + (i * 2) + 0];
+                uint prim_index = scene->bvh[primitive_start + (i * 2) + 1];
+                // intersect primitive
+                if(prim_type == 0){ // model
+                    // continue; // TODO
+                } else if(prim_type == 1){ // sphere
+                    uint off = sph_start + prim_index * SC_SPHERE_SIZE;
                     float3 spos = ExtractFloat3(off + 0, scene->items);
                     float srad = scene->items[off + 3];
                     bool hit = InterSphere(ray, &closest, spos, srad);
@@ -365,7 +369,7 @@ struct RayHit InterSceneBvh(struct Ray *ray, struct Scene *scene){
                         ptype = pSPHERE;
                     }
                 } else { // triangle
-                    uint off = tri_start + (k - sph_count) * SC_TRI_SIZE;
+                    uint off = tri_start + prim_index * SC_TRI_SIZE;
                     float3 a = ExtractFloat3(off + 0, scene->items);
                     float3 b = ExtractFloat3(off + 3, scene->items);
                     float3 c = ExtractFloat3(off + 6, scene->items);
@@ -400,11 +404,14 @@ struct RayHit InterSceneBvh(struct Ray *ray, struct Scene *scene){
                 order[0] = 1;
             }
 
-            if(ts[order[0]] < closest.t){
+            if(/*ts[order[0]] >= 0.0f && */ts[order[0]] < closest.t){
                 stack[ptr++] = vertices[order[0]];
-                if(ts[order[1]] < closest.t){
+                if(/*ts[order[1]] >= 0.0f && */ts[order[1]] < closest.t){
                     stack[ptr++] = vertices[order[1]];
                 }
+            }
+            else if(/*ts[order[1]] >= 0.0f && */ts[order[1]] < closest.t){
+                stack[ptr++] = vertices[order[1]];
             }
         }
     }
@@ -417,8 +424,126 @@ struct RayHit InterSceneBvh(struct Ray *ray, struct Scene *scene){
     return closest;
 }
 
+uint InterTest(struct Ray *ray, struct Scene *scene){
+    uint test = 0;
+    struct RayHit closest = NullRayHit();
+    float3 rpos = ray->pos;
+    float3 rdinv = 1.0f / ray->dir;
+
+    uint primitive_start = scene->bvh[0];
+    uint vertex_start = scene->bvh[1];
+
+    uint sph_start = ScGetStart(SC_SPHERE, scene);
+    uint sph_count = ScGetCount(SC_SPHERE, scene);
+    uint tri_start = ScGetStart(SC_TRI, scene);
+    uint pla_count = ScGetCount(SC_PLANE, scene);
+    uint pla_start = ScGetStart(SC_PLANE, scene);
+
+    uchar ptype = 0;
+    uint coff = UINT_MAX;
+
+    // Planes are not in the bvh so we just check em linearly
+    for(uint i = 0; i < pla_count; i++){
+        uint off = pla_start + i * SC_PLANE_SIZE;
+        float3 ppos = ExtractFloat3(off + 0, scene->items);
+        float3 pnor = ExtractFloat3(off + 3, scene->items);
+        bool hit = InterPlane(ray, &closest, ppos, pnor);
+        if(hit){
+            coff = off;
+            ptype = pPLANE;
+        }
+    }
+
+    #define size 64
+    uint stack[size];
+    stack[0] = UINT_MAX;
+    stack[1] = 0;
+    uint ptr = 2;
+
+    while(ptr < size){
+        uint current = stack[--ptr];
+        if(current == UINT_MAX) break;
+        uint v = vertex_start + current * 8;
+        uint left_first = scene->bvh[v + 6];
+        uint count = scene->bvh[v + 7];
+
+        if(count > 0){ // leaf
+            for(uint i = left_first; i < left_first + count; i++){
+                uint prim_type = scene->bvh[primitive_start + (i * 2) + 0];
+                uint prim_index = scene->bvh[primitive_start + (i * 2) + 1];
+                // intersect primitive
+                if(prim_type == 0){ // model
+                    continue; // TODO
+                } else if(prim_type == 1){ // sphere
+                    uint off = sph_start + prim_index * SC_SPHERE_SIZE;
+                    float3 spos = ExtractFloat3(off + 0, scene->items);
+                    float srad = scene->items[off + 3];
+                    bool hit = InterSphere(ray, &closest, spos, srad);
+                    if(hit){
+                        coff = off;
+                        ptype = pSPHERE;
+                    }
+                } else { // triangle
+                    uint off = tri_start + prim_index * SC_TRI_SIZE;
+                    float3 a = ExtractFloat3(off + 0, scene->items);
+                    float3 b = ExtractFloat3(off + 3, scene->items);
+                    float3 c = ExtractFloat3(off + 6, scene->items);
+                    bool hit = InterTri(ray, &closest, a, b, c);
+                    if(hit){
+                        coff = off;
+                        ptype = pTRI;
+                    }
+                }
+            }
+        } else {
+            uint vertices[2] = {
+                left_first,
+                left_first + 1,
+            };
+
+            v = vertex_start + left_first * 8;
+            float3 bmin = ExtractFloat3FromInts(scene->bvh, v + 0);
+            float3 bmax = ExtractFloat3FromInts(scene->bvh, v + 3);
+            float t0 = InterAABB(rpos, rdinv, bmin, bmax);
+
+            v = vertex_start + (left_first + 1) * 8;
+            bmin = ExtractFloat3FromInts(scene->bvh, v + 0);
+            bmax = ExtractFloat3FromInts(scene->bvh, v + 3);
+            float t1 = InterAABB(rpos, rdinv, bmin, bmax);
+            float ts[2] = { t0, t1 };
+
+            uint order[2] = { 0, 0 };
+            if(ts[0] <= ts[1]){
+                order[1] = 1;
+            } else {
+                order[0] = 1;
+            }
+
+            if(/*ts[order[0]] >= 0.0f && */ts[order[0]] < closest.t){
+                stack[ptr++] = vertices[order[0]];
+                test++;
+                if(/*ts[order[1]] >= 0.0f && */ts[order[1]] < closest.t){
+                    stack[ptr++] = vertices[order[1]];
+                    test++;
+                }
+            }
+            else if(/*ts[order[1]] >= 0.0f && */ts[order[1]] < closest.t){
+                stack[ptr++] = vertices[order[1]];
+                test++;
+            }
+        }
+    }
+
+    if(coff != UINT_MAX){
+        closest.mat_index = scene->items[coff + ptype];
+        closest.ptype = ptype;
+    }
+
+    return test;
+}
+
 // #define INTER_SCENE InterScene
-#define INTER_SCENE InterSceneBvh
+#define INTER_SCENE InterSceneBvhTop
 
 //get sky colour
 float3 SkyCol(float3 nor, struct Scene *scene){
@@ -590,6 +715,8 @@ float3 RandomHemispherePoint(uint* seed, float3 normal){
 }
 
 float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
+    //return ((float)InterTest(&ray, scene) / 32.0f) * (float3)(1.0f);
+
     float3 E = (float3)(1.0f); // emittance accumulator
     float ncontext = 1.0f; // refraction index of current medium
     uint tirs = 0; // total internal reflections
