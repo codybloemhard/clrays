@@ -15,7 +15,6 @@ use clr::vec3::Orientation;
 use sdl2::keyboard::Keycode;
 use std::env;
 use std::process::exit;
-// use clrays_rs::mesh::build_triangle_wall;
 
 pub const USE_WATERFLOOR : bool = false;
 pub const USE_WIDE_ANGLE : bool = false;
@@ -30,9 +29,9 @@ pub fn main() -> Result<(), String>{
 
     fn select_target() {
         println!("Run program with:");
-        println!("cargo run cpu --release");
+        println!("cargo run --release -- cpu");
         println!("or");
-        println!("cargo run gpu --release");
+        println!("cargo run --release -- gpu");
         exit(0)
     }
 
@@ -45,9 +44,6 @@ pub fn main() -> Result<(), String>{
     } else { select_target() }
 
     scene.cam = Camera{
-
-        // pos: Vec3::new(0.0, 5.0, -8.0),
-        // dir: Vec3::new(0.0, -1.0, 2.0).normalized(),
         pos: Vec3::new(0.0, 1.5, 6.0),
         dir: Vec3::BACKWARD,
         ori: Vec3::BACKWARD.normalized().orientation(),
@@ -60,6 +56,7 @@ pub fn main() -> Result<(), String>{
         angle_radius: if USE_WIDE_ANGLE { FRAC_2_PI } else { 0.0 },
         distortion_coefficient: 2.0
     };
+
     scene.sky_col = Vec3::BLUE.unhardened(0.1);
     scene.add_texture("wood", "assets/textures/wood.png", TexType::Vector3c8bpc);
     scene.add_texture("sphere", "assets/textures/spheremap.jpg", TexType::Vector3c8bpc);
@@ -150,13 +147,6 @@ pub fn main() -> Result<(), String>{
             .add_to_scene(&mut scene)
     }.add(&mut scene);
 
-    // Triangle{
-    //     a: Vec3::new(-1.0, 1.0, -7.0),
-    //     b: Vec3::new( 1.0, 1.0, -7.0),
-    //     c: Vec3::new( 1.0, 3.0, -7.0),
-    //     mat: Material::basic().as_checkerboard().add_to_scene(&mut scene),
-    // }.add(&mut scene);
-
     Sphere{
         pos: Vec3::new(-4.0, 0.0, -5.0),
         rad: 1.0 - EPSILON,
@@ -221,24 +211,6 @@ pub fn main() -> Result<(), String>{
     //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
 
-    // println!("build wall...");
-    // build_triangle_wall(Material::basic(), &mut scene, 0.5, 10.0,);
-    // println!("wall is build");
-
-    // https://groups.csail.mit.edu/graphics/classes/6.837/F03/models/
-    // load_model("assets/models/object-scene.obj", Material::basic(), &mut scene);
-    // let model_mat = Material::basic();
-            // .with_reflectivity(0.3);
-            // .as_dielectric()
-            // .with_refraction(2.0);
-
-    // let mut teapot = Model{
-    //     pos: Default::default(),
-    //     rot: Default::default(),
-    //     mat: scene.add_material(Material::basic()),
-    //     mesh: scene.add_mesh("assets/models/teapot.obj".parse().unwrap())
-    // };
-
     let mut dragon = Model{
         pos: Default::default(),
         rot: Default::default(),
@@ -284,10 +256,10 @@ pub fn main() -> Result<(), String>{
         max_reduced_ms: 40.0,
         start_in_focus_mode: false,
         max_render_depth: 4,
-        calc_frame_energy: true,
+        calc_frame_energy: false,
     };
-    let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O, T), settings);
-    // let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O, F, B, W), settings);
+    // let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O, T), settings);
+    let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O, F, B, W), settings);
 
     // let (w, h) = (960, 540);
     // let (w, h) = (1600, 900);
@@ -296,7 +268,7 @@ pub fn main() -> Result<(), String>{
     let mut window = window::Window::new("ClRays", w as u32, h as u32);
     match scene.stype {
         SceneType::GI => {
-            let mut tracer_gpu = unpackdb!(trace_processor::GpuWhitted::new((w, h), &mut scene, &mut info), "Could not create GpuWhitted!");
+            let mut tracer_gpu = unpackdb!(trace_processor::GpuPath::new((w, h), &mut scene, &mut info), "Could not create GpuPath!");
             info.stop_time();
             info.print_info();
             window.run(fps_input_fn, log_update_fn, &mut state, &mut tracer_gpu, &mut scene)
@@ -308,5 +280,4 @@ pub fn main() -> Result<(), String>{
             window.run(fps_input_fn, log_update_fn, &mut state, &mut tracer_cpu, &mut scene)
         }
     }
-
 }

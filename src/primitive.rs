@@ -1,7 +1,5 @@
-use crate::scene::{ Plane, Scene, Model, Intersectable};
-use crate::vec3::Vec3;
-use crate::consts::EPSILON;
-use crate::cpu::inter::{ Ray, RayHit, dist_sphere, dist_plane, dist_triangle};
+use crate::scene::{ Scene, Model, Intersectable};
+use crate::cpu::inter::{ Ray, RayHit, dist_sphere, dist_triangle};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Shape {

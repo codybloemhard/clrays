@@ -70,13 +70,11 @@ QWERTY  |Gaming | Q, E, W, S, A, D                               | I, K, J, L   
 QGMLWY  |Typing | G, L, M, T, S, N                               | U, E, A, O                  | F                 | B
 
 ## Possible things to work on
-- pathtracing
 - portals
 - hdr skybox
 - sphere skybox only tophalf option
 - skybox cubemap
 - procedural sky
-- use Wang hash + xor32 on gpu
 - denoising
 - optimize pow: gamma correct images before upload
 - optimize vector loading: use vload3 and allign the buffer for it
