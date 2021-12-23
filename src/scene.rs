@@ -310,6 +310,8 @@ impl SceneItem for Model{
     fn add(self, scene: &mut Scene){
         scene.add_model(self);
     }
+
+    fn get_data(&self) -> Vec<f32>{ vec![] }
 }
 
 pub struct Light{
@@ -513,10 +515,11 @@ impl Scene{
     }
 
     pub fn get_bvh_buffer(&self) -> Vec<u32>{
-        let bvhs = 1;
-        let mut buffer = vec![0; bvhs * 2];
-        self.bvh_nightly.into_buffer(0, &mut buffer);
-        buffer
+        // let bvhs = 1;
+        // let mut buffer = vec![0; bvhs * 2];
+        // self.bvh.into_buffer(0, &mut buffer);
+        // buffer
+        vec![]
     }
 
     pub fn bufferize<T: SceneItem>(vec: &mut Vec<f32>, start: &mut usize, list: &[T], stride: usize){
@@ -538,7 +541,7 @@ impl Scene{
         self.ghost_textures.insert(name.to_string(), (path.to_string(), ttype));
     }
 
-    pub fn add_material(&mut self, mat: Material) -> MaterialIndex {
+    pub fn get_mat_index(&mut self, mat: Material) -> MaterialIndex {
         if let Some(i) = self.mats.iter().position(|m| *m == mat) {
             i as MaterialIndex
         } else {

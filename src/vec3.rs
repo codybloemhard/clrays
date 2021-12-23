@@ -21,6 +21,8 @@ impl PartialEq for Vec3{
     }
 }
 
+impl Eq for Vec3{}
+
 impl Vec3{
     pub const ZERO: Vec3 =      Self { x:  0.0, y:  0.0, z:  0.0 };
     pub const ONE: Vec3 =       Self { x:  1.0, y:  1.0, z:  1.0 };

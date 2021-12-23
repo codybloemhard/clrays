@@ -4,16 +4,15 @@ extern crate clrays_rs;
 use clrays_rs as clr;
 use clr::window;
 use clr::trace_processor;
-use clr::scene::{ Scene, SceneType, Camera, SceneItem, Material, Plane, Triangle, Sphere, Light };
+use clr::scene::{ Scene, SceneType, Camera, SceneItem, Material, Plane, Triangle, Sphere, Light, Model };
 use clr::vec3::{ Vec3 };
 use clr::info::{ Info };
 use clr::trace_tex::{ TexType };
 use clr::state::{ State, Settings, log_update_fn, fps_input_fn };
+use clr::consts::*;
+use clr::vec3::Orientation;
 
 use sdl2::keyboard::Keycode;
-use clrays_rs::consts::*;
-use clrays_rs::scene::{Model, SceneItem};
-use clrays_rs::vec3::Orientation;
 // use clrays_rs::mesh::build_triangle_wall;
 
 pub const USE_WATERFLOOR : bool = false;
@@ -99,40 +98,40 @@ pub fn main() -> Result<(), String>{
         }.add(&mut scene);
     }
 
-    Sphere{
-        pos: Vec3::new(2.0, 0.0, -5.0),
-        rad: 1.0 - EPSILON,
-        mat: Material::basic()
-            .with_texture(scene.get_texture("tiles-alb"))
-            .with_normal_map(scene.get_texture("tiles-nor"))
-            .with_roughness_map(scene.get_texture("tiles-rou"))
-            .add_to_scene(&mut scene)
-    }.add(&mut scene);
-
-    Sphere{
-        pos: Vec3::new(0.0, 0.0, -5.0),
-        rad: 1.0 - EPSILON,
-        mat: Material::basic()
-            .with_reflectivity(0.3)
-            .with_texture(scene.get_texture("solar-alb"))
-            .with_normal_map(scene.get_texture("solar-nor"))
-            .with_roughness_map(scene.get_texture("solar-rou"))
-            .with_metalic_map(scene.get_texture("solar-met"))
-            .add_to_scene(&mut scene)
-    }.add(&mut scene);
-
-    Sphere{
-        pos: Vec3::new(-2.0, 0.1, -5.0),
-        rad: 1.0 - EPSILON,
-        mat: Material::basic()
-            .with_texture(scene.get_texture("scifi-alb"))
-            .with_normal_map(scene.get_texture("scifi-nor"))
-            .with_roughness_map(scene.get_texture("scifi-rou"))
-            .with_metalic_map(scene.get_texture("scifi-met"))
-            .with_reflectivity(0.9)
-            .add_to_scene(&mut scene)
-    }.add(&mut scene);
+    // Sphere{
+    //     pos: Vec3::new(2.0, 0.0, -5.0),
+    //     rad: 1.0 - EPSILON,
+    //     mat: Material::basic()
+    //         .with_texture(scene.get_texture("tiles-alb"))
+    //         .with_normal_map(scene.get_texture("tiles-nor"))
+    //         .with_roughness_map(scene.get_texture("tiles-rou"))
+    //         .add_to_scene(&mut scene)
+    // }.add(&mut scene);
     //
+    // Sphere{
+    //     pos: Vec3::new(0.0, 0.0, -5.0),
+    //     rad: 1.0 - EPSILON,
+    //     mat: Material::basic()
+    //         .with_reflectivity(0.3)
+    //         .with_texture(scene.get_texture("solar-alb"))
+    //         .with_normal_map(scene.get_texture("solar-nor"))
+    //         .with_roughness_map(scene.get_texture("solar-rou"))
+    //         .with_metalic_map(scene.get_texture("solar-met"))
+    //         .add_to_scene(&mut scene)
+    // }.add(&mut scene);
+    //
+    // Sphere{
+    //     pos: Vec3::new(-2.0, 0.1, -5.0),
+    //     rad: 1.0 - EPSILON,
+    //     mat: Material::basic()
+    //         .with_texture(scene.get_texture("scifi-alb"))
+    //         .with_normal_map(scene.get_texture("scifi-nor"))
+    //         .with_roughness_map(scene.get_texture("scifi-rou"))
+    //         .with_metalic_map(scene.get_texture("scifi-met"))
+    //         .with_reflectivity(0.9)
+    //         .add_to_scene(&mut scene)
+    // }.add(&mut scene);
+
     // Triangle{
     //     a: Vec3::new(-1.0, 1.0, -7.0),
     //     b: Vec3::new( 1.0, 1.0, -7.0),
@@ -140,23 +139,23 @@ pub fn main() -> Result<(), String>{
     //     mat: Material::basic().as_checkerboard().add_to_scene(&mut scene),
     // }.add(&mut scene);
 
-    Sphere{
-        pos: Vec3::new(-4.0, 0.0, -5.0),
-        rad: 1.0 - EPSILON,
-        mat: Material::basic()
-            .as_dielectric()
-            .with_refraction(1.5)
-            .add_to_scene(&mut scene)
-    }.add(&mut scene);
-
-    Sphere{
-        pos: Vec3::new(-6.0, 0.0, -5.0),
-        rad: 1.0 - EPSILON,
-        mat: Material::basic()
-            .as_dielectric()
-            .with_refraction(2.0)
-            .add_to_scene(&mut scene)
-    }.add(&mut scene);
+    // Sphere{
+    //     pos: Vec3::new(-4.0, 0.0, -5.0),
+    //     rad: 1.0 - EPSILON,
+    //     mat: Material::basic()
+    //         .as_dielectric()
+    //         .with_refraction(1.5)
+    //         .add_to_scene(&mut scene)
+    // }.add(&mut scene);
+    //
+    // Sphere{
+    //     pos: Vec3::new(-6.0, 0.0, -5.0),
+    //     rad: 1.0 - EPSILON,
+    //     mat: Material::basic()
+    //         .as_dielectric()
+    //         .with_refraction(2.0)
+    //         .add_to_scene(&mut scene)
+    // }.add(&mut scene);
 
     // Sphere{
     //     pos: Vec3::new(-6.0, 0.0, -5.0),
@@ -224,12 +223,13 @@ pub fn main() -> Result<(), String>{
     let mut dragon = Model{
         pos: Default::default(),
         rot: Default::default(),
-        mat: scene.add_material(Material::basic()),
+        mat: Material::basic().with_colour(Vec3::new(1.0, 0.5, 0.4)).add_to_scene(&mut scene),
+        // mat: Material::basic().as_dielectric().with_refraction(WATER_REFRACTION).add_to_scene(&mut scene),
         mesh: scene.add_mesh("assets/models/dragon.obj".parse().unwrap())
     };
     // 10000 dragons = 1 billion triangles
-    for i in 0..10000 {
-        let theta = rand::random::<f32>() * 2.0*PI;
+    for _ in 0..10000 {
+        let theta = rand::random::<f32>() * 2.0 * PI;
         let pos = Vec3 {
             x: rand::random::<f32>() * 300.0 - 300.0 * 0.5,
             y: rand::random::<f32>() * 300.0 - 300.0 * 0.5,
@@ -241,7 +241,6 @@ pub fn main() -> Result<(), String>{
         dragon.rot = Vec3::from_orientation( &ori);
         scene.add_model(dragon);
     }
-    scene.gen_top_bvh();
 
     Light{
         pos: Vec3::new(0.0, 3.0, 0.0),
@@ -256,7 +255,7 @@ pub fn main() -> Result<(), String>{
             .add_to_scene(&mut scene)
     }.add(&mut scene);
 
-    scene.generate_bvh_nightly(16);
+    scene.gen_top_bvh();
 
     info.set_time_point("Setting up scene");
     scene.pack_textures(&mut info);
@@ -271,8 +270,8 @@ pub fn main() -> Result<(), String>{
     let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O, F, B, W), settings);
 
     // let (w, h) = (960, 540);
-    let (w, h) = (1600, 900);
-    // let (w, h) = (1920, 1080);
+    // let (w, h) = (1600, 900);
+    let (w, h) = (1920, 1080);
 
     // let mut tracer = unpackdb!(trace_processor::GpuWhitted::new((w, h), &mut scene, &mut info), "Could not create GpuWhitted!");
     // let mut tracer = unpackdb!(trace_processor::GpuPath::new((w, h), &mut scene, &mut info), "Could not create GpuPath!");

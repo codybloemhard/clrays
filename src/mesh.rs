@@ -49,8 +49,8 @@ impl Mesh {
                 }
             }
         }
-        // 5B = 5.000M = 50.000 * 100.000
-        // we require 50.000 dragons
+        // 1B = 1.000M = 10.000 * 100.000
+        // we require 10.000 dragons
         // println!("model triangle size: {}", tris.len()); // dragon = 100.000
         let mut triangles = vec![];
         for tri in &tris{
@@ -67,6 +67,7 @@ impl Mesh {
                 a: Vec3::new(x0, y0, z0),
                 b: Vec3::new(x1, y1, z1),
                 c: Vec3::new(x2, y2, z2),
+                mat: 0,
             })
         }
         triangles
@@ -98,11 +99,13 @@ impl Mesh {
                     a: Vec3::new(x0, y0, z0),
                     b: Vec3::new(x1, y1, z1),
                     c: Vec3::new(x2, y2, z2),
+                    mat: 0,
                 });
                 triangles.push( Triangle{
                     a: Vec3::new(x1, y1, z1),
                     b: Vec3::new(x2, y2, z2),
                     c: Vec3::new(x3, y3, z3),
+                    mat: 0,
                 });
                 y += diff;
             }
