@@ -1,6 +1,5 @@
-use crate::consts::{EPSILON, MAX_RENDER_DIST};
+use crate::consts::{ EPSILON, MAX_RENDER_DIST };
 use crate::aabb::Axis;
-use crate::scene::Bufferizable;
 use rand::random;
 
 #[derive(Clone, Copy, Debug)]
@@ -15,16 +14,10 @@ pub struct Vec3{ // 12 byte
     pub y: f32, // f32: 4 byte
     pub z: f32, // f32: 4 byte
 }
+
 impl PartialEq for Vec3{
     fn eq(&self, other: &Self) -> bool {
         self.dist(*other) < EPSILON
-    }
-}
-impl Eq for Vec3 {}
-
-impl Bufferizable for Vec3{
-    fn get_data(&self) -> Vec<f32>{
-        vec![ self.x, self.y, self.z ]
     }
 }
 

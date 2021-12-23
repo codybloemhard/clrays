@@ -1,4 +1,4 @@
-use crate::scene::{Triangle };
+use crate::scene::{ Sphere, Plane, Triangle, MaterialIndex };
 use crate::vec3::Vec3;
 use crate::aabb::AABB;
 use crate::consts::*;
@@ -48,8 +48,8 @@ pub struct RayHit{
     pub pos: Vec3,
     pub nor: Vec3,
     pub t: f32,
+    pub mat: MaterialIndex,
     pub uvtype: u8,
-    pub mat: u8,
 }
 
 impl RayHit{
@@ -82,6 +82,28 @@ impl RayHit{
 //     t
 // }
 
+// ray-sphere intersection
+#[inline]
+pub fn inter_sphere(ray: Ray, sphere: &Sphere, closest: &mut RayHit){
+    let l = Vec3::subed(sphere.pos, ray.pos);
+    let tca = Vec3::dot(ray.dir, l);
+    let d = tca * tca - Vec3::dot(l, l) + sphere.rad * sphere.rad;
+    if d < 0.0 { return; }
+    let dsqrt = d.sqrt();
+    let mut t = tca - dsqrt;
+    if t < 0.0 {
+        t = tca + dsqrt;
+        if t < 0.0 { return; }
+    }
+    if t > closest.t { return; }
+    closest.t = t;
+    closest.pos = ray.pos.added(ray.dir.scaled(t));
+    closest.nor = Vec3::subed(closest.pos, sphere.pos).scaled(1.0 / sphere.rad);
+    closest.mat = sphere.mat;
+    closest.uvtype = UV_SPHERE;
+    closest.sphere = Some(sphere);
+}
+
 // #[inline]
 // pub fn dist_plane(ray: Ray, plane: &Plane) -> f32{
 //     let divisor = Vec3::dot(ray.dir, plane.nor);
@@ -92,6 +114,50 @@ impl RayHit{
 //     t
 // }
 
+// ray-plane intersection
+#[inline]
+pub fn inter_plane(ray: Ray, plane: &Plane, closest: &mut RayHit){
+    let divisor = Vec3::dot(ray.dir, plane.nor);
+    if divisor.abs() < EPSILON { return; }
+    let planevec = Vec3::subed(plane.pos, ray.pos);
+    let t = Vec3::dot(planevec, plane.nor) / divisor;
+    if t < EPSILON { return; }
+    if t > closest.t { return; }
+    closest.t = t;
+    closest.pos = ray.pos.added(ray.dir.scaled(t));
+    closest.nor = plane.nor;
+    closest.mat = plane.mat;
+    closest.uvtype = UV_PLANE;
+    closest.sphere = None;
+}
+
+// ray-triangle intersection
+// https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm?oldformat=true
+#[inline]
+#[allow(clippy::many_single_char_names)]
+pub fn inter_triangle(ray: Ray, tri: &Triangle, closest: &mut RayHit){
+    let edge1 = Vec3::subed(tri.b, tri.a);
+    let edge2 = Vec3::subed(tri.c, tri.a);
+    let h = Vec3::crossed(ray.dir, edge2);
+    let a = Vec3::dot(edge1, h);
+    if a > -EPSILON * 0.01 && a < EPSILON * 0.01 { return; } // ray parallel to tri
+    let f = 1.0 / a;
+    let s = Vec3::subed(ray.pos, tri.a);
+    let u = f * Vec3::dot(s, h);
+    if !(0.0..=1.0).contains(&u) { return; }
+    let q = Vec3::crossed(s, edge1);
+    let v = f * Vec3::dot(ray.dir, q);
+    if v < 0.0 || u + v > 1.0 { return; }
+    let t = f * Vec3::dot(edge2, q);
+    if t <= EPSILON { return; }
+    if t > closest.t { return; }
+    closest.t = t;
+    closest.pos = ray.pos.added(ray.dir.scaled(t));
+    closest.nor = Vec3::crossed(edge1, edge2).normalized_fast();
+    closest.mat = tri.mat;
+    closest.uvtype = UV_PLANE;
+    closest.sphere = None;
+}
 
 #[inline]
 #[allow(clippy::many_single_char_names)]

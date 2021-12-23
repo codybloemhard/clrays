@@ -5,6 +5,7 @@ pub struct Info{
     pub textures: Vec<(String,u64)>,
     pub meta_size: u64,
     pub scene_size: u64,
+    pub bvh_size: u64,
     pub int_buffer_size: u64,
     pub float_buffer_size: u64,
     times: Vec<(String, i64)>,
@@ -19,6 +20,7 @@ impl Info{
     pub fn print_info(&self){
         println!("Metadata: {}.", Self::format_size(self.meta_size));
         println!("Scene:    {}.", Self::format_size(self.scene_size));
+        println!("Bvh:      {}.", Self::format_size(self.bvh_size));
         println!("Int FB:   {}.", Self::format_size(self.int_buffer_size));
         println!("Float FB: {}.", Self::format_size(self.float_buffer_size));
         let mut sum = 0;
@@ -26,10 +28,10 @@ impl Info{
             sum += size;
             println!("{} : {} : {}.", i, name, Self::format_size(*size));
         }
-        println!("Totalsize: ");
+        println!("Textures total size: ");
         Self::print_size_verbose(sum);
         println!("Grand Total: ");
-        sum += self.meta_size + self.scene_size + self.int_buffer_size + self.float_buffer_size;
+        sum += self.meta_size + self.scene_size + self.bvh_size + self.int_buffer_size + self.float_buffer_size;
         Self::print_size_verbose(sum);
         let mut last = 0;
         for (name, time) in self.times.iter(){

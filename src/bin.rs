@@ -4,7 +4,7 @@ extern crate clrays_rs;
 use clrays_rs as clr;
 use clr::window;
 use clr::trace_processor;
-use clr::scene::{ Scene, Camera, Material, Plane, Triangle, Sphere, Light };
+use clr::scene::{ Scene, SceneType, Camera, SceneItem, Material, Plane, Triangle, Sphere, Light };
 use clr::vec3::{ Vec3 };
 use clr::info::{ Info };
 use clr::trace_tex::{ TexType };
@@ -26,6 +26,8 @@ pub fn main() -> Result<(), String>{
     info.start_time();
 
     let mut scene = Scene::new();
+    // scene.stype = SceneType::GI;
+    scene.stype = SceneType::Whitted;
     scene.cam = Camera{
         // pos: Vec3::new(0.0, 5.0, -8.0),
         // dir: Vec3::new(0.0, -1.0, 2.0).normalized(),
@@ -137,18 +139,27 @@ pub fn main() -> Result<(), String>{
     //     c: Vec3::new( 1.0, 3.0, -7.0),
     //     mat: Material::basic().as_checkerboard().add_to_scene(&mut scene),
     // }.add(&mut scene);
-    //
+
+    Sphere{
+        pos: Vec3::new(-4.0, 0.0, -5.0),
+        rad: 1.0 - EPSILON,
+        mat: Material::basic()
+            .as_dielectric()
+            .with_refraction(1.5)
+            .add_to_scene(&mut scene)
+    }.add(&mut scene);
+
+    Sphere{
+        pos: Vec3::new(-6.0, 0.0, -5.0),
+        rad: 1.0 - EPSILON,
+        mat: Material::basic()
+            .as_dielectric()
+            .with_refraction(2.0)
+            .add_to_scene(&mut scene)
+    }.add(&mut scene);
+
     // Sphere{
-    //     pos: Vec3::new(3.0, 3.0, -5.0),
-    //     rad: 1.0 - EPSILON,
-    //     mat: Material::basic()
-    //         .as_dielectric()
-    //         .with_refraction(0.7)
-    //         .add_to_scene(&mut scene)
-    // }.add(&mut scene);
-    //
-    // Sphere{
-    //     pos: Vec3::new(-0.0, 3.0, -5.0),
+    //     pos: Vec3::new(-6.0, 0.0, -5.0),
     //     rad: 1.0 - EPSILON,
     //     mat: Material::basic()
     //         .as_dielectric()
@@ -156,29 +167,20 @@ pub fn main() -> Result<(), String>{
     //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
     // Sphere{
-    //     pos: Vec3::new(-0.0, 3.0, -5.0),
+    //     pos: Vec3::new(-6.0, 0.0, -5.0),
     //     rad: 0.95 - EPSILON,
     //     mat: Material::basic()
     //         .as_dielectric()
     //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
-    //
-    // Sphere{
-    //     pos: Vec3::new(-3.0, 3.0, -5.0),
-    //     rad: 1.0 - EPSILON,
-    //     mat: Material::basic()
-    //         .as_dielectric()
-    //         .with_refraction(2.0)
-    //         .add_to_scene(&mut scene)
-    // }.add(&mut scene);
-    //
+
     // Sphere{
     //     pos: Vec3::new(0.0, 2.0, -10.0),
     //     rad: 1.0 - EPSILON,
     //     mat: Material::basic()
     //         .as_dielectric()
     //         .with_absorption(Vec3 { x: 0.8, y: 0.3, z: 0.3 })
-    //         .with_refraction(AIR_REFRACTION)
+    //         .with_refraction(DIAMOND_REFRACTION)
     //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
     //
@@ -201,9 +203,10 @@ pub fn main() -> Result<(), String>{
     //         .with_refraction(AIR_REFRACTION)
     //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
-    // // println!("build wall...");
-    // // build_triangle_wall(Material::basic(), &mut scene, 0.5, 10.0,);
-    // // println!("wall is build");
+
+    // println!("build wall...");
+    // build_triangle_wall(Material::basic(), &mut scene, 0.5, 10.0,);
+    // println!("wall is build");
 
     // https://groups.csail.mit.edu/graphics/classes/6.837/F03/models/
     // load_model("assets/models/object-scene.obj", Material::basic(), &mut scene);
@@ -246,6 +249,15 @@ pub fn main() -> Result<(), String>{
         col: Vec3::ONE,
     }.add(&mut scene);
 
+    Sphere{
+        pos: Vec3::new(0.0, 2.0, -3.0),
+        rad: 0.5,
+        mat: Material::basic().into_light(Vec3::uni(1.0), 10000.0)
+            .add_to_scene(&mut scene)
+    }.add(&mut scene);
+
+    scene.generate_bvh_nightly(16);
+
     info.set_time_point("Setting up scene");
     scene.pack_textures(&mut info);
 
@@ -262,8 +274,8 @@ pub fn main() -> Result<(), String>{
     let (w, h) = (1600, 900);
     // let (w, h) = (1920, 1080);
 
-    // let mut tracer = unpackdb!(trace_processor::RealTracer::new((w, h), &mut scene, &mut info), "Could not create RealTracer!");
-    // let mut tracer = unpackdb!(trace_processor::AaTracer::new((w, h), 2, &mut scene, &mut info), "Could not create AaTracer!");
+    // let mut tracer = unpackdb!(trace_processor::GpuWhitted::new((w, h), &mut scene, &mut info), "Could not create GpuWhitted!");
+    // let mut tracer = unpackdb!(trace_processor::GpuPath::new((w, h), &mut scene, &mut info), "Could not create GpuPath!");
     let mut tracer = trace_processor::CpuWhitted::new(w as usize, h as usize, 32, &mut scene, &mut info);
 
     info.stop_time();

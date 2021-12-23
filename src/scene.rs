@@ -11,7 +11,16 @@ use crate::primitive::{Primitive, Shape};
 use crate::cpu::inter::{Ray, RayHit};
 use crate::consts::{EPSILON, UV_SPHERE, UV_PLANE};
 
-type MaterialIndex = u8;
+pub trait SceneItem{
+    fn get_data(&self) -> Vec<f32>;
+    fn add(self, scene: &mut Scene);
+}
+
+pub trait Intersectable {
+    fn intersect(&self, ray: Ray, hit: &mut RayHit);
+}
+
+pub type MaterialIndex = u32;
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Material{ // 62 bytes =  2*12 + 9*4 + 2
@@ -27,7 +36,8 @@ pub struct Material{ // 62 bytes =  2*12 + 9*4 + 2
     pub metalic_map: u32,
     pub tex_scale: f32,
     pub is_checkerboard: bool,
-    pub is_dielectric: bool
+    pub is_dielectric: bool,
+    pub emittance: f32,
 }
 
 impl Material{
@@ -37,10 +47,6 @@ impl Material{
 
     pub fn set_tex_scale(&mut self, v: f32){
         self.tex_scale = 1.0 / v;
-    }
-
-    pub fn add_to_scene(self, scene: &mut Scene) -> MaterialIndex{
-        scene.add_material(self)
     }
 
     pub fn basic() -> Self{
@@ -58,7 +64,14 @@ impl Material{
             tex_scale: 1.0,
             is_checkerboard: false,
             is_dielectric: false,
+            emittance: 0.0,
         }
+    }
+
+    pub fn into_light(mut self, col: Vec3, emittance: f32) -> Self{
+        self.col = col;
+        self.emittance = emittance;
+        self
     }
 
     pub fn with_colour(mut self, col: Vec3) -> Self{
@@ -82,7 +95,12 @@ impl Material{
     }
 
     pub fn with_absorption(mut self, absorption: Vec3) -> Self{
-        self.absorption = absorption;
+        let ab = Vec3{
+            x: (1.0 - absorption.x).ln(),
+            y: (1.0 - absorption.y).ln(),
+            z: (1.0 - absorption.z).ln(),
+        };
+        self.absorption = ab;
         self
     }
 
@@ -125,15 +143,29 @@ impl Material{
         self.tex_scale = 1.0 / v;
         self
     }
+
+    pub fn add_to_scene(self, scene: &mut Scene) -> MaterialIndex{
+        scene.get_mat_index(self)
+    }
+
 }
 
-pub trait Bufferizable{
-    fn get_data(&self) -> Vec<f32>;
-}
+impl SceneItem for Material{
+    fn get_data(&self) -> Vec<f32>{
+        let refraction = if self.is_dielectric { self.refraction } else { -1.0 };
+        vec![
+            self.col.x, self.col.y, self.col.z, self.reflectivity,
+            self.absorption.x, self.absorption.y, self.absorption.z, refraction,
+            self.roughness, self.emittance,
+            self.texture as f32, self.normal_map as f32,
+            self.roughness_map as f32, self.metalic_map as f32,
+            self.tex_scale
+        ]
+    }
 
-pub trait SceneItem{
-    fn add(self, scene: &mut Scene);
-    // fn bound(&self) -> AABB;
+    fn add(self, scene: &mut Scene){
+        scene.get_mat_index(self);
+    }
 }
 
 pub struct Plane{
@@ -142,13 +174,17 @@ pub struct Plane{
     pub mat: MaterialIndex,
 }
 
-impl Bufferizable for Plane {
-    fn get_data(&self) -> Vec<f32> {
+impl SceneItem for Plane{
+    fn get_data(&self) -> Vec<f32>{
         vec![
             self.pos.x, self.pos.y, self.pos.z,
             self.nor.x, self.nor.y, self.nor.z,
             self.mat as f32
         ]
+    }
+
+    fn add(self, scene: &mut Scene){
+        scene.add_plane(self);
     }
 }
 
@@ -170,32 +206,22 @@ impl Intersectable for Plane {
     }
 }
 
-impl SceneItem for Plane{
-    fn add(self, scene: &mut Scene){
-        scene.add_plane(self);
-    }
-
-    // fn bound(&self) -> AABB{
-    //     panic!("Plane\'s cannot be bound!");
-    // }
-}
-
 pub struct Sphere{
     pub pos: Vec3,
     pub rad: f32,
     pub mat: MaterialIndex,
 }
 
-impl Bufferizable for Sphere {
-    fn get_data(&self) -> Vec<f32> {
-        vec![self.pos.x, self.pos.y, self.pos.z, self.rad, self.mat as f32]
-    }
-}
 impl SceneItem for Sphere{
+    fn get_data(&self) -> Vec<f32>{
+        vec![ self.pos.x, self.pos.y, self.pos.z, self.rad, self.mat as f32 ]
+    }
+
     fn add(self, scene: &mut Scene){
         scene.add_sphere(self);
     }
 }
+
 impl Intersectable for Sphere {
     #[inline]
     fn intersect(&self, ray: Ray, hit: &mut RayHit){
@@ -218,25 +244,32 @@ impl Intersectable for Sphere {
     }
 }
 
-
 #[derive(Default,Debug,Clone)]
 pub struct Triangle{ // 37 byte
     pub a: Vec3, // Vec3: 12 byte
     pub b: Vec3, // Vec3: 12 byte
     pub c: Vec3, // Vec3: 12 byte
+    pub mat: MaterialIndex, // u32: 4 byte
 }
-impl Bufferizable for Triangle {
-    fn get_data(&self) -> Vec<f32> {
+
+impl SceneItem for Triangle{
+    fn get_data(&self) -> Vec<f32>{
         vec![
             self.a.x, self.a.y, self.a.z,
             self.b.x, self.b.y, self.b.z,
             self.c.x, self.c.y, self.c.z,
+            self.mat as f32
         ]
     }
+
+    fn add(self, scene: &mut Scene){
+        scene.add_triangle(self);
+    }
 }
+
 impl Intersectable for Triangle {
     // ray-triangle intersection
-// https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm?oldformat=true
+    // https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm?oldformat=true
     #[inline]
     #[allow(clippy::many_single_char_names)]
     fn intersect(&self, ray: Ray, hit: &mut RayHit){
@@ -261,18 +294,8 @@ impl Intersectable for Triangle {
     }
 }
 
-pub trait Intersectable {
-    fn intersect(&self, ray: Ray, hit: &mut RayHit);
-}
-
 pub type MeshIndex = u8;
 pub type ModelIndex = u8;
-
-impl Bufferizable for Mesh{
-    fn get_data(&self) -> Vec<f32>{
-        vec![self.start as f32,self.count as f32]
-    }
-}
 
 #[derive(Clone, Copy)]
 pub struct Model{
@@ -282,15 +305,7 @@ pub struct Model{
     pub mat: MaterialIndex,
     pub mesh: MeshIndex
 }
-impl Bufferizable for Model{
-    fn get_data(&self) -> Vec<f32>{
-        // let t = vec![self.pos.get_data(),self.rot.get_data()].into_iter().flatten().collect();
-        // t.push(self.mat as f32);
-        // t.push(self.mesh as f32);
-        // t
-        vec![]
-    }
-}
+
 impl SceneItem for Model{
     fn add(self, scene: &mut Scene){
         scene.add_model(self);
@@ -303,22 +318,17 @@ pub struct Light{
     pub col: Vec3,
 }
 
-impl Bufferizable for Light{
+impl SceneItem for Light{
     fn get_data(&self) -> Vec<f32>{
         vec![
-            self.pos.x, self.pos.y, self.pos.z,
-            self.intensity, self.col.x, self.col.y, self.col.z
+            self.pos.x, self.pos.y, self.pos.z, self.intensity,
+            self.col.x, self.col.y, self.col.z
         ]
     }
-}
-impl SceneItem for Light{
+
     fn add(self, scene: &mut Scene){
         scene.add_light(self);
     }
-
-    // fn bound(&self) -> AABB{
-    //     panic!("Lights need not to be bound!");
-    // }
 }
 
 #[derive(Clone, Debug)]
@@ -336,7 +346,14 @@ pub struct Camera{
     pub distortion_coefficient: f32
 }
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum SceneType{
+    Whitted,
+    GI,
+}
+
 pub struct Scene{
+    pub stype: SceneType,
     pub spheres: Vec<Sphere>,
     pub planes: Vec<Plane>,
     pub lights: Vec<Light>,
@@ -368,18 +385,19 @@ impl Default for Scene {
 
 impl Scene{
     const SCENE_SIZE: u32 = 11;
-    const SCENE_PARAM_SIZE: usize = 4 * 3 + Self::SCENE_SIZE as usize;
-    const MATERIAL_SIZE: u32 = 10;
+    const SCENE_PARAM_SIZE: usize = 5 * 2 + Self::SCENE_SIZE as usize;
+    const MATERIAL_SIZE: u32 = 15;
+    const MATERIAL_INDEX_SIZE: u32 = 1;
     const LIGHT_SIZE: u32 = 7;
-    const SPHERE_SIZE: u32 = 4 + Self::MATERIAL_SIZE;
-    const PLANE_SIZE: u32 = 6 + Self::MATERIAL_SIZE;
-    const TRIANGLE_SIZE: u32 = 9 + Self::MATERIAL_SIZE;
+    const PLANE_SIZE: u32 = 6 + Self::MATERIAL_INDEX_SIZE;
+    const SPHERE_SIZE: u32 = 4 + Self::MATERIAL_INDEX_SIZE;
+    const TRIANGLE_SIZE: u32 = 9 + Self::MATERIAL_INDEX_SIZE;
 
     pub fn new() -> Self{
         Self{
+            stype: SceneType::GI,
             spheres: Vec::new(),
             planes: Vec::new(),
-            mats: Vec::new(),
             triangles: Vec::new(),
             meshes: Vec::new(),
             models: Vec::new(),
@@ -387,6 +405,7 @@ impl Scene{
             sub_bvhs: Vec::new(),
             top_bvh: Bvh::default(),
             lights: Vec::new(),
+            mats: vec![Material::basic()],
             scene_params: [0; Self::SCENE_PARAM_SIZE],
             next_texture: 0,
             ghost_textures: HashMap::new(),
@@ -413,41 +432,47 @@ impl Scene{
         }
     }
 
-    pub fn get_buffers(&mut self) -> Vec<f32>{
-        let mut len = self.lights.len() * Self::LIGHT_SIZE as usize;
-        len += self.spheres.len() * Self::SPHERE_SIZE as usize;
+    pub fn get_scene_buffer(&mut self) -> Vec<f32>{
+        let mut len = 0;
+        len += self.mats.len() * Self::MATERIAL_SIZE as usize;
+        len += self.lights.len() * Self::LIGHT_SIZE as usize;
         len += self.planes.len() * Self::PLANE_SIZE as usize;
+        len += self.spheres.len() * Self::SPHERE_SIZE as usize;
         len += self.triangles.len() * Self::TRIANGLE_SIZE as usize;
         let mut res = build_vec(len);
         let mut i = 0;
+        Self::bufferize(&mut res, &mut i, &self.mats, Self::MATERIAL_SIZE as usize);
         Self::bufferize(&mut res, &mut i, &self.lights, Self::LIGHT_SIZE as usize);
-        Self::bufferize(&mut res, &mut i, &self.spheres, Self::SPHERE_SIZE as usize);
         Self::bufferize(&mut res, &mut i, &self.planes, Self::PLANE_SIZE as usize);
+        Self::bufferize(&mut res, &mut i, &self.spheres, Self::SPHERE_SIZE as usize);
         Self::bufferize(&mut res, &mut i, &self.triangles, Self::TRIANGLE_SIZE as usize);
         make_nonzero_len(&mut res);
         res
     }
 
-    pub fn get_params_buffer(&mut self) -> Vec<u32>{
+    pub fn get_scene_params_buffer(&mut self) -> Vec<u32>{
         let mut i = 0;
-        self.scene_params[0] = Self::LIGHT_SIZE;
-        self.scene_params[1] = self.lights.len() as u32;
-        self.scene_params[2] = i; i += self.lights.len() as u32 * Self::LIGHT_SIZE;
-        self.scene_params[3] = Self::SPHERE_SIZE;
-        self.scene_params[4] = self.spheres.len() as u32;
-        self.scene_params[5] = i; i += self.spheres.len() as u32 * Self::SPHERE_SIZE;
-        self.scene_params[6] = Self::PLANE_SIZE;
-        self.scene_params[7] = self.planes.len() as u32;
-        self.scene_params[8] = i; i += self.planes.len() as u32 * Self::PLANE_SIZE;
-        self.scene_params[9] = Self::TRIANGLE_SIZE;
-        // self.scene_params[10] = self.triangles.len() as u32;
-        // self.scene_params[11] = i; //i += self.triangles.len() as u32 * Self::TRIANGLE_SIZE;
+        self.scene_params[0] = self.mats.len() as u32;
+        self.scene_params[1] = i; i += self.mats.len() as u32 * Self::MATERIAL_SIZE;
+
+        self.scene_params[2] = self.lights.len() as u32;
+        self.scene_params[3] = i; i += self.lights.len() as u32 * Self::LIGHT_SIZE;
+
+        self.scene_params[4] = self.planes.len() as u32;
+        self.scene_params[5] = i; i += self.planes.len() as u32 * Self::PLANE_SIZE;
+
+        self.scene_params[6] = self.spheres.len() as u32;
+        self.scene_params[7] = i; i += self.spheres.len() as u32 * Self::SPHERE_SIZE;
+
+        self.scene_params[8] = self.triangles.len() as u32;
+        self.scene_params[9] = i; //i += self.triangles.len() as u32 * Self::TRIANGLE_SIZE;
+
         //scene
-        self.scene_params[12] = self.skybox;
-        self.put_in_scene_params(13, self.sky_col);
-        self.scene_params[16] = self.sky_intensity.to_bits() as u32;
-        self.put_in_scene_params(17, self.cam.pos);
-        self.put_in_scene_params(20, self.cam.dir);
+        self.scene_params[10] = self.skybox;
+        self.put_in_scene_params(11, self.sky_col);
+        self.scene_params[14] = self.sky_intensity.to_bits() as u32;
+        self.put_in_scene_params(15, self.cam.pos);
+        self.put_in_scene_params(18, self.cam.dir);
         self.scene_params.to_vec()
     }
 
@@ -487,7 +512,14 @@ impl Scene{
         res
     }
 
-    pub fn bufferize<T: Bufferizable>(vec: &mut Vec<f32>, start: &mut usize, list: &[T], stride: usize){
+    pub fn get_bvh_buffer(&self) -> Vec<u32>{
+        let bvhs = 1;
+        let mut buffer = vec![0; bvhs * 2];
+        self.bvh_nightly.into_buffer(0, &mut buffer);
+        buffer
+    }
+
+    pub fn bufferize<T: SceneItem>(vec: &mut Vec<f32>, start: &mut usize, list: &[T], stride: usize){
         for (i, item) in list.iter().enumerate(){
             let off = i * stride;
             let data = item.get_data();
@@ -511,7 +543,7 @@ impl Scene{
             i as MaterialIndex
         } else {
             self.mats.push(mat);
-            assert!(self.mats.len() < 255);
+            assert!(self.mats.len() < MaterialIndex::MAX as usize);
             (self.mats.len() - 1) as MaterialIndex
         }
     }
@@ -556,10 +588,30 @@ impl Scene{
         self.sky_box = self.skybox;
     }
 
-    pub fn add_light(&mut self, l: Light){ self.lights.push(l); }
-    pub fn add_sphere(&mut self, s: Sphere){ self.spheres.push(s); }
-    pub fn add_plane(&mut self, p: Plane){ self.planes.push(p); }
-    pub fn add_triangle(&mut self, b: Triangle){ self.triangles.push(b); }
+    pub fn add_light(&mut self, l: Light){
+        if self.stype == SceneType::GI { return; }
+        self.lights.push(l);
+    }
+
+    pub fn is_not_ok(&self, mat: MaterialIndex) -> bool{
+        let e = self.mats[mat as usize].emittance;
+        e > 0.0 && self.stype == SceneType::Whitted
+    }
+
+    pub fn add_sphere(&mut self, s: Sphere){
+        if self.is_not_ok(s.mat) { return; }
+        self.spheres.push(s);
+    }
+
+    pub fn add_plane(&mut self, p: Plane){
+        if self.is_not_ok(p.mat) { return; }
+        self.planes.push(p);
+    }
+
+    pub fn add_triangle(&mut self, t: Triangle){
+        if self.is_not_ok(t.mat) { return; }
+        self.triangles.push(t);
+    }
 
     pub fn add_mesh(&mut self, mesh_name: String) -> MeshIndex {
         if let Some(i) = self.meshes.iter().position(|m| *m.name == mesh_name) {
@@ -635,8 +687,6 @@ impl Scene{
         self.top_bvh = Bvh::from_primitives(&mut aabbs, &mut prims);
         self.primitives = prims;
     }
-
-
 
     // pub fn either_sphere_or_triangle(&self, index: usize) -> Either<&Sphere, &Triangle>{
     //     let sl = self.spheres.len();

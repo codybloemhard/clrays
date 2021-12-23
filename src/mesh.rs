@@ -1,4 +1,4 @@
-use crate::scene::{Scene, Triangle};
+use crate::scene::{ Scene, SceneItem, Triangle, MaterialIndex };
 use crate::vec3::Vec3;
 
 use obj::*;
@@ -15,12 +15,15 @@ impl Mesh {
     pub fn get_triangle(&self, index: usize, scene: &Scene) -> Triangle {
         scene.triangles[self.start + index].clone()
     }
+
     pub fn teapot() -> Vec<Triangle>{
         Mesh::load_model("assets/models/teapot.obj")
     }
+
     pub fn dragon() -> Vec<Triangle>{
         Mesh::load_model("assets/models/dragon.obj")
     }
+
     pub fn load_model(file_path: &str) -> Vec<Triangle>{
         let obj = if let Ok(o) = Obj::load(file_path){ o }
         else { panic!("Could not load file: {}!", file_path); };
@@ -68,6 +71,7 @@ impl Mesh {
         }
         triangles
     }
+
     pub fn build_triangle_wall(diff: f32, offset: f32) -> Vec<Triangle>{
         let z = 0.0;
         let mut x = -offset;
