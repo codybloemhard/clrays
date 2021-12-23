@@ -98,6 +98,9 @@ impl TraceProcessor for GpuPath{
         }
         self.trace_kernel.execute(&self.queue).expect("Could not execute GpuPath's trace kernel!");
         state.samples_taken += 1;
+        if state.settings.calc_frame_energy{
+            state.frame_energy = self.trace_kernel.frame_energy(&self.queue) / state.samples_taken as f32;
+        }
         self.image_kernel.set_divider(state.samples_taken as f32).expect("Could not set GpuPath's clear kernel's divider argument!");
         self.image_kernel.execute(&self.queue).expect("Could not execute GpuPath's image kernel!");
         self.image_kernel.get_result(&self.queue).expect("Could not get result of GpuPath's image kernel!")

@@ -40,6 +40,7 @@ pub struct Settings{
     pub max_reduced_ms: f32,
     pub start_in_focus_mode: bool,
     pub max_render_depth: u8,
+    pub calc_frame_energy: bool,
 }
 
 impl Default for Settings{
@@ -49,6 +50,7 @@ impl Default for Settings{
             max_reduced_ms: 50.0,
             start_in_focus_mode: false,
             max_render_depth: 5,
+            calc_frame_energy: false,
         }
     }
 }
@@ -75,6 +77,7 @@ pub struct State{
     pub show_bvh: bool,
     pub settings: Settings,
     pub moved: bool,
+    pub frame_energy: f32,
 }
 
 impl State{
@@ -90,6 +93,7 @@ impl State{
             settings,
             show_bvh: false,
             moved: true,
+            frame_energy: 0.0,
         }
     }
 
@@ -125,6 +129,9 @@ pub fn log_update_fn(dt: f32, state: &mut State) -> LoopRequest {
         println!("{:?}({}): {} ms, ", state.last_frame, state.reduced_rate, dt);
     } else if state.last_frame == RenderMode::Full{
         println!("{:?}({}): {} ms, ", state.last_frame, state.samples_taken, dt);
+        if state.frame_energy > 0.01{
+            println!("Frame Energy: {}", state.frame_energy);
+        }
     }
     std_update_fn(dt, state)
 }

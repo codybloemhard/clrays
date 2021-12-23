@@ -259,6 +259,15 @@ impl TraceKernelPath{
         self.kernel.set_arg(3, state.samples_taken as u32)?;
         Ok(())
     }
+
+    pub fn frame_energy(&mut self, queue: &Queue) -> f32{
+        self.buffer.download(queue).expect("Could not download buffer to calculate frame energy!");
+        let mut e = 0.0;
+        for f in self.buffer.get_slice(){
+            e += *f;
+        }
+        e
+    }
 }
 
 impl VoidKernel for TraceKernelPath{
