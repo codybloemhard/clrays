@@ -248,8 +248,7 @@ impl Intersectable for Triangle {
     }
 }
 
-pub type MeshIndex = u8;
-pub type ModelIndex = u8;
+pub type MeshIndex = u32;
 
 #[derive(Clone, Copy)]
 pub struct Model{
@@ -470,11 +469,10 @@ impl Scene{
 
     pub fn get_bvh_buffer(&self) -> Vec<u32>{
         let bvhs = 1 + self.sub_bvhs.len();
-        let mut buffer = vec![0; bvhs * 3 + 1];
+        let mut buffer = vec![0; 2 + bvhs * 2];
 
-        buffer[1] = buffer.len() as u32; // bvh start
-        buffer[2] = self.meshes[self.top_bvh.mesh_index as usize].start.try_into().unwrap(); // bvh mesh
-        buffer[3] = self.meshes[self.top_bvh.mesh_index as usize].count.try_into().unwrap(); // bvh mesh
+        buffer[2] = buffer.len() as u32; // bvh start
+        buffer[3] = self.meshes[self.top_bvh.mesh_index as usize].start.try_into().unwrap(); // bvh mesh
         for v in &self.top_bvh.vertices{
             buffer.push(v.bound.min.x.to_bits() as u32);
             buffer.push(v.bound.min.y.to_bits() as u32);
@@ -487,9 +485,8 @@ impl Scene{
         }
 
         for (i, sbvh) in self.sub_bvhs.iter().enumerate(){
-            buffer[(i + 1) * 3 + 1] = buffer.len() as u32; // bvh start
-            buffer[(i + 1) * 3 + 2] = self.meshes[sbvh.mesh_index as usize].start.try_into().unwrap(); // bvh mesh
-            buffer[(i + 1) * 3 + 3] = self.meshes[sbvh.mesh_index as usize].count.try_into().unwrap(); // bvh mesh
+            buffer[(i + 1) * 2 + 2] = buffer.len() as u32; // bvh start
+            buffer[(i + 1) * 2 + 3] = self.meshes[sbvh.mesh_index as usize].start.try_into().unwrap(); // bvh mesh
             for v in &sbvh.vertices{
                 buffer.push(v.bound.min.x.to_bits() as u32);
                 buffer.push(v.bound.min.y.to_bits() as u32);
@@ -508,6 +505,17 @@ impl Scene{
             buffer.push(prim.index.try_into().unwrap());
         }
 
+        buffer[1] = buffer.len() as u32; // start models
+        for model in &self.models{
+            buffer.push(model.pos.x.to_bits() as u32);
+            buffer.push(model.pos.y.to_bits() as u32);
+            buffer.push(model.pos.z.to_bits() as u32);
+            buffer.push(model.rot.x.to_bits() as u32);
+            buffer.push(model.rot.y.to_bits() as u32);
+            buffer.push(model.rot.z.to_bits() as u32);
+            buffer.push(model.mat);
+            buffer.push(model.mesh);
+        }
         buffer
     }
 
@@ -607,9 +615,9 @@ impl Scene{
 
     pub fn add_mesh(&mut self, mesh_name: String) -> MeshIndex {
         if let Some(i) = self.meshes.iter().position(|m| *m.name == mesh_name) {
-            i as u8
+            i as u32
         } else {
-            assert!(self.meshes.len() < 255);
+            assert!(self.meshes.len() < MeshIndex::MAX as usize);
             // todo: mesh references to index of first triangle, including count
             let mut triangles = Mesh::load_model(&*mesh_name);
             let mesh = Mesh {
@@ -617,13 +625,13 @@ impl Scene{
                 start: self.triangles.len(),
                 count: triangles.len()
             };
-            let bvh = Bvh::from_mesh(self.meshes.len() as u8, &mut triangles, 12);
+            let bvh = Bvh::from_mesh(self.meshes.len() as MeshIndex, &mut triangles, 12);
             for tri in triangles {
                 self.add_triangle(tri);
             }
             self.sub_bvhs.push(bvh);
             self.meshes.push(mesh);
-            (self.meshes.len() - 1) as u8
+            (self.meshes.len() - 1) as MeshIndex
         }
     }
 

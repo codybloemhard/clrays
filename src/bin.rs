@@ -19,7 +19,6 @@ use std::process::exit;
 pub const USE_WATERFLOOR : bool = false;
 pub const USE_WIDE_ANGLE : bool = false;
 
-
 pub fn main() -> Result<(), String>{
     // clr::test(clr::test_platform::PlatformTest::OpenCl2);
     let mut info = Info::new();

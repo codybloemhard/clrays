@@ -315,8 +315,9 @@ struct RayHit InterSceneBvhTop(struct Ray *ray, struct Scene *scene){
     float3 rpos = ray->pos;
     float3 rdinv = 1.0f / ray->dir;
 
-    uint primitive_start = scene->bvh[0];
-    uint vertex_start = scene->bvh[1];
+    uint primitives_start = scene->bvh[0];
+    uint models_start = scene->bvh[1];
+    uint vertices_start = scene->bvh[2];
 
     uint sph_start = ScGetStart(SC_SPHERE, scene);
     uint sph_count = ScGetCount(SC_SPHERE, scene);
@@ -339,59 +340,80 @@ struct RayHit InterSceneBvhTop(struct Ray *ray, struct Scene *scene){
         }
     }
 
-    #define size 64
+    #define size 32
     uint stack[size];
     stack[0] = UINT_MAX;
     stack[1] = 0;
     uint ptr = 2;
+    bool toplevel = true;
+    uint first_toplevel_vertex = UINT_MAX;
+    uint mesh_start = 0;
 
     while(ptr < size){
         uint current = stack[--ptr];
         if(current == UINT_MAX) break;
-        uint v = vertex_start + current * 8;
+        if(ptr == first_toplevel_vertex){
+            toplevel = true;
+            vertices_start = scene->bvh[2];
+        }
+        uint v = vertices_start + current * 8;
         uint left_first = scene->bvh[v + 6];
         uint count = scene->bvh[v + 7];
 
         if(count > 0){ // leaf
-            for(uint i = left_first; i < left_first + count; i++){
-                uint prim_type = scene->bvh[primitive_start + (i * 2) + 0];
-                uint prim_index = scene->bvh[primitive_start + (i * 2) + 1];
-                // intersect primitive
-                if(prim_type == 0){ // model
-                    // continue; // TODO
-                } else if(prim_type == 1){ // sphere
-                    uint off = sph_start + prim_index * SC_SPHERE_SIZE;
-                    float3 spos = ExtractFloat3(off + 0, scene->items);
-                    float srad = scene->items[off + 3];
-                    bool hit = InterSphere(ray, &closest, spos, srad);
-                    if(hit){
-                        coff = off;
-                        ptype = pSPHERE;
-                    }
-                } else { // triangle
-                    uint off = tri_start + prim_index * SC_TRI_SIZE;
-                    float3 a = ExtractFloat3(off + 0, scene->items);
-                    float3 b = ExtractFloat3(off + 3, scene->items);
-                    float3 c = ExtractFloat3(off + 6, scene->items);
-                    bool hit = InterTri(ray, &closest, a, b, c);
-                    if(hit){
-                        coff = off;
-                        ptype = pTRI;
+            if(toplevel){ // handle top level primitive leaf or start the traversal of the mesh bvh
+                for(uint i = left_first; i < left_first + count; i++){
+                    uint prim_type = scene->bvh[primitives_start + (i * 2) + 0];
+                    uint prim_index = scene->bvh[primitives_start + (i * 2) + 1];
+                    // intersect primitive
+                    if(prim_type == 0){ // model
+                        toplevel = false;
+                        first_toplevel_vertex = ptr - 1;
+                        uint model_start = models_start + (prim_index * 8);
+                        float3 pos = ExtractFloat3FromInts(scene->bvh, model_start + 0);
+                        float3 rot = ExtractFloat3FromInts(scene->bvh, model_start + 3);
+                        uint mat = scene->bvh[model_start + 6];
+                        uint mesh = scene->bvh[model_start + 7];
+                        vertices_start = scene->bvh[(mesh + 1) * 2 + 2];
+                        mesh_start = scene->bvh[(mesh + 1) * 2 + 3];
+                        stack[ptr++] = 0;
+                        continue; // TODO
+                    } else if(prim_type == 1){ // sphere
+                        uint off = sph_start + prim_index * SC_SPHERE_SIZE;
+                        float3 spos = ExtractFloat3(off + 0, scene->items);
+                        float srad = scene->items[off + 3];
+                        bool hit = InterSphere(ray, &closest, spos, srad);
+                        if(hit){
+                            coff = off;
+                            ptype = pSPHERE;
+                        }
+                    } else { // triangle
+                        uint off = tri_start + prim_index * SC_TRI_SIZE;
+                        float3 a = ExtractFloat3(off + 0, scene->items);
+                        float3 b = ExtractFloat3(off + 3, scene->items);
+                        float3 c = ExtractFloat3(off + 6, scene->items);
+                        bool hit = InterTri(ray, &closest, a, b, c);
+                        if(hit){
+                            coff = off;
+                            ptype = pTRI;
+                        }
                     }
                 }
+            } else { // handle triangles in leaf of mesh bvh
+
             }
-        } else {
+        } else { // traverse tree, either top level or mesh level (all the same)
             uint vertices[2] = {
                 left_first,
                 left_first + 1,
             };
 
-            v = vertex_start + left_first * 8;
+            v = vertices_start + left_first * 8;
             float3 bmin = ExtractFloat3FromInts(scene->bvh, v + 0);
             float3 bmax = ExtractFloat3FromInts(scene->bvh, v + 3);
             float t0 = InterAABB(rpos, rdinv, bmin, bmax);
 
-            v = vertex_start + (left_first + 1) * 8;
+            v = vertices_start + (left_first + 1) * 8;
             bmin = ExtractFloat3FromInts(scene->bvh, v + 0);
             bmax = ExtractFloat3FromInts(scene->bvh, v + 3);
             float t1 = InterAABB(rpos, rdinv, bmin, bmax);
@@ -404,13 +426,13 @@ struct RayHit InterSceneBvhTop(struct Ray *ray, struct Scene *scene){
                 order[0] = 1;
             }
 
-            if(/*ts[order[0]] >= 0.0f && */ts[order[0]] < closest.t){
+            if(ts[order[0]] < closest.t){
                 stack[ptr++] = vertices[order[0]];
-                if(/*ts[order[1]] >= 0.0f && */ts[order[1]] < closest.t){
+                if(ts[order[1]] < closest.t){
                     stack[ptr++] = vertices[order[1]];
                 }
             }
-            else if(/*ts[order[1]] >= 0.0f && */ts[order[1]] < closest.t){
+            else if(ts[order[1]] < closest.t){
                 stack[ptr++] = vertices[order[1]];
             }
         }
