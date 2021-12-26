@@ -218,14 +218,15 @@ pub fn main() -> Result<(), String>{
         mesh: scene.add_mesh("assets/models/dragon.obj".parse().unwrap())
     };
     // 10000 dragons = 1 billion triangles
-    for _ in 0..100 {
-        let theta = rand::random::<f32>() * 2.0 * PI;
+    for _ in 0..1 {
+        let rad = 20.0;
         let pos = Vec3 {
-            x: rand::random::<f32>() * 300.0 - 300.0 * 0.5,
-            y: rand::random::<f32>() * 300.0 - 300.0 * 0.5,
-            z: rand::random::<f32>() * 300.0 - 300.0 * 0.5,
+            x: rand::random::<f32>() * rad - rad * 0.5,
+            y: rand::random::<f32>() * rad - rad * 0.5,
+            z: rand::random::<f32>() * rad - rad * 0.5,
         };
         let mut ori = Orientation { yaw: 0.0, roll: 0.0 };
+        let theta = rand::random::<f32>() * 2.0 * PI;
         ori.yaw = theta;
         dragon.pos = pos;
         dragon.rot = Vec3::from_orientation( &ori);
@@ -268,6 +269,7 @@ pub fn main() -> Result<(), String>{
     match scene.stype {
         SceneType::GI => {
             let mut tracer_gpu = unpackdb!(trace_processor::GpuPath::new((w, h), &mut scene, &mut info), "Could not create GpuPath!");
+            // let mut tracer_gpu = unpackdb!(trace_processor::GpuWhitted::new((w, h), &mut scene, &mut info), "Could not create GpuPath!");
             info.stop_time();
             info.print_info();
             window.run(fps_input_fn, log_update_fn, &mut state, &mut tracer_gpu, &mut scene)
