@@ -1,6 +1,6 @@
 use crate::misc;
 
-use ocl::{ Buffer, flags, Queue, Program, Device, Platform, Context};
+use ocl::{ Buffer, flags, Queue, Program, Device, Platform, Context };
 
 pub struct ClBuffer<T: ocl::OclPrm + std::default::Default + std::clone::Clone>{
     ocl_buffer: Buffer::<T>,

@@ -61,27 +61,27 @@ struct Ray{
 #define SC_TRI_SIZE 10
 
 struct Scene{
-    global uint *params, *tex_params;
-    global float *items;
-    global uchar *textures;
-    global uint *bvh;
+    uint *params, *tex_params;
+    float *items;
+    uchar *textures;
+    uint *bvh;
     uint skybox;
     float3 skycol;
     float skyintens;
 };
 
 //first byte in array where this type starts
-global uint ScGetStart(uint type, struct Scene *scene){
+uint ScGetStart(uint type, struct Scene *scene){
     return scene->params[type * 2 + 1];
 }
 
 //number of items of this type(not bytes!)
-global uint ScGetCount(uint type, struct Scene *scene){
+uint ScGetCount(uint type, struct Scene *scene){
     return scene->params[type * 2];
 }
 
 //extract material from array, off is index of first byte of material we want
-struct Material ExtractMaterial(uint off, global float *arr){
+struct Material ExtractMaterial(uint off, float *arr){
     struct Material mat;
     mat.col = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
     mat.reflectivity = arr[off + 3];
@@ -103,20 +103,20 @@ struct Material GetMaterialFromIndex(uint index, struct Scene *scene){
 }
 
 //first byte of texture
-global uint TxGetStart(uint tex, struct Scene *scene){
+uint TxGetStart(uint tex, struct Scene *scene){
     return scene->tex_params[tex * 3 + 0];
 }
 
-global uint TxGetWidth(uint tex, struct Scene *scene){
+uint TxGetWidth(uint tex, struct Scene *scene){
     return scene->tex_params[tex * 3 + 1];
 }
 
-global uint TxGetHeight(uint tex, struct Scene *scene){
+uint TxGetHeight(uint tex, struct Scene *scene){
     return scene->tex_params[tex * 3 + 2];
 }
 
 //get sample
-global float3 TxGetSample(uint tex, struct Scene *scene, uint x, uint y, uint w){
+float3 TxGetSample(uint tex, struct Scene *scene, uint x, uint y, uint w){
     uint offset = TxGetStart(tex, scene) + (y * w + x) * 3;
     float3 col = (float3)(scene->textures[offset + 0],
                             scene->textures[offset + 1],
@@ -136,19 +136,19 @@ global float3 TxGetSample(uint tex, struct Scene *scene, uint x, uint y, uint w)
     uint y = (uint)(TxGetHeight(tex,scene) * uv.y);\
 
 //get colour from texture and uv
-global float3 GetTexCol(uint tex, float2 uv, struct Scene *scene){
+float3 GetTexCol(uint tex, float2 uv, struct Scene *scene){
     UV_TO_XY;
     return pow(TxGetSample(tex, scene, x, y, w), GAMMA);
 }
 
 //get value to range 0..1 (no gamma)
-global float3 GetTexVal(uint tex, float2 uv, struct Scene *scene){
+float3 GetTexVal(uint tex, float2 uv, struct Scene *scene){
     UV_TO_XY;
     return TxGetSample(tex, scene, x, y, w);
 }
 
 //get value 0..1 from scalar map
-global float GetTexScalar(uint tex, float2 uv, struct Scene *scene){
+float GetTexScalar(uint tex, float2 uv, struct Scene *scene){
     UV_TO_XY;
     uint offset = TxGetStart(tex, scene) + (y * w + x);
     float scalar = (float)scene->textures[offset];
@@ -156,11 +156,11 @@ global float GetTexScalar(uint tex, float2 uv, struct Scene *scene){
 }
 
 //Copy a float3 out the array, off(offset) is the first byte of the float3 we want
-float3 ExtractFloat3(uint off, global float *arr){
+float3 ExtractFloat3(uint off, float *arr){
     return (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
 }
 
-float3 ExtractFloat3FromInts(global uint *arr, uint index){
+float3 ExtractFloat3FromInts(uint *arr, uint index){
     float3 res;
     res.x = as_float(arr[index + 0]);
     res.y = as_float(arr[index + 1]);
@@ -264,7 +264,7 @@ float2 SkySphereUV(float3 nor){
 
 //macros for primitive intersections
 #define START_PRIM() \
-    (struct RayHit *closest, struct Ray *ray, global float *arr, const uint count, const uint start, const uint stride){\
+    (struct RayHit *closest, struct Ray *ray, float *arr, const uint count, const uint start, const uint stride){\
     uint coff = UINT_MAX;\
     for(uint i = 0; i < count; i++){\
         uint off = start + i * stride;\
@@ -657,7 +657,7 @@ float2 BlinnSingle(float3 lpos, float lpow, float3 viewdir, float roughness, str
 void Blinn(struct RayHit *hit, struct Scene *scene, float3 viewdir, float3 colour, float roughness, float3 *out_diff, float3 *out_spec){
     float3 col = (float3)(AMBIENT);
     float3 spec = (float3)(0.0f);
-    global float* arr = scene->items;
+    float* arr = scene->items;
     uint count = ScGetCount(SC_LIGHT, scene);
     uint start = ScGetStart(SC_LIGHT, scene);
     for(uint i = 0; i < count; i++){
