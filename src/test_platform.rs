@@ -1,4 +1,4 @@
-use crate::cl_helpers::{ create_five, ClBuffer };
+use crate::cl_helpers::{ create_five, ClBufferRW };
 
 use sdl2::pixels::Color;
 use sdl2::event::Event;
@@ -211,7 +211,7 @@ pub fn test_opencl2(){
     for (i, buffer_elem) in startingbuffer.iter_mut().enumerate().take(dims){
         *buffer_elem = i as i32;
     }
-    let mut clbuffer = ClBuffer::from(&queue, startingbuffer).unwrap();
+    let mut clbuffer = ClBufferRW::from(&queue, startingbuffer).unwrap();
     let kernel = Kernel::builder()
         .program(&program)
         .name("write")

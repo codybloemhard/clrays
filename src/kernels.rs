@@ -1,4 +1,4 @@
-use crate::cl_helpers::{ ClBuffer };
+use crate::cl_helpers::{ ClBufferRW, ClBufferR };
 use crate::scene::Scene;
 use crate::info::Info;
 use crate::state::State;
@@ -10,7 +10,7 @@ pub trait VoidKernel{
 }
 
 pub trait BufferKernel<T: ocl::OclPrm>{
-    fn get_buffer(&self) -> &ClBuffer<T>;
+    fn get_buffer(&self) -> &ClBufferRW<T>;
 }
 
 pub trait ResultKernel<T: ocl::OclPrm>{
@@ -22,7 +22,7 @@ pub struct ClearKernel{
 }
 
 impl ClearKernel{
-    pub fn new(name: &str, (w, h): (u32, u32), program: &Program, queue: &Queue, buffer: &ClBuffer<f32>) -> Result<Self, ocl::Error>{
+    pub fn new(name: &str, (w, h): (u32, u32), program: &Program, queue: &Queue, buffer: &ClBufferRW<f32>) -> Result<Self, ocl::Error>{
         let kernel = Kernel::builder()
             .program(program)
             .name(name)
@@ -45,14 +45,14 @@ impl VoidKernel for ClearKernel{
 
 pub struct ImageKernel{
     kernel: Kernel,
-    buffer: ClBuffer<u32>,
+    buffer: ClBufferRW<u32>,
     dirty: bool,
 }
 
 impl ImageKernel{
-    pub fn new(name: &str, (w, h): (u32, u32), program: &Program, queue: &Queue, input: &ClBuffer<f32>) -> Result<Self, ocl::Error>{
+    pub fn new(name: &str, (w, h): (u32, u32), program: &Program, queue: &Queue, input: &ClBufferRW<f32>) -> Result<Self, ocl::Error>{
         let dirty = false;
-        let buffer = ClBuffer::<u32>::new(queue, w as usize * h as usize, 0)?;
+        let buffer = ClBufferRW::<u32>::new(queue, w as usize * h as usize, 0)?;
         let kernel = Kernel::builder()
             .program(program)
             .name(name)
@@ -81,7 +81,7 @@ impl VoidKernel for ImageKernel{
 }
 
 impl BufferKernel<u32> for ImageKernel{
-    fn get_buffer(&self) -> &ClBuffer<u32>{
+    fn get_buffer(&self) -> &ClBufferRW<u32>{
         &self.buffer
     }
 }
@@ -102,15 +102,15 @@ impl ResultKernel<u32> for ImageKernel{
 pub struct TraceKernelWhitted{
     kernel: Kernel,
     dirty: bool,
-    buffer: ClBuffer<u32>,
-    scene_params: ClBuffer<u32>,
+    buffer: ClBufferRW<u32>,
+    scene_params: ClBufferRW<u32>,
 }
 
 impl TraceKernelWhitted{
     pub fn new(name: &str, (w, h): (u32, u32), program: &Program, queue: &Queue, scene: &mut Scene, info: &mut Info) -> Result<Self, ocl::Error>{
         info.set_time_point("Start constructing kernel");
         let dirty = false;
-        let buffer = ClBuffer::<u32>::new(queue, w as usize * h as usize, 0)?;
+        let buffer = ClBufferRW::<u32>::new(queue, w as usize * h as usize, 0)?;
         info.int_buffer_size = w as u64 * h as u64;
         info.set_time_point("Build int frame buffer");
         let scene_params_raw = scene.get_scene_params_buffer();
@@ -120,15 +120,15 @@ impl TraceKernelWhitted{
         info.meta_size = scene_params_raw.len() as u64;
         info.bvh_size = bvh_raw.len() as u64;
         info.set_time_point("Build scene data");
-        let mut scene_params = ClBuffer::from(queue, scene_params_raw)?;
-        let mut scene_items = ClBuffer::from(queue, scene_raw)?;
-        let mut bvh = ClBuffer::from(queue, bvh_raw)?;
+        let mut scene_params = ClBufferRW::from(queue, scene_params_raw)?;
+        let mut scene_items = ClBufferR::new(queue, scene_raw.len(), 0.0)?;
+        let mut bvh = ClBufferR::new(queue, bvh_raw.len(), 0)?;
         info.set_time_point("Build scene buffers");
         let tex_raw = scene.get_textures_buffer();
         let tex_params_raw = scene.get_texture_params_buffer();
         info.set_time_point("Build texture data");
-        let mut tex_params = ClBuffer::from(queue, tex_params_raw)?;
-        let mut tex_items = ClBuffer::from(queue, tex_raw)?;
+        let mut tex_params = ClBufferR::new(queue, tex_params_raw.len(), 0)?;
+        let mut tex_items = ClBufferR::new(queue, tex_raw.len(), 0)?;
         info.set_time_point("Build texture buffers");
         let mut kbuilder = Kernel::builder();
         kbuilder.program(program);
@@ -145,20 +145,20 @@ impl TraceKernelWhitted{
         kbuilder.arg(tex_items.get_ocl_buffer());
         let kernel = kbuilder.build()?;
         info.set_time_point("Create kernel");
-        /*Choice: Either: upload an let ClBuffer's go out of scope
-        Or: store ClBuffer's in the struct so they still live.
+        /*Choice: Either: upload an let ClBufferRW's go out of scope
+        Or: store ClBufferRW's in the struct so they still live.
         They will be uploaded automatically then.
         I choose to upload here and let them go, as i don't need them later on and i can time the uploading.
         Except the scene_params. It is small and used to change camera etc. */
         scene_params.upload(queue)?;
         info.set_time_point("Upload scene parameters");
-        scene_items.upload(queue)?;
+        scene_items.upload_new(queue, &scene_raw)?;
         info.set_time_point("Upload scene items");
-        tex_params.upload(queue)?;
+        bvh.upload_new(queue, &bvh_raw)?;
         info.set_time_point("Upload bvh");
-        bvh.upload(queue)?;
+        tex_params.upload_new(queue, &tex_params_raw)?;
         info.set_time_point("Upload texture parameters");
-        tex_items.upload(queue)?;
+        tex_items.upload_new(queue, &tex_raw)?;
         info.set_time_point("Upload textures");
         Ok(Self{ kernel, dirty, buffer, scene_params })
     }
@@ -179,7 +179,7 @@ impl VoidKernel for TraceKernelWhitted{
 }
 
 impl BufferKernel<u32> for TraceKernelWhitted{
-    fn get_buffer(&self) -> &ClBuffer<u32>{
+    fn get_buffer(&self) -> &ClBufferRW<u32>{
         &self.buffer
     }
 }
@@ -196,15 +196,15 @@ impl ResultKernel<u32> for TraceKernelWhitted{
 
 pub struct TraceKernelPath{
     kernel: Kernel,
-    buffer: ClBuffer<f32>,
-    scene_params: ClBuffer<u32>,
+    buffer: ClBufferRW<f32>,
+    scene_params: ClBufferRW<u32>,
 }
 
 impl TraceKernelPath{
     pub fn new(name: &str, (w, h): (u32, u32), program: &Program, queue: &Queue, scene: &mut Scene, info: &mut Info) -> Result<Self, ocl::Error>{
         info.set_time_point("Start constructing kernel");
         let bsize = w as usize * h as usize * 3;
-        let buffer = ClBuffer::<f32>::new(queue, bsize, 0.0)?;
+        let buffer = ClBufferRW::<f32>::new(queue, bsize, 0.0)?;
         info.float_buffer_size = bsize as u64;
         info.set_time_point("Build float frame buffer");
         let scene_params_raw = scene.get_scene_params_buffer();
@@ -214,15 +214,15 @@ impl TraceKernelPath{
         info.meta_size = scene_params_raw.len() as u64;
         info.bvh_size = bvh_raw.len() as u64;
         info.set_time_point("Build scene data");
-        let mut scene_params = ClBuffer::from(queue, scene_params_raw)?;
-        let mut scene_items = ClBuffer::from(queue, scene_raw)?;
-        let mut bvh = ClBuffer::from(queue, bvh_raw)?;
+        let mut scene_params = ClBufferRW::from(queue, scene_params_raw)?;
+        let mut scene_items = ClBufferR::new(queue, scene_raw.len(), 0.0)?;
+        let mut bvh = ClBufferR::new(queue, bvh_raw.len(), 0)?;
         info.set_time_point("Build scene buffers");
         let tex_raw = scene.get_textures_buffer();
         let tex_params_raw = scene.get_texture_params_buffer();
         info.set_time_point("Build texture data");
-        let mut tex_params = ClBuffer::from(queue, tex_params_raw)?;
-        let mut tex_items = ClBuffer::from(queue, tex_raw)?;
+        let mut tex_params = ClBufferR::new(queue, tex_params_raw.len(), 0)?;
+        let mut tex_items = ClBufferR::new(queue, tex_raw.len(), 0)?;
         info.set_time_point("Build texture buffers");
         let mut kbuilder = Kernel::builder();
         kbuilder.program(program);
@@ -242,13 +242,13 @@ impl TraceKernelPath{
         info.set_time_point("Create kernel");
         scene_params.upload(queue)?;
         info.set_time_point("Upload scene parameters");
-        scene_items.upload(queue)?;
+        scene_items.upload_new(queue, &scene_raw)?;
         info.set_time_point("Upload scene items");
-        tex_params.upload(queue)?;
+        bvh.upload_new(queue, &bvh_raw)?;
         info.set_time_point("Upload bvh");
-        bvh.upload(queue)?;
+        tex_params.upload_new(queue, &tex_params_raw)?;
         info.set_time_point("Upload texture parameters");
-        tex_items.upload(queue)?;
+        tex_items.upload_new(queue, &tex_raw)?;
         info.set_time_point("Upload textures");
         Ok(Self{ kernel, buffer, scene_params })
     }
@@ -279,7 +279,7 @@ impl VoidKernel for TraceKernelPath{
 }
 
 impl BufferKernel<f32> for TraceKernelPath{
-    fn get_buffer(&self) -> &ClBuffer<f32>{
+    fn get_buffer(&self) -> &ClBufferRW<f32>{
         &self.buffer
     }
 }

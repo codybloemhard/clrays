@@ -218,7 +218,7 @@ pub fn main() -> Result<(), String>{
         mesh: scene.add_mesh("assets/models/dragon.obj".parse().unwrap())
     };
     // 10000 dragons = 1 billion triangles
-    for _ in 0..1 {
+    for _ in 0..0 {
         let rad = 20.0;
         let pos = Vec3 {
             x: rand::random::<f32>() * rad - rad * 0.5,
