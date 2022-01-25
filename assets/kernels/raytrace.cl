@@ -745,6 +745,37 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
     return (diff * (1.0f - refl_mul)) + (refl * refl_mul) + spec;
 }
 
+// -----------------------------------------
+
+float BlinnPhongDistribution(float nh, float roughness){
+    return ((roughness + 2.0f) / PI2) * pow(nh, roughness);
+    //return INV_PI;
+}
+
+float BasicGeometryTerm(float nh, float vh, float nv, float nl){
+    return min(1.0f, min((2.0f * nh * nv) / vh, (2.0f * nh * nl) / vh));
+    //return 1.0f;
+}
+
+float3 Schlick(float lh, float3 kSpecular){
+    return kSpecular + ((float3)(1.0f) - kSpecular) * pow(1.0f - lh, 5.0f);
+    //return 1.0f;
+}
+
+// takes vectors: to light, -view
+float3 MicroFacetBRDF(float3 l, float3 v, float3 n, float3 kSpecular, float roughness){
+    float3 h = fast_normalize(v + l);
+    float nh = max(0.0f, dot(n, h));
+    float vh = max(0.0f, dot(v, h));
+    float nv = max(0.0f, dot(n, v));
+    float nl = max(0.0f, dot(n, l));
+    float lh = max(0.0f, dot(l, h));
+
+    return
+        (Schlick(lh, kSpecular) * BasicGeometryTerm(nh, vh , nv, nl) * BlinnPhongDistribution(nh, roughness))
+        / (4.0f * nl * nv);
+}
+
 // credit: George Marsaglia
 uint Xor32(uint* seed){
     *seed ^= *seed << 13;
@@ -862,19 +893,20 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
         }
 
         // handle non-dielectrics: blend of specular and diffuse
-        HANDLE_TEXTURES;
+        // HANDLE_TEXTURES;
 
-        if(mat.reflectivity > EPSILON){ // mirror
-            float decider = U32tf01(Xor32(seed));
-            if(decider <= mat.reflectivity){
-                nray.dir = reflect(ray.dir, hit.nor);
-                E *= mat.col;
-                ray = nray;
-                continue;
-            }
-        }
+        // if(mat.reflectivity > EPSILON){ // mirror
+        //     float decider = U32tf01(Xor32(seed));
+        //     if(decider <= mat.reflectivity){
+        //         nray.dir = reflect(ray.dir, hit.nor);
+        //         E *= mat.col;
+        //         ray = nray;
+        //         continue;
+        //     }
+        // }
         nray.dir = RandomHemispherePoint(seed, hit.nor);
-        float3 BRDF = mat.col * INV_PI;
+        // float3 BRDF = mat.col * INV_PI;
+        float3 BRDF = MicroFacetBRDF(nray.dir, -ray.dir, hit.nor, (float3)(0.95, 0.64, 0.54), 1.0f);
         float INV_PDF = PI2; // PDF = 1 / 2PI
         float3 Ei = max(dot(hit.nor, nray.dir), 0.0f) * INV_PDF;
 

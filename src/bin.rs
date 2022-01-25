@@ -16,8 +16,8 @@ use sdl2::keyboard::Keycode;
 use std::env;
 use std::process::exit;
 
-pub const USE_WATERFLOOR : bool = false;
-pub const USE_WIDE_ANGLE : bool = false;
+pub const USE_WATERFLOOR: bool = false;
+pub const USE_WIDE_ANGLE: bool = false;
 
 pub fn main() -> Result<(), String>{
     // clr::test(clr::test_platform::PlatformTest::OpenCl2);
@@ -240,9 +240,9 @@ pub fn main() -> Result<(), String>{
     }.add(&mut scene);
 
     Sphere{
-        pos: Vec3::new(0.0, 2.0, -3.0),
-        rad: 0.5,
-        mat: Material::basic().into_light(Vec3::uni(1.0), 10000.0)
+        pos: Vec3::new(0.0, 4.0, 3.0),
+        rad: 2.0,
+        mat: Material::basic().into_light(Vec3::uni(1.0), 100.0)
             .add_to_scene(&mut scene)
     }.add(&mut scene);
 

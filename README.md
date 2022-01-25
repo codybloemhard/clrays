@@ -62,3 +62,5 @@ QGMLWY  |Typing | G, L, M, T, S, N                               | U, E, A, O   
 - Multiple importance samplign (MIS)
 - Spectral rendering
 - motion blur
+- path regularization option (biased)
+- energy clamp option (biased)
