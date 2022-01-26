@@ -747,33 +747,33 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
 
 // -----------------------------------------
 
-float BlinnPhongDistribution(float nh, float roughness){
-    return ((roughness + 2.0f) / PI2) * pow(nh, roughness);
-    //return INV_PI;
+float D_GGX(float dnh, float alpha2){
+    float dnh2 = pow(dnh, 2.0f);
+    return alpha2 / (PI * pow(dnh2 * (alpha2 - 1.0f) + 1.0f, 2.0f));
 }
 
-float BasicGeometryTerm(float nh, float vh, float nv, float nl){
-    return min(1.0f, min((2.0f * nh * nv) / vh, (2.0f * nh * nl) / vh));
-    //return 1.0f;
+float G_GGX_Smith(float dnw, float alpha2){
+    return 2.0f * dnw / (dnw + sqrt(alpha2 + (1.0f - alpha2) * pow(dnw, 2.0f)));
 }
 
-float3 Schlick(float lh, float3 kSpecular){
-    return kSpecular + ((float3)(1.0f) - kSpecular) * pow(1.0f - lh, 5.0f);
-    //return 1.0f;
+float3 Schlick(float dih, float3 kSpecular){
+    return kSpecular + ((float3)(1.0f) - kSpecular) * pow(1.0f - max(0.0f, dih), 5.0f);
 }
 
-// takes vectors: to light, -view
-float3 MicroFacetBRDF(float3 l, float3 v, float3 n, float3 kSpecular, float roughness){
-    float3 h = fast_normalize(v + l);
-    float nh = max(0.0f, dot(n, h));
-    float vh = max(0.0f, dot(v, h));
-    float nv = max(0.0f, dot(n, v));
-    float nl = max(0.0f, dot(n, l));
-    float lh = max(0.0f, dot(l, h));
+// takes vectors: to light, -view, normal
+float3 MicroFacetBRDF(float3 wo, float3 wi, float3 n, float3 kSpecular, float alpha){
+    alpha = 1.0f;
+    float3 wh = fast_normalize(wo + wi);
+    float alpha2 = alpha * alpha;
+    float dwin = clamp(dot(wi, n), EPSILON, 1.0f);
+    float dwon = clamp(dot(wo, n), EPSILON, 1.0f);
+    float dwhn = clamp(dot(wh, n), EPSILON, 1.0f);
 
-    return
-        (Schlick(lh, kSpecular) * BasicGeometryTerm(nh, vh , nv, nl) * BlinnPhongDistribution(nh, roughness))
-        / (4.0f * nl * nv);
+    float3 F = Schlick(dot(wi, wh), kSpecular);
+    float G = G_GGX_Smith(dwin, alpha2) * G_GGX_Smith(dwon, alpha2);
+    float D = D_GGX(dwhn, alpha2);
+
+    return (F * G * D) / (4.0f * dwin * dwon);
 }
 
 // credit: George Marsaglia
@@ -828,7 +828,7 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
     while(tirs < 8){
         struct RayHit hit = INTER_SCENE(&ray, scene);
         if(hit.t >= MAX_RENDER_DIST){
-            E *= SkyCol(ray.dir, scene);
+            E *= SkyCol(ray.dir, scene) * 10.0f;
             break;
         }
 

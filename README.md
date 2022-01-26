@@ -64,3 +64,8 @@ QGMLWY  |Typing | G, L, M, T, S, N                               | U, E, A, O   
 - motion blur
 - path regularization option (biased)
 - energy clamp option (biased)
+
+## Sources
+1. http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html
+2. https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf
+3. https://jcgt.org/published/0007/04/01/paper.pdf
