@@ -217,7 +217,7 @@ pub fn main() -> Result<(), String>{
     Sphere{
         pos: Vec3::new(0.0, 4.0, 3.0),
         rad: 2.0,
-        mat: Material::basic().into_light(Vec3::uni(1.0), 100.0)
+        mat: Material::basic().into_light(Vec3::uni(1.0), 10.0)
             .add_to_scene(&mut scene)
     }.add(&mut scene);
 

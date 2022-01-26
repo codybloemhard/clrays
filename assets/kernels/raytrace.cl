@@ -762,7 +762,6 @@ float3 Schlick(float dih, float3 kSpecular){
 
 // takes vectors: to light, -view, normal
 float3 MicroFacetBRDF(float3 wo, float3 wi, float3 n, float3 kSpecular, float alpha){
-    alpha = 1.0f;
     float3 wh = fast_normalize(wo + wi);
     float alpha2 = alpha * alpha;
     float dwin = clamp(dot(wi, n), EPSILON, 1.0f);
@@ -775,6 +774,8 @@ float3 MicroFacetBRDF(float3 wo, float3 wi, float3 n, float3 kSpecular, float al
 
     return (F * G * D) / (4.0f * dwin * dwon);
 }
+
+// -----------------------------------------
 
 // credit: George Marsaglia
 uint Xor32(uint* seed){
@@ -828,7 +829,7 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
     while(tirs < 8){
         struct RayHit hit = INTER_SCENE(&ray, scene);
         if(hit.t >= MAX_RENDER_DIST){
-            E *= SkyCol(ray.dir, scene) * 10.0f;
+            E *= SkyCol(ray.dir, scene) * 3.0f;
             break;
         }
 
@@ -906,7 +907,7 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
         // }
         nray.dir = RandomHemispherePoint(seed, hit.nor);
         // float3 BRDF = mat.col * INV_PI;
-        float3 BRDF = MicroFacetBRDF(nray.dir, -ray.dir, hit.nor, (float3)(0.95, 0.64, 0.54), 1.0f);
+        float3 BRDF = MicroFacetBRDF(nray.dir, -ray.dir, hit.nor, (float3)(0.95, 0.64, 0.54), mat.roughness * 0.3f);
         float INV_PDF = PI2; // PDF = 1 / 2PI
         float3 Ei = max(dot(hit.nor, nray.dir), 0.0f) * INV_PDF;
 
@@ -969,8 +970,35 @@ float3 PathTracing(const uint w, const uint h, const uint x, const uint y, const
     CREATE_RAY(uv);
 
     float3 col = PathTrace(ray, &scene, &hash);
-    col = pow(col, (float3)(1.0f / GAMMA));
+    // col = pow(col, (float3)(1.0f / GAMMA));
     return col;
+}
+
+float3 AcesTonemap(float3 x){
+  const float a = 2.51;
+  const float b = 0.03;
+  const float c = 2.43;
+  const float d = 0.59;
+  const float e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0f, 1.0f);
+}
+
+float3 HablePartial(float3 x){
+    float a = 0.15f;
+    float b = 0.50f;
+    float c = 0.10f;
+    float d = 0.20f;
+    float e = 0.02f;
+    float f = 0.30f;
+    return ((x * (a * x + c * b) + d * e) / (x * (a * x + b) + d * f)) - e / f;
+}
+
+float3 HableTonemap(float3 x){
+    float exposure_bias = 4.0f; // was 2, but this seems to match aces brightness better
+    float3 curr = HablePartial(x * exposure_bias);
+    float3 w = (float3)(11.2f);
+    float3 white_scale = (float3)(1.0f) / HablePartial(w);
+    return clamp(curr * white_scale, 0.0f, 1.0f);
 }
 
 __kernel void raytracing(
@@ -1037,8 +1065,14 @@ __kernel void image_from_floatmap(
     uint y = get_global_id(1);
     uint pixid = (x + y * w);
     uint pix_float = pixid * 3;
-    float r = clamp(floatmap[pix_float + 0] * mult, 0.0f, 1.0f) * 255.0f;
-    float g = clamp(floatmap[pix_float + 1] * mult, 0.0f, 1.0f) * 255.0f;
-    float b = clamp(floatmap[pix_float + 2] * mult, 0.0f, 1.0f) * 255.0f;
-    imagemap[pixid] = ((uint)((uchar)r) << 16) + ((uint)((uchar)g) << 8) + (uint)((uchar)b);
+    float3 c = (float3)(
+                floatmap[pix_float + 0] * mult,
+                floatmap[pix_float + 1] * mult,
+                floatmap[pix_float + 2] * mult
+    );
+    //c = AcesTonemap(c);
+    c = HableTonemap(c);
+    c = pow(c, (float3)(1.0f / GAMMA));
+    c *= 255.0f;
+    imagemap[pixid] = ((uint)((uchar)c.r) << 16) + ((uint)((uchar)c.g) << 8) + (uint)((uchar)c.b);
 }

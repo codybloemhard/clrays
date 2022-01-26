@@ -11,6 +11,7 @@
 ### GPU
 - [x] basic pathtracer (area lights, materials, speculars, dielectrics, beer's law)
 - [x] frame energy
+- [x] Tone mapping: Aces, Hable/Uncharted
 - [ ] Utilize BVH
 - [ ] Microfacet materials
 
@@ -66,6 +67,8 @@ QGMLWY  |Typing | G, L, M, T, S, N                               | U, E, A, O   
 - energy clamp option (biased)
 
 ## Sources
-1. http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html
-2. https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf
-3. https://jcgt.org/published/0007/04/01/paper.pdf
+1. [Microfacets; Brian Karis (2013)](http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html)
+2. [Microfacets; Wanter et al. (2007)]https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf
+3. [Microfacets; Eric Heitz (2018)]https://jcgt.org/published/0007/04/01/paper.pdf
+4. [Tonemapping; Matt Taylor (2019)](https://64.github.io/tonemapping/)
+5. [Tonemapping; Krzysztof Narkowicz (2016)](https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/)
