@@ -4,7 +4,7 @@ use crate::misc::{ Incrementable, build_vec, make_nonzero_len };
 use crate::info::Info;
 use crate::bvh::Bvh;
 use crate::mesh::Mesh;
-use crate::aabb::AABB;
+use crate::aabb::{AABB, Axis};
 use crate::primitive::{ Primitive, Shape };
 use crate::cpu::inter::{ Ray, RayHit, inter_plane, inter_sphere, inter_triangle };
 
@@ -18,6 +18,7 @@ pub trait SceneItem{
 
 pub trait Intersectable {
     fn intersect(&self, ray: Ray, hit: &mut RayHit);
+    fn intersect_axis(&self, axis: Axis, value: f32) -> Vec<Vec3>;
 }
 
 pub type MaterialIndex = u32;
@@ -193,6 +194,10 @@ impl Intersectable for Plane {
     fn intersect(&self, ray: Ray, hit: &mut RayHit) {
         inter_plane(ray, self, hit);
     }
+    #[inline]
+    fn intersect_axis(&self, axis: Axis, value: f32) -> Vec<Vec3>{
+        unimplemented!();
+    }
 }
 
 pub struct Sphere{
@@ -215,6 +220,10 @@ impl Intersectable for Sphere {
     #[inline]
     fn intersect(&self, ray: Ray, hit: &mut RayHit){
         inter_sphere(ray, self, hit);
+    }
+    #[inline]
+    fn intersect_axis(&self, axis: Axis, value: f32) -> Vec<Vec3>{
+        unimplemented!();
     }
 }
 
@@ -246,6 +255,38 @@ impl Intersectable for Triangle {
     fn intersect(&self, ray: Ray, hit: &mut RayHit){
         inter_triangle(ray, self, hit);
     }
+    #[inline]
+    fn intersect_axis(&self, axis: Axis, value: f32) -> Vec<Vec3>{
+        // separate vertices left side of axis
+        let mut left = vec![];
+        let mut right = vec![];
+        // obtain sides of axis-aligned plane
+        for vertex in self.vertices() {
+            if vertex.fake_arr(axis) < value {
+                left.push(vertex)
+            } else {
+                right.push(vertex)
+            }
+        }
+        // find intersections in plane for left and right
+        let mut points = vec![];
+        for l in left {
+            for r in &right{
+                // ray-axis intersection
+                let v = r.subed(l);
+                let p0 = l;
+                let d = value;
+                let t = (d-p0.fake_arr(axis)) / v.fake_arr(axis);
+                let p = v.scaled(t).added(p0);
+                points.push(p);
+            }
+        }
+        points
+    }
+}
+impl Triangle {
+    #[inline]
+    fn vertices(&self) -> [Vec3;3] { [self.a, self.b, self.c] }
 }
 
 pub type MeshIndex = u32;
