@@ -86,6 +86,22 @@ impl AABB {
     }
 
     #[inline]
+    pub fn overlap(self, other: Self) -> AABB {
+        AABB {
+            min: Vec3 {
+                x: self.min.x.max(other.min.x),
+                y: self.min.y.max(other.min.y),
+                z: self.min.z.max(other.min.z),
+            },
+            max: Vec3 {
+                x: self.max.x.min(other.max.x),
+                y: self.max.y.min(other.max.y),
+                z: self.max.z.min(other.max.z),
+            }
+        }
+    }
+
+    #[inline]
     pub fn combined(mut self, other: Self) -> Self{
         self.combine(other);
         self

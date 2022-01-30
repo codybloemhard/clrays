@@ -31,6 +31,8 @@ pub struct Vertex{
 impl Bvh{
     #[allow(clippy::too_many_arguments)]
     fn subdivide<Q>(bounds: &mut Vec<AABB>, vs: &mut Vec<Vertex>, items: &mut Vec<Q>, bins: usize, quality: u8){
+        let alpha = 0.01;
+
         let current = 0;
         let first = 0;
         let mut poolptr = 2;
@@ -63,6 +65,8 @@ impl Bvh{
         let mut depth_timers = vec![];
         let mut depth_items = vec![];
 
+        let mut root_sa= f32::MAX;
+
         while !stack.is_empty() {
             let x = stack.pop().unwrap();
             // println!("{:?}", x);
@@ -79,6 +83,7 @@ impl Bvh{
             v = &mut vs[current];
             sub_range = first..first + count;
             top_bound = union_bound(&bounds[sub_range.clone()]);
+            if depth == 0 { root_sa = top_bound.surface_area(); }
             v.bound = top_bound;
 
             // find split
@@ -89,18 +94,23 @@ impl Bvh{
                     continue;
                 }
                 let diff = top_bound.max.subed(top_bound.min);
-                let axis_valid = [diff.x > binsf * EPSILON, diff.y > binsf * EPSILON, diff.z > binsf * EPSILON];
+                let axis_valid = [
+                    diff.x > binsf * EPSILON,
+                    diff.y > binsf * EPSILON,
+                    diff.z > binsf * EPSILON
+                ];
 
                 // precompute lerps
                 for (i, item) in lerps.iter_mut().enumerate(){
                     *item = top_bound.lerp((i+1) as f32 * binsf_inf);
                 }
 
-                // compute best combination; minimal cost
+                // compute best combination/minimal cost for object split
                 let (mut ls, mut rs);
                 lb.set_default();
                 rb.set_default();
                 let max_cost = count as f32 * top_bound.surface_area();
+                let mut best_overlap = AABB::new();
                 let mut best_cost = max_cost;
 
                 for axis in [Axis::X, Axis::Y, Axis::Z] {
@@ -145,6 +155,7 @@ impl Bvh{
                         let cost = 3.0 + 1.0 + lb.surface_area() * ls as f32 + 1.0 + rb.surface_area() * rs as f32;
                         if cost < best_cost {
                             // println!("{},{:?},{}", cost,axis,split);
+                            best_overlap = lb.overlap(rb);
                             best_cost = cost;
                             best_axis = axis;
                             best_split = split;
@@ -156,6 +167,18 @@ impl Bvh{
                     v.count = count;
                     continue;
                 }
+                // compute lambda
+                let lambda = best_overlap.surface_area() / root_sa;
+
+                // compare against alpha
+                if lambda < alpha { // use object split
+                    v.left_first = first; // first
+                    v.count = count;
+                    continue;
+                }
+
+                // compute best combination/minimal cost for object split
+                unimplemented!();
             }
             else { // midpoint
                 // todo: midpoint heuristics
