@@ -67,8 +67,12 @@ QGMLWY  |Typing | G, L, M, T, S, N                               | U, E, A, O   
 - energy clamp option (biased)
 
 ## Sources
-1. [Microfacets; Brian Karis (2013)](http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html)
-2. [Microfacets; Wanter et al. (2007)]https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf
-3. [Microfacets; Eric Heitz (2018)]https://jcgt.org/published/0007/04/01/paper.pdf
-4. [Tonemapping; Matt Taylor (2019)](https://64.github.io/tonemapping/)
-5. [Tonemapping; Krzysztof Narkowicz (2016)](https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/)
+1. [Tonemapping; Matt Taylor (2019)](https://64.github.io/tonemapping/)
+2. [Tonemapping; Krzysztof Narkowicz (2016)](https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/)
+3. [Microfacets; Brian Karis (2013)](http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html)
+4. [Microfacets; Wanter et al. (2007)](https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf)
+5. [Microfacets; Joe Schutte (2018)](https://schuttejoe.github.io/post/ggximportancesamplingpart1/)
+6. [Microfacets; Jacco Bikker (2016)](https://www.cs.uu.nl/docs/vakken/magr/portfolio/INFOMAGR/lecture13.pdf)
+<!---
+[Microfacets; Eric Heitz (2018)]https://jcgt.org/published/0007/04/01/paper.pdf
+--->

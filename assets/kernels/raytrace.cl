@@ -761,7 +761,7 @@ float3 Schlick(float dih, float3 kSpecular){
 }
 
 // takes vectors: to light, -view, normal
-float3 MicroFacetBRDF(float3 wo, float3 wi, float3 n, float3 kSpecular, float alpha){
+float3 MicroFacet_BRDF(float3 wo, float3 wi, float3 n, float3 kSpecular, float alpha){
     float3 wh = fast_normalize(wo + wi);
     float alpha2 = alpha * alpha;
     float dwin = clamp(dot(wi, n), EPSILON, 1.0f);
@@ -773,6 +773,22 @@ float3 MicroFacetBRDF(float3 wo, float3 wi, float3 n, float3 kSpecular, float al
     float D = D_GGX(dwhn, alpha2);
 
     return (F * G * D) / (4.0f * dwin * dwon);
+}
+
+float3 MicroFacet_IS_Tangent(float a2, float r0, float r1)
+{
+    float phi = 2.0f * PI * r0;
+    float theta = acos(sqrt((1.0f - r1) / (r1 * (a2 - 1.0f) + 1.0f)));
+    float cost = cos(theta);
+    float sint = sin(theta);
+    return (float3)(sint * cos(phi), sint * sin(phi), cost);
+}
+
+float3 TangentToWorld(float3 wg, float3 wm){
+    float3 wr = wg.yxz; // wr != wg
+    float3 t = cross(wg, wr);
+    float3 b = cross(t, wg);
+    return wm.x * t + wm.y * b + wm.z * wg;
 }
 
 // -----------------------------------------
@@ -826,7 +842,9 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
     uint tirs = 0; // total internal reflections
     float3 hitpos = ray.pos;
     float3 distacc = (float3)(1.0f);
-    while(tirs < 8){
+    uint rounds = 0;
+    while(tirs < 8 && rounds < 20){
+        rounds++;
         struct RayHit hit = INTER_SCENE(&ray, scene);
         if(hit.t >= MAX_RENDER_DIST){
             E *= SkyCol(ray.dir, scene) * 3.0f;
@@ -905,13 +923,33 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
         //         continue;
         //     }
         // }
-        nray.dir = RandomHemispherePoint(seed, hit.nor);
-        // float3 BRDF = mat.col * INV_PI;
-        float3 BRDF = MicroFacetBRDF(nray.dir, -ray.dir, hit.nor, (float3)(0.95, 0.64, 0.54), mat.roughness * 0.3f);
-        float INV_PDF = PI2; // PDF = 1 / 2PI
-        float3 Ei = max(dot(hit.nor, nray.dir), 0.0f) * INV_PDF;
 
-        E *= BRDF * Ei;
+        float a = 0.1f;
+        float3 kSpec = (float3)(0.95, 0.64, 0.54);
+
+        // nray.dir = RandomHemispherePoint(seed, hit.nor);
+        // float3 BRDF = mat.col * INV_PI;
+        // float3 BRDF = MicroFacetBRDF(nray.dir, -ray.dir, hit.nor, (float3)(0.95, 0.64, 0.54), mat.roughness * 0.5f);
+        // float INV_PDF = PI2; // PDF = 1 / 2PI
+        // float3 Ei = max(dot(hit.nor, nray.dir), 0.0f) * INV_PDF;
+        // E *= BRDF * Ei;
+
+        float3 wg = hit.nor;
+        float3 wi = ray.dir;
+        float a2 = a * a;
+
+        float3 wm_tangent = MicroFacet_IS_Tangent(a2, U32tf01(Xor32(seed)), U32tf01(Xor32(seed)));
+        float3 wm = TangentToWorld(wg, wm_tangent);
+        float3 wo = reflect(wi, wm);
+
+        float3 F = Schlick(clamp(dot(wo, wm), EPSILON, 1.0f), kSpec);
+        float dgo = clamp(dot(wg, wo), EPSILON, 1.0f);
+        float dgm = clamp(dot(wg, wm), EPSILON, 1.0f);
+        float dom = clamp(dot(wo, wm), EPSILON, 1.0f);
+        float G = G_GGX_Smith(dgo, a2) * G_GGX_Smith(dgm, a2);
+        E *= F * G * dom / (dgo * dgm);
+
+        nray.dir = wo;
         ray = nray;
     }
     return E;
@@ -975,12 +1013,12 @@ float3 PathTracing(const uint w, const uint h, const uint x, const uint y, const
 }
 
 float3 AcesTonemap(float3 x){
-  const float a = 2.51;
-  const float b = 0.03;
-  const float c = 2.43;
-  const float d = 0.59;
-  const float e = 0.14;
-  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0f, 1.0f);
+    const float a = 2.51;
+    const float b = 0.03;
+    const float c = 2.43;
+    const float d = 0.59;
+    const float e = 0.14;
+    return (x * (a * x + b)) / (x * (c * x + d) + e);
 }
 
 float3 HablePartial(float3 x){
@@ -1072,6 +1110,7 @@ __kernel void image_from_floatmap(
     );
     //c = AcesTonemap(c);
     c = HableTonemap(c);
+    c = clamp(c, 0.0f, 1.0f);
     c = pow(c, (float3)(1.0f / GAMMA));
     c *= 255.0f;
     imagemap[pixid] = ((uint)((uchar)c.r) << 16) + ((uint)((uchar)c.g) << 8) + (uint)((uchar)c.b);
