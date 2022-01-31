@@ -206,5 +206,10 @@ impl AABB {
             Vec3 {x: self.max.x, y: self.max.y, z: self.max.z },
         ]
     }
+
+    #[inline]
+    pub fn contains_vertex(self, vertex: Vec3) -> bool {
+        self.min.less_eq(vertex) && vertex.less_eq(self.max)
+    }
 }
 
