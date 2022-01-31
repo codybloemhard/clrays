@@ -86,6 +86,16 @@ impl AABB {
     }
 
     #[inline]
+    pub fn combine_vertex(&mut self, other: Vec3){
+        self.min.x = self.min.x.min(other.x);
+        self.min.y = self.min.y.min(other.y);
+        self.min.z = self.min.z.min(other.z);
+        self.max.x = self.max.x.max(other.x);
+        self.max.y = self.max.y.max(other.y);
+        self.max.z = self.max.z.max(other.z);
+    }
+
+    #[inline]
     pub fn overlap(self, other: Self) -> AABB {
         AABB {
             min: Vec3 {
@@ -181,6 +191,20 @@ impl AABB {
     #[inline]
     pub fn is_equal(self, other: &AABB) -> bool{
         self.min.equal(&other.min) && self.max.equal(&other.max)
+    }
+
+    #[inline]
+    pub fn corners(self) -> Vec<Vec3> {
+        vec![
+            Vec3 {x: self.min.x, y: self.min.y, z: self.min.z },
+            Vec3 {x: self.min.x, y: self.min.y, z: self.max.z },
+            Vec3 {x: self.min.x, y: self.max.y, z: self.min.z },
+            Vec3 {x: self.min.x, y: self.max.y, z: self.max.z },
+            Vec3 {x: self.max.x, y: self.min.y, z: self.min.z },
+            Vec3 {x: self.max.x, y: self.min.y, z: self.max.z },
+            Vec3 {x: self.max.x, y: self.max.y, z: self.min.z },
+            Vec3 {x: self.max.x, y: self.max.y, z: self.max.z },
+        ]
     }
 }
 

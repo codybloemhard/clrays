@@ -3,7 +3,7 @@ use crate::cpu::inter::*;
 use crate::aabb::*;
 use crate::vec3::Vec3;
 use crate::consts::{ EPSILON };
-use crate::primitive::Primitive;
+use crate::primitive::{Primitive, Shape};
 
 pub enum ContainerType {
     MESH,
@@ -30,7 +30,7 @@ pub struct Vertex{
 
 impl Bvh{
     #[allow(clippy::too_many_arguments)]
-    fn subdivide<Q>(bounds: &mut Vec<AABB>, vs: &mut Vec<Vertex>, items: &mut Vec<Q>, bins: usize, quality: u8){
+    fn subdivide<Q: Intersectable>(bounds: &mut Vec<AABB>, vs: &mut Vec<Vertex>, items: &mut Vec<Q>, bins: usize, quality: u8, is_toplevel: bool){
         let alpha = 0.01;
 
         let current = 0;
@@ -47,6 +47,8 @@ impl Bvh{
         let mut lerps = vec![Vec3::ZERO; bins-1];
         let mut binbounds = vec![AABB::new();bins];
         let mut bincounts : Vec<usize> = vec![0;bins];
+        let mut startcounts : Vec<usize> = vec![0;bins]; // for spatial splits
+        let mut endcounts : Vec<usize> = vec![0;bins];   // for spatial splits
         let aabb_null = AABB::default();
 
         let (mut lb, mut rb) = (AABB::default(), AABB::default());
@@ -127,9 +129,9 @@ impl Bvh{
                     binbounds.fill(aabb_null);
                     bincounts.fill(0);
                     let mut index: usize ;
-                    for index_triangle in sub_range.clone() {
-                        index = (k1*(bounds[index_triangle].midpoint().as_array()[u]-k0)) as usize;
-                        binbounds[index].combine(bounds[index_triangle]);
+                    for index_item in sub_range.clone() {
+                        index = (k1*(bounds[index_item].midpoint().as_array()[u]-k0)) as usize;
+                        binbounds[index].combine(bounds[index_item]);
                         bincounts[index] += 1;
                     }
 
@@ -178,7 +180,61 @@ impl Bvh{
                 }
 
                 // compute best combination/minimal cost for object split
-                unimplemented!();
+                for axis in [Axis::X, Axis::Y, Axis::Z] {
+                    // skip invalid axii
+                    let u = axis.as_usize();
+                    if !axis_valid[u] {
+                        continue;
+                    }
+                    // bin-selection variables
+                    let k1 = (binsf*(1.0-EPSILON))/(top_bound.max.fake_arr(axis)-top_bound.min.fake_arr(axis));
+                    let k0 = top_bound.min.fake_arr(axis);
+                    // fill in info for bins (bounds, counts, start, end)
+                    binbounds.fill(aabb_null);
+                    bincounts.fill(0);
+                    startcounts.fill(0);
+                    endcounts.fill(0);
+                    for index_item in sub_range.clone() { // spatial split
+                        // start count
+                        let v = bounds[index_item].min.fake_arr(axis);
+                        let index_start = (k1*(v-k0)) as usize;
+                        startcounts[index_start] += 1;
+
+                        // end count
+                        let v = bounds[index_item].max.fake_arr(axis);
+                        let index_end = (k1*(v-k0)) as usize;
+                        endcounts[index_end] += 1;
+
+
+                        let item: &Q = &items[index_item];
+                        if !is_toplevel { // dealing with a mesh
+                            // place vertices of items in bins
+                            // use triangle points directly
+                            // place vertices of triangle in bins
+                            for vertex in item.vertices() {
+                                let v = vertex.fake_arr(axis);
+                                let index_bin = (k1*(v-k0)) as usize;
+                                binbounds[index_bin].combine_vertex(vertex);
+                            }
+                        } else { // otherwise rely on bounding box
+                            for vertex in binbounds[index_item].corners() {
+                                let v = vertex.fake_arr(axis);
+                                let index_bin = (k1*(v-k0)) as usize;
+                                binbounds[index_bin].combine_vertex(vertex);
+                            }
+                        }
+                        // intersect item with axis-aligned split planes
+                        for (lerp_index,lerp) in lerps.iter().enumerate(){
+                            let intersect_points = item.intersect_axis(axis, lerp.fake_arr(axis), bounds[index_item]);
+                            for vertex in intersect_points {
+                                binbounds[lerp_index].combine_vertex(vertex);
+                                binbounds[lerp_index + 1].combine_vertex(vertex);
+                            }
+                        }
+                        // iterate bins to find optimal spatial split
+                        unimplemented!()
+                    }
+                }
             }
             else { // midpoint
                 // todo: midpoint heuristics
@@ -233,7 +289,7 @@ impl Bvh{
         let quality = 1;
         let n = primitives.len();
         let mut vs = vec![Vertex::default(); n * 2];
-        Self::subdivide::<Primitive>(bounds, &mut vs, primitives, bins, quality);
+        Self::subdivide::<Primitive>(bounds, &mut vs, primitives, bins, quality, true);
         // todo add primitives to gpu array buffer
         Self{
             vertices: vs,
@@ -251,7 +307,7 @@ impl Bvh{
         let mut bounds = (0..n).into_iter().map(|i|
             AABB::from_points(&[triangles[i].a, triangles[i].b, triangles[i].c])
         ).collect::<Vec<_>>();
-        Self::subdivide::<Triangle>(&mut bounds, &mut vs, triangles, bins, quality);
+        Self::subdivide::<Triangle>(&mut bounds, &mut vs, triangles, bins, quality, false);
 
         Self{
             vertices: vs,

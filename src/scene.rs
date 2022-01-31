@@ -2,7 +2,6 @@ use crate::vec3::{ Vec3, Orientation };
 use crate::trace_tex::{ TexType, TraceTex };
 use crate::misc::{ Incrementable, build_vec, make_nonzero_len };
 use crate::info::Info;
-use crate::bvh::Bvh;
 use crate::mesh::Mesh;
 use crate::aabb::{AABB, Axis};
 use crate::primitive::{ Primitive, Shape };
@@ -17,8 +16,9 @@ pub trait SceneItem{
 }
 
 pub trait Intersectable {
+    fn vertices(&self) -> Vec<Vec3>;
     fn intersect(&self, ray: Ray, hit: &mut RayHit);
-    fn intersect_axis(&self, axis: Axis, value: f32) -> Vec<Vec3>;
+    fn intersect_axis(&self, axis: Axis, value: f32, bound: AABB) -> Vec<Vec3>;
 }
 
 pub type MaterialIndex = u32;
@@ -191,11 +191,13 @@ impl SceneItem for Plane{
 
 impl Intersectable for Plane {
     #[inline]
+    fn vertices(&self) -> Vec<Vec3> { unimplemented!() }
+    #[inline]
     fn intersect(&self, ray: Ray, hit: &mut RayHit) {
         inter_plane(ray, self, hit);
     }
     #[inline]
-    fn intersect_axis(&self, axis: Axis, value: f32) -> Vec<Vec3>{
+    fn intersect_axis(&self, axis: Axis, value: f32, bound: AABB) -> Vec<Vec3>{
         unimplemented!();
     }
 }
@@ -218,12 +220,26 @@ impl SceneItem for Sphere{
 
 impl Intersectable for Sphere {
     #[inline]
+    fn vertices(&self) -> Vec<Vec3> { vec![] }
+    #[inline]
     fn intersect(&self, ray: Ray, hit: &mut RayHit){
         inter_sphere(ray, self, hit);
     }
     #[inline]
-    fn intersect_axis(&self, axis: Axis, value: f32) -> Vec<Vec3>{
-        unimplemented!();
+    fn intersect_axis(&self, axis: Axis, value: f32, bound: AABB) -> Vec<Vec3>{
+        // todo: convert to more precise sphere intersection
+        if bound.min.fake_arr(axis) < value && bound.max.fake_arr(axis) > value {
+            match axis {
+                Axis::X => vec![Vec3 { x: value, y: bound.min.y, z: bound.min.z},
+                                Vec3 { x: value, y: bound.max.y, z: bound.max.z}],
+                Axis::Y => vec![Vec3 { x: bound.min.x, y: value, z: bound.min.z},
+                                Vec3 { x: bound.max.x, y: value, z: bound.max.z}],
+                Axis::Z => vec![Vec3 { x: bound.min.x, y: bound.min.y, z: value},
+                                Vec3 { x: bound.max.x, y: bound.max.y, z: value}],
+            }
+        } else {
+            vec![]
+        }
     }
 }
 
@@ -251,6 +267,8 @@ impl SceneItem for Triangle{
 }
 
 impl Intersectable for Triangle {
+    #[inline]
+    fn vertices(&self) -> Vec<Vec3> { vec![self.a, self.b, self.c] }
     #[inline]
     fn intersect(&self, ray: Ray, hit: &mut RayHit){
         inter_triangle(ray, self, hit);

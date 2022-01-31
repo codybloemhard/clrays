@@ -1,11 +1,14 @@
-use crate::scene::{ Scene, Model, Intersectable};
-use crate::cpu::inter::{ Ray, RayHit, dist_sphere, dist_triangle};
+use crate::aabb::{AABB, Axis};
+use crate::scene::{Scene, Model, Intersectable};
+use crate::cpu::inter::{Ray, RayHit, dist_sphere, dist_triangle};
+use crate::vec3::Vec3;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Shape {
     MODEL = 0,
     SPHERE = 1,
     TRIANGLE = 2,
+    PLANE = 3,
 }
 
 #[derive(Clone, Copy)]
@@ -13,6 +16,32 @@ pub struct Primitive {
     pub shape_type: Shape,
     pub index: usize,
 }
+
+impl Intersectable for Primitive {
+    fn vertices(&self) -> Vec<Vec3> {
+        unimplemented!()
+    }
+
+    fn intersect(&self, ray: Ray, hit: &mut RayHit) {
+        unimplemented!()
+    }
+
+    fn intersect_axis(&self, axis: Axis, value: f32, bound: AABB) -> Vec<Vec3> {
+        if bound.min.fake_arr(axis) < value && bound.max.fake_arr(axis) > value {
+            match axis {
+                Axis::X => vec![Vec3 { x: value, y: bound.min.y, z: bound.min.z},
+                                Vec3 { x: value, y: bound.max.y, z: bound.max.z}],
+                Axis::Y => vec![Vec3 { x: bound.min.x, y: value, z: bound.min.z},
+                                Vec3 { x: bound.max.x, y: value, z: bound.max.z}],
+                Axis::Z => vec![Vec3 { x: bound.min.x, y: bound.min.y, z: value},
+                                Vec3 { x: bound.max.x, y: bound.max.y, z: value}],
+            }
+        } else {
+            vec![]
+        }
+    }
+}
+
 impl Primitive {
     pub fn from_model(model: Model) -> Self {
         Self {
@@ -83,6 +112,7 @@ impl Primitive {
             },
             Shape::SPHERE => dist_sphere(ray, &scene.spheres[self.index]) <= dist,
             Shape::TRIANGLE => dist_triangle(ray, &scene.triangles[self.index]) <= dist,
+            Shape::PLANE => unimplemented!()
         }
     }
 }
