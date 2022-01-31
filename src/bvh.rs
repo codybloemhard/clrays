@@ -257,14 +257,15 @@ impl Bvh{
                             // construct bounds
                             let mut active = 0;
                             for j in 0..lerp_index { // left of split
+                                ls += startcounts[j];
                                 active += startcounts[j];
-                                ls += active;
                                 active -= endcounts[j];
                                 lb.combine(binbounds[j]);
                             }
+                            rs += active;
                             for j in lerp_index..bins { // right of split
+                                rs += startcounts[j];
                                 active += startcounts[j];
-                                rs += active;
                                 active -= endcounts[j];
                                 rb.combine(binbounds[j]);
                             }
@@ -308,19 +309,23 @@ impl Bvh{
             // partition
             let mut a = first; // first
             let mut b = first + count - 1; // last
-            let k1 = (binsf*(1.0-EPSILON))/(top_bound.max.fake_arr(best_axis)-top_bound.min.fake_arr(best_axis));
-            let k0 = top_bound.min.fake_arr(best_axis);
             if best_type == 1 { // spatial split
                 while a <= b {
                     let start = bounds[a].min.fake_arr(best_axis);
                     let end = bounds[a].max.fake_arr(best_axis);
-                    assert!(start < best_split);
-                    assert!(end > best_split);
-                    // duplicate item into both children with proper bounding
-                    items.push(items[a].clone()); // duplicate primitive/triangle to right
-                    bounds.push(bounds[a].clone().overlap(best_rb)); // apply overlap right
-                    bounds[a].overlap(best_lb); // apply overlap left
-                    a += 1;
+                    if end < best_split { // if end index before split plane its fully left
+                        a += 1;
+                    } else if start > best_split { // if start index beyond split plane its fully right
+                        bounds.swap(a, b);
+                        items.swap(a, b);
+                        b -= 1;
+                    } else { // duplicate item into both children with proper bounding
+                        // inject this item (primitive/triangle) to the end of items and bounds
+                        items.push(items[a].clone()); // duplicate primitive/triangle
+                        bounds.push(bounds[a].clone().overlap(best_rb)); // apply overlap
+                        bounds[a].overlap(best_lb); // apply overlap
+                        a += 1;
+                    }
                 }
             } else { // object split
                 // swap in such that items in appropriate bin interval based on midpoint

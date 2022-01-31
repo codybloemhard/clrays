@@ -9,6 +9,7 @@ use crate::cpu::inter::{ Ray, RayHit, inter_plane, inter_sphere, inter_triangle 
 
 use std::collections::HashMap;
 use std::convert::TryInto;
+use crate::bvh::Bvh;
 
 pub trait SceneItem{
     fn get_data(&self) -> Vec<f32>;
@@ -692,6 +693,37 @@ impl Scene{
             self.meshes.push(mesh);
             (self.meshes.len() - 1) as MeshIndex
         }
+    }
+
+    pub fn add_small_in_large_dragon(&mut self) -> MeshIndex {
+        let mut triangles = Mesh::load_model("assets/models/dragon.obj");
+        // scale triangles by a factor 100
+        let mut scale = 10.0;
+        let mut new_triangles = vec![];
+        for i in 0..4 {
+            for tri in &triangles {
+                new_triangles.push(Triangle {
+                    a: tri.a.scaled(scale),
+                    b: tri.b.scaled(scale),
+                    c: tri.c.scaled(scale),
+                    mat: 0
+                })
+            }
+            scale *= 10.0;
+        }
+        triangles.append(&mut new_triangles);
+        let mesh = Mesh {
+            name: "small_in_large_dragon".parse().unwrap(),
+            start: self.triangles.len(),
+            count: triangles.len()
+        };
+        let bvh = Bvh::from_mesh(self.meshes.len() as MeshIndex, &mut triangles, 12);
+        for tri in triangles {
+            self.add_triangle(tri);
+        }
+        self.sub_bvhs.push(bvh);
+        self.meshes.push(mesh);
+        (self.meshes.len() - 1) as MeshIndex
     }
 
     #[inline]

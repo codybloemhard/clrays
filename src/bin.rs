@@ -217,6 +217,15 @@ pub fn main() -> Result<(), String>{
         // mat: Material::basic().as_dielectric().with_refraction(WATER_REFRACTION).add_to_scene(&mut scene),
         mesh: scene.add_mesh("assets/models/dragon.obj".parse().unwrap())
     };
+
+    let mut small_in_large_dragon = Model {
+        pos: Default::default(),
+        rot: Default::default(),
+        mat: Material::basic().with_colour(Vec3::new(1.0, 0.5, 0.4)).add_to_scene(&mut scene),
+        // mat: Material::basic().as_dielectric().with_refraction(WATER_REFRACTION).add_to_scene(&mut scene),
+        mesh: scene.add_small_in_large_dragon()
+    };
+
     // 10000 dragons = 1 billion triangles
     for _ in 0..0 {
         let rad = 20.0;
