@@ -785,8 +785,8 @@ float3 MicroFacet_IS_Tangent(float a2, float r0, float r1)
 }
 
 float3 TangentToWorld(float3 wg, float3 wm){
-    float3 wr = wg.yxz; // wr != wg
-    float3 t = cross(wg, wr);
+    float3 w = fabs(wg.x) > 0.99f ? (float3)(0.0f, 1.0f, 0.0f) : (float3)(1.0f, 0.0f, 0.0f);
+    float3 t = fast_normalize(cross(w, wg));
     float3 b = cross(t, wg);
     return wm.x * t + wm.y * b + wm.z * wg;
 }
@@ -924,7 +924,7 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
         //     }
         // }
 
-        float a = 0.1f;
+        float a = clamp(mat.roughness, 0.0f, 1.0f);
         float3 kSpec = (float3)(0.95, 0.64, 0.54);
 
         // nray.dir = RandomHemispherePoint(seed, hit.nor);

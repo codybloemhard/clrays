@@ -80,6 +80,7 @@ pub fn main() -> Result<(), String>{
         nor: Vec3::UP,
         mat: Material::basic()
             // .as_checkerboard()
+            .with_roughness(0.1)
             .with_texture(scene.get_texture("stone-alb"))
             .with_normal_map(scene.get_texture("stone-nor"))
             .with_roughness_map(scene.get_texture("stone-rou"))
@@ -91,6 +92,7 @@ pub fn main() -> Result<(), String>{
         pos: Vec3::new(2.0, 0.0, -5.0),
         rad: 1.0 - EPSILON,
         mat: Material::basic()
+            .with_roughness(0.5)
             .with_texture(scene.get_texture("tiles-alb"))
             .with_normal_map(scene.get_texture("tiles-nor"))
             .with_roughness_map(scene.get_texture("tiles-rou"))
@@ -102,6 +104,7 @@ pub fn main() -> Result<(), String>{
         rad: 1.0 - EPSILON,
         mat: Material::basic()
             .with_reflectivity(0.3)
+            .with_roughness(0.1)
             .with_texture(scene.get_texture("solar-alb"))
             .with_normal_map(scene.get_texture("solar-nor"))
             .with_roughness_map(scene.get_texture("solar-rou"))
@@ -113,6 +116,7 @@ pub fn main() -> Result<(), String>{
         pos: Vec3::new(-2.0, 0.0, -5.0),
         rad: 1.0 - EPSILON,
         mat: Material::basic()
+            .with_roughness(0.02)
             .with_texture(scene.get_texture("scifi-alb"))
             .with_normal_map(scene.get_texture("scifi-nor"))
             .with_roughness_map(scene.get_texture("scifi-rou"))
