@@ -31,6 +31,7 @@ pub struct Vertex{
 impl Bvh{
     #[allow(clippy::too_many_arguments)]
     fn subdivide<Q: Intersectable + Clone >(bounds: &mut Vec<AABB>, vs: &mut Vec<Vertex>, items: &mut Vec<Q>, bins: usize, quality: u8, is_toplevel: bool){
+        // let alpha = 1.0;
         let alpha = 0.01;
 
         let current = 0;
@@ -176,114 +177,111 @@ impl Bvh{
                 // compute lambda
                 let lambda = best_overlap.surface_area() / root_sa;
 
-                // compare against alpha
-                if lambda < alpha { // use object split
-                    v.left_first = first; // first
-                    v.count = count;
-                    continue;
-                }
-
                 // find best spatial split
-                for axis in [Axis::X, Axis::Y, Axis::Z] {
-                    // skip invalid axii
-                    let u = axis.as_usize();
-                    if !axis_valid[u] {
-                        continue;
-                    }
-                    // bin-selection variables
-                    let k1 = (binsf*(1.0-EPSILON))/(top_bound.max.fake_arr(axis)-top_bound.min.fake_arr(axis));
-                    let k0 = top_bound.min.fake_arr(axis);
+                assert!(lambda <= 1.0);
+                if lambda > alpha {
+                    // println!("{}/{} > {}", lambda, root_sa, alpha);
+                    for axis in [Axis::X, Axis::Y, Axis::Z] {
+                        // skip invalid axii
+                        let u = axis.as_usize();
+                        if !axis_valid[u] {
+                            continue;
+                        }
+                        // bin-selection variables
+                        let k1 = (binsf*(1.0-EPSILON))/(top_bound.max.fake_arr(axis)-top_bound.min.fake_arr(axis));
+                        let k0 = top_bound.min.fake_arr(axis);
 
-                    // bounds of bins
-                    // fill in info for bins (bounds, counts, start, end)
-                    binbounds.fill(aabb_null);
-                    bincounts.fill(0);
-                    startcounts.fill(0);
-                    endcounts.fill(0);
-                    for index_item in sub_range.clone() { // spatial
-                        // start count
-                        let v = bounds[index_item].min.fake_arr(axis);
-                        let index_start = (k1*(v-k0)).max(0.0) as usize;
-                        startcounts[index_start] += 1;
+                        // bounds of bins
+                        // fill in info for bins (bounds, counts, start, end)
+                        binbounds.fill(aabb_null);
+                        bincounts.fill(0);
+                        startcounts.fill(0);
+                        endcounts.fill(0);
+                        for index_item in sub_range.clone() { // spatial
+                            // start count
+                            let v = bounds[index_item].min.fake_arr(axis);
+                            let index_start = (k1*(v-k0)).max(0.0) as usize;
+                            startcounts[index_start] += 1;
 
-                        // end count
-                        let v = bounds[index_item].max.fake_arr(axis);
-                        let index_end = (k1*(v-k0)).min(bins as f32 - 1.0) as usize;
-                        endcounts[index_end] += 1;
+                            // end count
+                            let v = bounds[index_item].max.fake_arr(axis);
+                            let index_end = (k1*(v-k0)).min(bins as f32 - 1.0) as usize;
+                            endcounts[index_end] += 1;
 
-                        // place vertices of item in bins
-                        let item: &Q = &items[index_item];
-                        if !is_toplevel { // dealing with a mesh
-                            for vertex in item.vertices().into_iter()
-                                .filter(|v| top_bound.contains_vertex(*v)) {
-                                let v = vertex.fake_arr(axis);
-                                let index_bin = (k1*(v-k0)) as usize;
-                                binbounds[index_bin].combine_vertex(vertex);
+                            // place vertices of item in bins
+                            let item: &Q = &items[index_item];
+                            if !is_toplevel { // dealing with a mesh
+                                for vertex in item.vertices().into_iter()
+                                                  .filter(|v| top_bound.contains_vertex(*v)) {
+                                    let v = vertex.fake_arr(axis);
+                                    let index_bin = (k1*(v-k0)) as usize;
+                                    binbounds[index_bin].combine_vertex(vertex);
+                                }
+                            } else { // otherwise rely on bounding box
+                                for vertex in bounds[index_item].corners().into_iter()
+                                                                .filter(|v| top_bound.contains_vertex(*v)) {
+                                    let v = vertex.fake_arr(axis);
+                                    let index_bin = (k1*(v-k0)) as usize;
+                                    binbounds[index_bin].combine_vertex(vertex);
+                                }
                             }
-                        } else { // otherwise rely on bounding box
-                            for vertex in bounds[index_item].corners().into_iter()
-                                .filter(|v| top_bound.contains_vertex(*v)) {
-                                let v = vertex.fake_arr(axis);
-                                let index_bin = (k1*(v-k0)) as usize;
-                                binbounds[index_bin].combine_vertex(vertex);
+
+                            // place intersection points of item with axis-aligned split planes in bins
+                            for (lerp_index,lerp) in lerps.iter().enumerate(){
+                                let intersect_points = item.intersect_axis(axis, lerp.fake_arr(axis), bounds[index_item]);
+                                for vertex in intersect_points {
+                                    binbounds[lerp_index].combine_vertex(vertex);
+                                    binbounds[lerp_index + 1].combine_vertex(vertex);
+                                }
                             }
                         }
 
-                        // place intersection points of item with axis-aligned split planes in bins
-                        for (lerp_index,lerp) in lerps.iter().enumerate(){
-                            let intersect_points = item.intersect_axis(axis, lerp.fake_arr(axis), bounds[index_item]);
-                            for vertex in intersect_points {
-                                binbounds[lerp_index].combine_vertex(vertex);
-                                binbounds[lerp_index + 1].combine_vertex(vertex);
+                        // { // test: expect every item bound to be within combination of bounds
+                        //     let mut total_bounds = aabb_null;
+                        //     for i in 0..bins {
+                        //         total_bounds.combine(binbounds[i]);
+                        //     }
+                        //     for index_item in sub_range.clone() {
+                        //         assert!(bounds[index_item].is_in(&total_bounds));
+                        //     }
+                        // }
+
+                        // iterate over bins
+                        for (lerp_index,lerp) in lerps.iter().enumerate() {
+                            let split = lerp.fake_arr(axis);
+                            // reset values
+                            ls = 0; // items in left
+                            rs = 0; // items in right
+                            lb.set_default(); // bounds of left
+                            rb.set_default(); // bounds of right
+                            // construct bounds
+                            let mut active = 0;
+                            for j in 0..lerp_index { // left of split
+                                active += startcounts[j];
+                                ls += active;
+                                active -= endcounts[j];
+                                lb.combine(binbounds[j]);
                             }
-                        }
-                    }
+                            for j in lerp_index..bins { // right of split
+                                active += startcounts[j];
+                                rs += active;
+                                active -= endcounts[j];
+                                rb.combine(binbounds[j]);
+                            }
+                            assert_eq!(active, 0); // in-going and out-going should cancel out each other
 
-                    { // test: expect every item bound to be within combination of bounds
-                        let mut total_bounds = aabb_null;
-                        for i in 0..bins {
-                            total_bounds.combine(binbounds[i]);
-                        }
-                        for index_item in sub_range.clone() {
-                            assert!(bounds[index_item].is_in(&total_bounds));
-                        }
-                    }
-
-                    // iterate over bins
-                    for (lerp_index,lerp) in lerps.iter().enumerate() {
-                        let split = lerp.fake_arr(axis);
-                        // reset values
-                        ls = 0; // items in left
-                        rs = 0; // items in right
-                        lb.set_default(); // bounds of left
-                        rb.set_default(); // bounds of right
-                        // construct bounds
-                        let mut active = 0;
-                        for j in 0..lerp_index { // left of split
-                            active += startcounts[j];
-                            ls += active;
-                            active -= endcounts[j];
-                            lb.combine(binbounds[j]);
-                        }
-                        for j in lerp_index..bins { // right of split
-                            active += startcounts[j];
-                            rs += active;
-                            active -= endcounts[j];
-                            rb.combine(binbounds[j]);
-                        }
-                        assert_eq!(active, 0); // in-going and out-going should cancel out each other
-
-                        // get cost
-                        let cost = 3.0 + 1.0 + lb.surface_area() * ls as f32 + 1.0 + rb.surface_area() * rs as f32;
-                        if cost < best_cost {
-                            // println!("{},{:?},{}", cost,axis,split);
-                            best_overlap = lb.overlap(rb);
-                            best_cost = cost;
-                            best_axis = axis;
-                            best_split = split;
-                            best_type = 1;
-                            best_lb   = lb;
-                            best_rb   = rb;
+                            // get cost
+                            let cost = 3.0 + 1.0 + lb.surface_area() * ls as f32 + 1.0 + rb.surface_area() * rs as f32;
+                            if cost < best_cost {
+                                // println!("{},{:?},{}", cost,axis,split);
+                                best_overlap = lb.overlap(rb);
+                                best_cost = cost;
+                                best_axis = axis;
+                                best_split = split;
+                                best_type = 1;
+                                best_lb   = lb;
+                                best_rb   = rb;
+                            }
                         }
                     }
                 }
@@ -315,22 +313,14 @@ impl Bvh{
             if best_type == 1 { // spatial split
                 while a <= b {
                     let start = bounds[a].min.fake_arr(best_axis);
-                    // let index_start = (k1*(v-k0)) as usize;
                     let end = bounds[a].max.fake_arr(best_axis);
-                    // let index_end = (k1*(v-k0)) as usize;
-                    if end < best_split { // if end index before split plane its fully left
-                        a += 1;
-                    } else if start > best_split { // if start index beyond split plane its fully right
-                        bounds.swap(a, b);
-                        items.swap(a, b);
-                        b -= 1;
-                    } else { // duplicate item into both children with proper bounding
-                        // inject this item (primitive/triangle) to the end of items and bounds
-                        items.push(items[a]); // duplicate primitive/triangle
-                        bounds.push(bounds[a].clone().overlap(best_rb)); // apply overlap
-                        bounds[a].overlap(best_lb); // apply overlap
-                        a += 1;
-                    }
+                    assert!(start < best_split);
+                    assert!(end > best_split);
+                    // duplicate item into both children with proper bounding
+                    items.push(items[a].clone()); // duplicate primitive/triangle to right
+                    bounds.push(bounds[a].clone().overlap(best_rb)); // apply overlap right
+                    bounds[a].overlap(best_lb); // apply overlap left
+                    a += 1;
                 }
             } else { // object split
                 // swap in such that items in appropriate bin interval based on midpoint
