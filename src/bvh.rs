@@ -32,8 +32,9 @@ impl Bvh{
     #[allow(clippy::too_many_arguments)]
     fn subdivide<Q: Intersectable + Clone >(bounds: &mut Vec<AABB>, vs: &mut Vec<Vertex>, items: &mut Vec<Q>, bins: usize, quality: u8, is_toplevel: bool){
         // let alpha = 1.0;
-        let alpha = 0.01;
+        let alpha = 0.001;
 
+        let before = items.len();
         let current = 0;
         let first = 0;
         let mut poolptr = 2;
@@ -59,6 +60,8 @@ impl Bvh{
         let mut best_type = 0;
         let mut best_lb = aabb_null;
         let mut best_rb = aabb_null;
+        let mut best_object_split = 0.0;
+        let mut best_spatial_split = 0.0;
 
         let mut v;
         let mut top_bound;
@@ -166,6 +169,7 @@ impl Bvh{
                             best_axis = axis;
                             best_split = split;
                             best_type = 0;
+                            best_object_split = cost;
                         }
                     }
                 }
@@ -282,6 +286,7 @@ impl Bvh{
                                 best_type = 1;
                                 best_lb   = lb;
                                 best_rb   = rb;
+                                best_spatial_split = cost;
                             }
                         }
                     }
@@ -310,6 +315,7 @@ impl Bvh{
             let mut a = first; // first
             let mut b = first + count - 1; // last
             if best_type == 1 { // spatial split
+                println!("using spatial split, improved cost by {}/{}={}", best_spatial_split, best_object_split, best_spatial_split/best_object_split);
                 while a <= b {
                     let start = bounds[a].min.fake_arr(best_axis);
                     let end = bounds[a].max.fake_arr(best_axis);
@@ -355,6 +361,9 @@ impl Bvh{
             stack.push(StackItem {current: lf,first,count: l_count, depth: depth + 1});
             stack.push(StackItem {current: lf+1,first: first+l_count,count: count-l_count, depth: depth + 1});
         }
+
+        let after = items.len();
+        println!("before ({}), after({})", before, after);
     }
 
     pub fn from_primitives(bounds: &mut Vec<AABB>, primitives: &mut Vec<Primitive>) -> Self{
