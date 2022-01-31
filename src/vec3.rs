@@ -70,6 +70,18 @@ impl Vec3{
         Self { x: a.cos() * b.sin(), y: a.sin(), z: a.cos() * -b.cos() }
     }
 
+    #[inline]
+    pub fn rotate(self, ori: Orientation) -> Self {
+        // todo use matrix
+        let a = ori.roll;  // Up/Down
+        let b = ori.yaw;   // Left/Right
+        Self {
+           x: self.x * a.cos() - self.z*a.sin(),
+           y: self.y,
+           z: self.x*a.sin() + self.z*a.cos()
+        }
+    }
+
 
     #[inline]
     pub fn yawed(self, o: f32) -> Self {

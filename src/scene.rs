@@ -9,6 +9,7 @@ use crate::cpu::inter::{ Ray, RayHit, inter_plane, inter_sphere, inter_triangle 
 
 use std::collections::HashMap;
 use std::convert::TryInto;
+use rand::random;
 use crate::bvh::Bvh;
 
 pub trait SceneItem{
@@ -306,6 +307,33 @@ impl Intersectable for Triangle {
 impl Triangle {
     #[inline]
     fn vertices(&self) -> [Vec3;3] { [self.a, self.b, self.c] }
+    #[inline]
+    fn scaled(&self, s: f32) -> Self {
+        Self {
+            a: self.a.scaled(s),
+            b: self.b.scaled(s),
+            c: self.c.scaled(s),
+            mat: self.mat
+        }
+    }
+    #[inline]
+    fn rotated(&self, o: Orientation) -> Self {
+        Self {
+            a: self.a.rotate(o),
+            b: self.b.rotate(o),
+            c: self.c.rotate(o),
+            mat: self.mat
+        }
+    }
+    #[inline]
+    fn translated(&self, p: Vec3) -> Self {
+        Self {
+            a: self.a.added(p),
+            b: self.b.added(p),
+            c: self.c.added(p),
+            mat: self.mat
+        }
+    }
 }
 
 pub type MeshIndex = u32;
@@ -671,6 +699,63 @@ impl Scene{
     pub fn add_triangle(&mut self, t: Triangle){
         if self.is_not_ok(t.mat) { return; }
         self.triangles.push(t);
+    }
+
+    pub fn make_box(&mut self) -> Vec<Triangle>{
+        vec![
+            // 0
+            Triangle{a:Vec3{x:0.0,y:0.0,z:0.0},b:Vec3{x:1.0,y:0.0,z:0.0},c:Vec3{x:0.0,y:1.0,z:0.0},mat:0},
+            Triangle{a:Vec3{x:1.0,y:1.0,z:0.0},b:Vec3{x:1.0,y:0.0,z:0.0},c:Vec3{x:0.0,y:1.0,z:0.0},mat:0},
+            // 1
+            Triangle{a:Vec3{x:0.0,y:0.0,z:0.0},b:Vec3{x:0.0,y:1.0,z:0.0},c:Vec3{x:0.0,y:0.0,z:1.0},mat:0},
+            Triangle{a:Vec3{x:0.0,y:1.0,z:1.0},b:Vec3{x:0.0,y:1.0,z:0.0},c:Vec3{x:0.0,y:0.0,z:1.0},mat:0},
+            // 2
+            Triangle{a:Vec3{x:0.0,y:0.0,z:0.0},b:Vec3{x:1.0,y:0.0,z:0.0},c:Vec3{x:0.0,y:0.0,z:1.0},mat:0},
+            Triangle{a:Vec3{x:1.0,y:0.0,z:1.0},b:Vec3{x:1.0,y:0.0,z:0.0},c:Vec3{x:0.0,y:0.0,z:1.0},mat:0},
+            // 3
+            Triangle{a:Vec3{x:1.0,y:0.0,z:0.0},b:Vec3{x:1.0,y:1.0,z:0.0},c:Vec3{x:1.0,y:0.0,z:1.0},mat:0},
+            Triangle{a:Vec3{x:1.0,y:1.0,z:1.0},b:Vec3{x:1.0,y:1.0,z:0.0},c:Vec3{x:1.0,y:0.0,z:1.0},mat:0},
+            // 4
+            Triangle{a:Vec3{x:0.0,y:1.0,z:0.0},b:Vec3{x:1.0,y:1.0,z:0.0},c:Vec3{x:0.0,y:1.0,z:1.0},mat:0},
+            Triangle{a:Vec3{x:1.0,y:1.0,z:1.0},b:Vec3{x:1.0,y:1.0,z:0.0},c:Vec3{x:0.0,y:1.0,z:1.0},mat:0},
+            // 5
+            Triangle{a:Vec3{x:0.0,y:0.0,z:1.0},b:Vec3{x:1.0,y:0.0,z:1.0},c:Vec3{x:0.0,y:1.0,z:1.0},mat:0},
+            Triangle{a:Vec3{x:1.0,y:1.0,z:1.0},b:Vec3{x:1.0,y:0.0,z:1.0},c:Vec3{x:0.0,y:1.0,z:1.0},mat:0},
+        ]
+    }
+    pub fn random_box(&mut self) -> Vec<Triangle> {
+        let scale = random::<f32>() * 10.0;
+        let pos = Vec3::new_random();
+        let ori = Orientation{ yaw: random::<f32>(), roll: random::<f32>() };
+        self.make_box()
+            .iter_mut()
+            .map(|tri| (*tri)
+                .scaled(scale)
+                .rotated(ori)
+                .translated(pos)
+            )
+            .collect()
+    }
+    pub fn awful(&mut self) -> MeshIndex {
+        // rotate triangles
+        let mut triangles = vec![];
+        for i in 1..1000 {
+            triangles.append(&mut self.random_box());
+        }
+
+        let mesh = Mesh {
+            name: "awful".parse().unwrap(),
+            start: self.triangles.len(),
+            count: triangles.len()
+        };
+        let bvh = Bvh::from_mesh(self.meshes.len() as MeshIndex, &mut triangles, 12);
+        for tri in triangles {
+            self.add_triangle(tri);
+        }
+        self.sub_bvhs.push(bvh);
+        self.meshes.push(mesh);
+        (self.meshes.len() - 1) as MeshIndex
+
     }
 
     pub fn add_mesh(&mut self, mesh_name: String) -> MeshIndex {
