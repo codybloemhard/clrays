@@ -25,7 +25,7 @@ pub type MaterialIndex = u32;
 #[derive(Clone, PartialEq, Debug)]
 pub struct Material{ // 62 bytes =  2*12 + 9*4 + 2
     pub col: Vec3,
-    pub absorption: Vec3,
+    pub abs_fres: Vec3, // either absorption or fresnell colour depending on the situation
     pub reflectivity: f32,
     pub transparency: f32,
     pub refraction: f32,
@@ -52,7 +52,7 @@ impl Material{
     pub fn basic() -> Self{
         Self{
             col: Vec3::ONE.unhardened(0.05),
-            absorption: Vec3::BLACK,
+            abs_fres: Vec3::BLACK,
             reflectivity: 0.0,
             transparency: 0.0,
             refraction: 1.0,
@@ -68,9 +68,24 @@ impl Material{
         }
     }
 
-    pub fn into_light(mut self, col: Vec3, emittance: f32) -> Self{
+    pub fn as_light(mut self, col: Vec3, emittance: f32) -> Self{
         self.col = col;
         self.emittance = emittance;
+        self
+    }
+
+    pub fn as_checkerboard(mut self) -> Self{
+        self.is_checkerboard = true;
+        self
+    }
+
+    pub fn as_dielectric(mut self) -> Self{
+        self.is_dielectric = true;
+        self
+    }
+
+    pub fn as_conductor(mut self) -> Self{
+        self.is_dielectric = false;
         self
     }
 
@@ -100,7 +115,12 @@ impl Material{
             y: (1.0 - absorption.y).ln(),
             z: (1.0 - absorption.z).ln(),
         };
-        self.absorption = ab;
+        self.abs_fres = ab;
+        self
+    }
+
+    pub fn with_specular(mut self, spec: Vec3) -> Self{
+        self.abs_fres = spec;
         self
     }
 
@@ -111,16 +131,6 @@ impl Material{
 
     pub fn with_texture(mut self, tex: u32) -> Self{
         self.texture = tex;
-        self
-    }
-
-    pub fn as_checkerboard(mut self) -> Self{
-        self.is_checkerboard = true;
-        self
-    }
-
-    pub fn as_dielectric(mut self) -> Self{
-        self.is_dielectric = true;
         self
     }
 
@@ -155,7 +165,7 @@ impl SceneItem for Material{
         let refraction = if self.is_dielectric { self.refraction } else { -1.0 };
         vec![
             self.col.x, self.col.y, self.col.z, self.reflectivity,
-            self.absorption.x, self.absorption.y, self.absorption.z, refraction,
+            self.abs_fres.x, self.abs_fres.y, self.abs_fres.z, refraction,
             self.roughness, self.emittance,
             self.texture as f32, self.normal_map as f32,
             self.roughness_map as f32, self.metalic_map as f32,

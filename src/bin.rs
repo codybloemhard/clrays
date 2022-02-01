@@ -79,8 +79,9 @@ pub fn main() -> Result<(), String>{
         pos: Vec3::new(0.0, -1.0, 0.0),
         nor: Vec3::UP,
         mat: Material::basic()
-            // .as_checkerboard()
+            .as_conductor()
             .with_roughness(0.1)
+            .with_specular(ALUMINIUM_SPEC)
             .with_texture(scene.get_texture("stone-alb"))
             .with_normal_map(scene.get_texture("stone-nor"))
             .with_roughness_map(scene.get_texture("stone-rou"))
@@ -92,7 +93,9 @@ pub fn main() -> Result<(), String>{
         pos: Vec3::new(2.0, 0.0, -5.0),
         rad: 1.0 - EPSILON,
         mat: Material::basic()
+            .as_conductor()
             .with_roughness(0.5)
+            .with_specular(COPPER_SPEC)
             .with_texture(scene.get_texture("tiles-alb"))
             .with_normal_map(scene.get_texture("tiles-nor"))
             .with_roughness_map(scene.get_texture("tiles-rou"))
@@ -103,8 +106,10 @@ pub fn main() -> Result<(), String>{
         pos: Vec3::new(0.0, 0.0, -5.0),
         rad: 1.0 - EPSILON,
         mat: Material::basic()
+            .as_conductor()
             .with_reflectivity(0.3)
             .with_roughness(0.1)
+            .with_specular(GOLD_SPEC)
             .with_texture(scene.get_texture("solar-alb"))
             .with_normal_map(scene.get_texture("solar-nor"))
             .with_roughness_map(scene.get_texture("solar-rou"))
@@ -116,7 +121,9 @@ pub fn main() -> Result<(), String>{
         pos: Vec3::new(-2.0, 0.0, -5.0),
         rad: 1.0 - EPSILON,
         mat: Material::basic()
+            .as_conductor()
             .with_roughness(0.02)
+            .with_specular(Vec3{x: 0.001, y: 0.001, z: 0.002 })
             .with_texture(scene.get_texture("scifi-alb"))
             .with_normal_map(scene.get_texture("scifi-nor"))
             .with_roughness_map(scene.get_texture("scifi-rou"))
@@ -221,7 +228,7 @@ pub fn main() -> Result<(), String>{
     Sphere{
         pos: Vec3::new(0.0, 4.0, 3.0),
         rad: 2.0,
-        mat: Material::basic().into_light(Vec3::uni(1.0), 10.0)
+        mat: Material::basic().as_light(Vec3::uni(1.0), 10.0)
             .add_to_scene(&mut scene)
     }.add(&mut scene);
 

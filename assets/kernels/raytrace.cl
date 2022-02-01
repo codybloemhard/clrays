@@ -11,7 +11,7 @@
 struct Material{
     float3 col;
     float reflectivity;
-    float3 absorption;
+    float3 abs_fres;
     float refraction;
     float roughness;
     float emittance;
@@ -85,7 +85,7 @@ struct Material ExtractMaterial(uint off, float *arr){
     struct Material mat;
     mat.col = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
     mat.reflectivity = arr[off + 3];
-    mat.absorption = (float3)(arr[off + 4], arr[off + 5], arr[off + 6]);
+    mat.abs_fres = (float3)(arr[off + 4], arr[off + 5], arr[off + 6]);
     mat.refraction = arr[off + 7];
     mat.roughness = arr[off + 8] + EPSILON;
     mat.emittance = arr[off + 9];
@@ -870,9 +870,9 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
                 n1 = ncontext;
             } else {
                 // do we have absorption that we should handle?
-                if(dot(mat.absorption, mat.absorption) > EPSILON){
+                if(dot(mat.abs_fres, mat.abs_fres) > EPSILON){
                     float dist = fast_length(hitpos - hit.pos);
-                    E *= exp(mat.absorption * dist);
+                    E *= exp(mat.abs_fres * dist);
                 }
                 hit.nor *= -1.0f;
                 n2 = ncontext;
@@ -911,7 +911,7 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
             continue;
         }
 
-        // handle non-dielectrics: blend of specular and diffuse
+        // handle conductors
         // HANDLE_TEXTURES;
 
         // if(mat.reflectivity > EPSILON){ // mirror
@@ -925,7 +925,7 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
         // }
 
         float a = clamp(mat.roughness, 0.0f, 1.0f);
-        float3 kSpec = (float3)(0.95, 0.64, 0.54);
+        float3 kSpec = mat.abs_fres;
 
         // nray.dir = RandomHemispherePoint(seed, hit.nor);
         // float3 BRDF = mat.col * INV_PI;

@@ -5,15 +5,20 @@
 - [x] custom keybindings
 - [x] skycolour, skybox: sphere
 - [x] export frame
+- [x] mesh: triangle meshes (.obj)
 - [x] BVH: binning + SAH + top-level
 - [ ] BVH: 4 way
 
 ### GPU
 - [x] basic pathtracer (area lights, materials, speculars, dielectrics, beer's law)
 - [x] frame energy
-- [x] Tone mapping: Aces, Hable/Uncharted
-- [ ] Utilize BVH
-- [ ] Microfacet materials
+- [x] tone mapping: Aces, Hable/Uncharted
+- [ ] microfacet materials
+  - [x] GGX-Smith conductor
+  - [ ] GGX-Smith dielectric
+  - [x] GGX NDF importance sampling
+  - [ ] GGX VNDF importance sampling
+- [ ] utilize BVH
 
 ### CPU
 - [x] primitives: planes, spheres, triangles
@@ -27,11 +32,10 @@
 - [x] AA: randomly sampled
 - [x] textures: albedo, normal, roughness, metalic
 - [x] barrel distortion, fish eye lens
-- [x] mesh: triangle meshes (.obj)
 - [x] progressive anti aliasing
 - [x] adaptive resolution
 - [x] bilinear texture sampling for all supported texture maps
-- [x] Utilize top-level BVH
+- [x] utilize top-level BVH
 
 ## Controls
 
@@ -44,6 +48,8 @@ QWERTY  |Gaming | Q, E, W, S, A, D                               | I, K, J, L   
 QGMLWY  |Typing | G, L, M, T, S, N                               | U, E, A, O                  | F                 | B
 
 ## Possible things to work on
+- rust-gpu rewrite
+- wavefront
 - portals
 - hdr skybox
 - sphere skybox only tophalf option
