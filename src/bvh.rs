@@ -308,7 +308,7 @@ impl Bvh{
             let mut b = first + count - 1; // last
             if best_type == 1 { // spatial split
                 println!("using spatial split, improved cost by {}/{}={}", best_spatial_split, best_object_split, best_spatial_split/best_object_split);
-                while a <= b {
+                while a < b {
                     let start = bounds[a].min.fake_arr(best_axis);
                     let end = bounds[a].max.fake_arr(best_axis);
                     if end < best_split { // if end index before split plane its fully left
@@ -327,7 +327,7 @@ impl Bvh{
                 }
             } else { // object split
                 // swap in such that items in appropriate bin interval based on midpoint
-                while a <= b{
+                while a < b{
                     if bounds[a].midpoint().fake_arr(best_axis) < best_split{
                         a += 1;
                     } else {
