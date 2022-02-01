@@ -164,11 +164,6 @@ impl Bvh{
                         }
                     }
                 }
-                if best_cost == max_cost { // leaf
-                    v.left_first = first; // first
-                    v.count = count;
-                    continue;
-                }
                 // compute lambda
                 let lambda = best_overlap.surface_area() / root_sa;
 
@@ -281,6 +276,12 @@ impl Bvh{
                             }
                         }
                     }
+                }
+
+                if best_cost == max_cost { // leaf
+                    v.left_first = first; // first
+                    v.count = count;
+                    continue;
                 }
             }
             else { // midpoint
