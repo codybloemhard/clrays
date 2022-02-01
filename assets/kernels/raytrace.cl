@@ -67,7 +67,9 @@ struct Scene{
     uint *bvh;
     uint skybox;
     float3 skycol;
-    float skyintens;
+    float sky_intensity;
+    float sky_min;
+    float sky_pow;
 };
 
 //first byte in array where this type starts
@@ -843,11 +845,14 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
     float3 hitpos = ray.pos;
     float3 distacc = (float3)(1.0f);
     uint rounds = 0;
+
     while(tirs < 8 && rounds < 20){
         rounds++;
         struct RayHit hit = INTER_SCENE(&ray, scene);
         if(hit.t >= MAX_RENDER_DIST){
-            E *= SkyCol(ray.dir, scene) * 3.0f;
+            float3 sky_col = SkyCol(ray.dir, scene);
+            if(rounds == 1) return sky_col;
+            E *= sky_col * max(scene->sky_min, pow(length(sky_col), scene->sky_pow)) * scene->sky_intensity;
             break;
         }
 
@@ -964,12 +969,14 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
     scene.bvh = bvh;\
     scene.skybox = sc_params[2 * SC_SCENE + 0];\
     scene.skycol = ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 1);\
-    scene.skyintens = as_float(sc_params[2 * SC_SCENE + 4]);\
+    scene.sky_intensity = as_float(sc_params[2 * SC_SCENE + 4]);\
+    scene.sky_min = as_float(sc_params[2 * SC_SCENE + 5]);\
+    scene.sky_pow = as_float(sc_params[2 * SC_SCENE + 6]);\
 
 #define CREATE_RAY(uv)\
     struct Ray ray;\
-    ray.pos = ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 5);\
-    float3 cd = fast_normalize(ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 8));\
+    ray.pos = ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 7);\
+    float3 cd = fast_normalize(ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 10));\
     float3 hor = fast_normalize(cross(cd, (float3)(0.0f, 1.0f, 0.0f)));\
     float3 ver = fast_normalize(cross(hor, cd));\
     float3 to = ray.pos + cd;\

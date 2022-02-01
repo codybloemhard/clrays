@@ -338,6 +338,8 @@ pub struct Scene{
     skybox: u32,
     pub sky_col: Vec3,
     pub sky_intensity: f32,
+    pub sky_min: f32,
+    pub sky_pow: f32,
     pub sky_box: u32,
     pub cam: Camera,
 }
@@ -350,7 +352,7 @@ impl Default for Scene {
 
 impl Scene{
     const SCENE_SIZE: u32 = 11;
-    const SCENE_PARAM_SIZE: usize = 5 * 2 + Self::SCENE_SIZE as usize;
+    const SCENE_PARAM_SIZE: usize = 7 * 2 + Self::SCENE_SIZE as usize;
     const MATERIAL_SIZE: u32 = 15;
     const MATERIAL_INDEX_SIZE: u32 = 1;
     const LIGHT_SIZE: u32 = 7;
@@ -379,7 +381,9 @@ impl Scene{
             textures: Vec::new(),
             skybox: 0,
             sky_col: Vec3::ONE,
-            sky_intensity: 0.0,
+            sky_intensity: 1.0,
+            sky_min: 0.1,
+            sky_pow: 1.0,
             sky_box: 0,
             cam: Camera{
                 pos: Vec3::ZERO,
@@ -436,8 +440,10 @@ impl Scene{
         self.scene_params[10] = self.skybox;
         self.put_in_scene_params(11, self.sky_col);
         self.scene_params[14] = self.sky_intensity.to_bits() as u32;
-        self.put_in_scene_params(15, self.cam.pos);
-        self.put_in_scene_params(18, self.cam.dir);
+        self.scene_params[15] = self.sky_min.to_bits() as u32;
+        self.scene_params[16] = self.sky_pow.to_bits() as u32;
+        self.put_in_scene_params(17, self.cam.pos);
+        self.put_in_scene_params(20, self.cam.dir);
         self.scene_params.to_vec()
     }
 
@@ -596,6 +602,12 @@ impl Scene{
     pub fn set_skybox(&mut self, name: &str){
         self.skybox = self.get_texture(name);
         self.sky_box = self.skybox;
+    }
+
+    pub fn set_sky_intensity(&mut self, int: f32, min: f32, pow: f32){
+        self.sky_intensity = int;
+        self.sky_min = min;
+        self.sky_pow = pow;
     }
 
     pub fn add_light(&mut self, l: Light){
