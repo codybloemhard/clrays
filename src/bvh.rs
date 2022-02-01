@@ -71,21 +71,12 @@ impl Bvh{
         let mut first;
         let mut count;
 
-        let mut depth_timers = vec![];
-        let mut depth_items = vec![];
-
         let mut root_sa= f32::MAX;
 
         while !stack.is_empty() {
             let x = stack.pop().unwrap();
             // println!("{:?}", x);
             depth = x.depth;
-            if depth >= depth_timers.len() {
-                depth_timers.push(0);
-                depth_items.push(0);
-            }
-
-            depth_items[depth] += x.count;
             current = x.current;
             count = x.count;
             first = x.first;
