@@ -865,10 +865,21 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
         struct Ray nray;
         nray.pos = hit.pos + hit.nor * EPSILON;
 
+        // given
+        float a = clamp(mat.roughness, 0.0f, 1.0f);
+        float3 kSpec = mat.abs_fres;
+        float3 wg = hit.nor;
+        float3 wi = ray.dir;
+        float a2 = a * a;
+        float3 wm_tangent = MicroFacet_IS_Tangent(a2, U32tf01(Xor32(seed)), U32tf01(Xor32(seed)));
+        float3 wm = TangentToWorld(wg, wm_tangent);
+        // answers we need
+        float3 F = (float3)(1.0f), wo;
+
         // handle dielectrics
         float mf = mat.refraction;
         if(mf > EPSILON){
-            bool outside = dot(hit.nor, ray.dir) < 0.0;
+            bool outside = dot(wg, wi) < 0.0;
             float n1, n2;
             if(outside){
                 n2 = mf;
@@ -879,83 +890,48 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
                     float dist = fast_length(hitpos - hit.pos);
                     E *= exp(mat.abs_fres * dist);
                 }
-                hit.nor *= -1.0f;
+                wg *= -1.0f;
                 n2 = ncontext;
                 n1 = mf;
             }
             hitpos = hit.pos;
             float n = n1 / n2;
-            float cost1 = dot(hit.nor, -ray.dir);
+            float cost1 = dot(wg, -wi);
             float k = 1.0f - n * n * (1.0f - cost1 * cost1);
             float costt = sqrt(k);
-            float3 refldir = reflect(ray.dir, hit.nor);
+            float3 refldir = reflect(wi, wg);
             if(k < 0.0f){ // total internal reflection
-                nray.dir = refldir;
-                nray.pos = hit.pos + hit.nor * EPSILON;
-                ray = nray;
+                wo = refldir;
                 tirs++;
-                continue;
+            } else {
+                float spol = (n1 * cost1 - n2 * costt) / (n1 * cost1 + n2 * costt);
+                float ppol = (n1 * costt - n2 * cost1) / (n1 * costt + n2 * cost1);
+                float fr = 0.5f * (spol * spol + ppol * ppol);
+
+                // choose reflect or refract
+                float decider = U32tf01(Xor32(seed));
+                if(decider <= fr){
+                    wo = refldir;
+                } else {
+                    wo = fast_normalize((ray.dir - wg * -cost1) * n + wg * -sqrt(k));
+                    nray.pos = hit.pos - wg * EPSILON;
+                    ncontext = mf;
+                }
             }
-
-            float spol = (n1 * cost1 - n2 * costt) / (n1 * cost1 + n2 * costt);
-            float ppol = (n1 * costt - n2 * cost1) / (n1 * costt + n2 * cost1);
-            float fr = 0.5f * (spol * spol + ppol * ppol);
-
-            // choose reflect or refract
-            float decider = U32tf01(Xor32(seed));
-            if(decider <= fr){
-                nray.dir = refldir;
-                nray.pos = hit.pos + hit.nor * EPSILON;
-            }else{
-                nray.dir = fast_normalize((ray.dir - hit.nor * -cost1) * n + hit.nor * -sqrt(k));
-                nray.pos = hit.pos - hit.nor * EPSILON;
-                ncontext = mf;
-            }
-
-            ray = nray;
-            continue;
+        } else { // handle conductors
+            wo = reflect(wi, wm);
+            F = Schlick(clamp(dot(wo, wm), EPSILON, 1.0f), kSpec);
+            float dgo = clamp(dot(wg, wo), EPSILON, 1.0f);
+            float dgm = clamp(dot(wg, wm), EPSILON, 1.0f);
+            float dom = clamp(dot(wo, wm), EPSILON, 1.0f);
+            float G = G_GGX_Smith(dgo, a2) * G_GGX_Smith(dgm, a2);
+            E *= F * G * dom / (dgo * dgm);
         }
-
-        // handle conductors
-        // HANDLE_TEXTURES;
-
-        // if(mat.reflectivity > EPSILON){ // mirror
-        //     float decider = U32tf01(Xor32(seed));
-        //     if(decider <= mat.reflectivity){
-        //         nray.dir = reflect(ray.dir, hit.nor);
-        //         E *= mat.col;
-        //         ray = nray;
-        //         continue;
-        //     }
-        // }
-
-        float a = clamp(mat.roughness, 0.0f, 1.0f);
-        float3 kSpec = mat.abs_fres;
-
-        // nray.dir = RandomHemispherePoint(seed, hit.nor);
-        // float3 BRDF = mat.col * INV_PI;
-        // float3 BRDF = MicroFacetBRDF(nray.dir, -ray.dir, hit.nor, (float3)(0.95, 0.64, 0.54), mat.roughness * 0.5f);
-        // float INV_PDF = PI2; // PDF = 1 / 2PI
-        // float3 Ei = max(dot(hit.nor, nray.dir), 0.0f) * INV_PDF;
-        // E *= BRDF * Ei;
-
-        float3 wg = hit.nor;
-        float3 wi = ray.dir;
-        float a2 = a * a;
-
-        float3 wm_tangent = MicroFacet_IS_Tangent(a2, U32tf01(Xor32(seed)), U32tf01(Xor32(seed)));
-        float3 wm = TangentToWorld(wg, wm_tangent);
-        float3 wo = reflect(wi, wm);
-
-        float3 F = Schlick(clamp(dot(wo, wm), EPSILON, 1.0f), kSpec);
-        float dgo = clamp(dot(wg, wo), EPSILON, 1.0f);
-        float dgm = clamp(dot(wg, wm), EPSILON, 1.0f);
-        float dom = clamp(dot(wo, wm), EPSILON, 1.0f);
-        float G = G_GGX_Smith(dgo, a2) * G_GGX_Smith(dgm, a2);
-        E *= F * G * dom / (dgo * dgm);
 
         nray.dir = wo;
         ray = nray;
+
+        // HANDLE_TEXTURES;
     }
     return E;
 }

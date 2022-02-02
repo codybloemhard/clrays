@@ -132,24 +132,26 @@ pub fn main() -> Result<(), String>{
             .with_reflectivity(0.9)
             .add_to_scene(&mut scene)
     }.add(&mut scene);
-    //
-    // Sphere{
-    //     pos: Vec3::new(-4.0, 0.0, -5.0),
-    //     rad: 1.0 - EPSILON,
-    //     mat: Material::basic()
-    //         .as_dielectric()
-    //         .with_refraction(1.5)
-    //         .add_to_scene(&mut scene)
-    // }.add(&mut scene);
-    //
-    // Sphere{
-    //     pos: Vec3::new(-6.0, 0.0, -5.0),
-    //     rad: 1.0 - EPSILON,
-    //     mat: Material::basic()
-    //         .as_dielectric()
-    //         .with_refraction(2.0)
-    //         .add_to_scene(&mut scene)
-    // }.add(&mut scene);
+
+    Sphere{
+        pos: Vec3::new(-4.0, 0.0, -5.0),
+        rad: 1.0 - EPSILON,
+        mat: Material::basic()
+            .as_dielectric()
+            .with_refraction(1.5)
+            .with_roughness(0.02)
+            .add_to_scene(&mut scene)
+    }.add(&mut scene);
+
+    Sphere{
+        pos: Vec3::new(-6.0, 0.0, -5.0),
+        rad: 1.0 - EPSILON,
+        mat: Material::basic()
+            .as_dielectric()
+            .with_refraction(2.0)
+            .with_roughness(0.00)
+            .add_to_scene(&mut scene)
+    }.add(&mut scene);
 
     // Sphere{
     //     pos: Vec3::new(-6.0, 0.0, -5.0),
