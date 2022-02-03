@@ -139,7 +139,7 @@ pub fn main() -> Result<(), String>{
         mat: Material::basic()
             .as_dielectric()
             .with_refraction(1.5)
-            .with_roughness(0.02)
+            .with_roughness(0.01)
             .add_to_scene(&mut scene)
     }.add(&mut scene);
 
@@ -149,7 +149,8 @@ pub fn main() -> Result<(), String>{
         mat: Material::basic()
             .as_dielectric()
             .with_refraction(2.0)
-            .with_roughness(0.00)
+            .with_roughness(0.1)
+            .with_colour(Vec3{x: 0.1, y: 1.0, z: 0.1})
             .add_to_scene(&mut scene)
     }.add(&mut scene);
 

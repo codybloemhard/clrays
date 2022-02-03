@@ -7,7 +7,7 @@
 - [x] export frame
 - [x] mesh: triangle meshes (.obj)
 - [x] BVH: binning + SAH + top-level
-- [ ] BVH: 4 way
+- [ ] SBVH
 
 ### GPU
 - [x] basic pathtracer (area lights, materials, speculars, dielectrics, beer's law)
@@ -18,7 +18,6 @@
   - [ ] GGX-Smith dielectric
   - [x] GGX NDF importance sampling
   - [ ] GGX VNDF importance sampling
-- [ ] utilize BVH
 
 ### CPU
 - [x] primitives: planes, spheres, triangles

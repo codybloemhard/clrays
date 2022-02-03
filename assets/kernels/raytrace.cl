@@ -899,7 +899,7 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
             float cost1 = dot(wg, -wi);
             float k = 1.0f - n * n * (1.0f - cost1 * cost1);
             float costt = sqrt(k);
-            float3 refldir = reflect(wi, wg);
+            float3 refldir = reflect(wi, wm);
             if(k < 0.0f){ // total internal reflection
                 wo = refldir;
                 tirs++;
@@ -913,7 +913,8 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
                 if(decider <= fr){
                     wo = refldir;
                 } else {
-                    wo = fast_normalize((ray.dir - wg * -cost1) * n + wg * -sqrt(k));
+                    float c = dot(wm, -wi);
+                    wo = fast_normalize((ray.dir - wg * -c) * n + wm * -sqrt(k));
                     nray.pos = hit.pos - wg * EPSILON;
                     ncontext = mf;
                 }
@@ -925,7 +926,7 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
             float dgm = clamp(dot(wg, wm), EPSILON, 1.0f);
             float dom = clamp(dot(wo, wm), EPSILON, 1.0f);
             float G = G_GGX_Smith(dgo, a2) * G_GGX_Smith(dgm, a2);
-            E *= F * G * dom / (dgo * dgm);
+            E *= mat.col * F * G * dom / (dgo * dgm);
         }
 
         nray.dir = wo;
