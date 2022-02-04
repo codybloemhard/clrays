@@ -178,9 +178,12 @@ impl AABB {
     #[inline]
     pub fn surface_area(self) -> f32{
         let v = self.max.subed(self.min);
-        v.x * v.y * 2.0 +
-        v.x * v.z * 2.0 +
-        v.y * v.z * 2.0
+        if v.x < 0.0 || v.y < 0.0 || v.z < 0.0 { 0.0 }
+        else {
+            v.x * v.y * 2.0 +
+                v.x * v.z * 2.0 +
+                v.y * v.z * 2.0
+        }
     }
 
     #[inline]
