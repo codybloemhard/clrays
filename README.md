@@ -78,6 +78,12 @@ QGMLWY  |Typing | G, L, M, T, S, N                               | U, E, A, O   
 4. [Microfacets; Walter et al. (2007)](https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf)
 5. [Microfacets; Joe Schutte (2018)](https://schuttejoe.github.io/post/ggximportancesamplingpart1/)
 6. [Microfacets; Jacco Bikker (2016)](https://www.cs.uu.nl/docs/vakken/magr/portfolio/INFOMAGR/lecture13.pdf)
+7. [Fast AABB intersection; NVIDIA (2018)](https://www.jcgt.org/published/0007/03/04/paper-lowres.pdf)
+8. [Recursion-less gpu tree traversal adapted from nvidia article](https://developer.nvidia.com/blog/thinking-parallel-part-ii-tree-traversal-gpu/)
+9. [Wang hash found here](https://riptutorial.com/opencl/example/20715/using-thomas-wang-s-integer-hash-function)
+10. [Random vector in hemisphere; UMONS](https://angms.science/doc/RM/randUnitVec.pdf)
+11. [random vector in the hemisphere along normal; Shadertoy](https://www.shadertoy.com/view/4s3cRr)
+12. On fast Construction of SAH-based Bounding Volume Hierarchies; Iglo Wald
 <!---
 [Microfacets; Eric Heitz (2018)]https://jcgt.org/published/0007/04/01/paper.pdf
 --->

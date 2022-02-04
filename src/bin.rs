@@ -156,52 +156,6 @@ pub fn main() -> Result<(), String>{
             .add_to_scene(&mut scene)
     }.add(&mut scene);
 
-    // Sphere{
-    //     pos: Vec3::new(-6.0, 0.0, -5.0),
-    //     rad: 1.0 - EPSILON,
-    //     mat: Material::basic()
-    //         .as_dielectric()
-    //         .with_refraction(1.6)
-    //         .add_to_scene(&mut scene)
-    // }.add(&mut scene);
-    // Sphere{
-    //     pos: Vec3::new(-6.0, 0.0, -5.0),
-    //     rad: 0.95 - EPSILON,
-    //     mat: Material::basic()
-    //         .as_dielectric()
-    //         .add_to_scene(&mut scene)
-    // }.add(&mut scene);
-
-    // Sphere{
-    //     pos: Vec3::new(0.0, 2.0, -10.0),
-    //     rad: 1.0 - EPSILON,
-    //     mat: Material::basic()
-    //         .as_dielectric()
-    //         .with_absorption(Vec3 { x: 0.8, y: 0.3, z: 0.3 })
-    //         .with_refraction(DIAMOND_REFRACTION)
-    //         .add_to_scene(&mut scene)
-    // }.add(&mut scene);
-    //
-    // Sphere{
-    //     pos: Vec3::new(-3.0, 2.0, -10.0),
-    //     rad: 2.0 - EPSILON,
-    //     mat: Material::basic()
-    //         .as_dielectric()
-    //         .with_absorption(Vec3 { x: 0.8, y: 0.3, z: 0.3 })
-    //         .with_refraction(AIR_REFRACTION)
-    //         .add_to_scene(&mut scene)
-    // }.add(&mut scene);
-    //
-    // Sphere{
-    //     pos: Vec3::new(-10.0, 5.0, -10.0),
-    //     rad: 5.0 - EPSILON,
-    //     mat: Material::basic()
-    //         .as_dielectric()
-    //         .with_absorption(Vec3 { x: 0.8, y: 0.3, z: 0.3 })
-    //         .with_refraction(AIR_REFRACTION)
-    //         .add_to_scene(&mut scene)
-    // }.add(&mut scene);
-
     let mut dragon = Model{
         pos: Default::default(),
         rot: Default::default(),
@@ -209,6 +163,7 @@ pub fn main() -> Result<(), String>{
         // mat: Material::basic().as_dielectric().with_refraction(WATER_REFRACTION).add_to_scene(&mut scene),
         mesh: scene.add_mesh("assets/models/dragon.obj".parse().unwrap())
     };
+
     // 10000 dragons = 1 billion triangles
     for _ in 0..0 {
         let rad = 20.0;
