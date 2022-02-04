@@ -922,12 +922,13 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
         } else { // handle conductors
             wo = reflect(wi, wm);
             F = Schlick(clamp(dot(wo, wm), EPSILON, 1.0f), kSpec);
-            float dgo = clamp(dot(wg, wo), EPSILON, 1.0f);
-            float dgm = clamp(dot(wg, wm), EPSILON, 1.0f);
-            float dom = clamp(dot(wo, wm), EPSILON, 1.0f);
-            float G = G_GGX_Smith(dgo, a2) * G_GGX_Smith(dgm, a2);
-            E *= mat.col * F * G * dom / (dgo * dgm);
         }
+
+        float dgo = clamp(fabs(dot(wg, wo)), EPSILON, 1.0f);
+        float dgm = clamp(fabs(dot(wg, wm)), EPSILON, 1.0f);
+        float dom = clamp(fabs(dot(wo, wm)), EPSILON, 1.0f);
+        float G = G_GGX_Smith(dgo, a2) * G_GGX_Smith(dgm, a2);
+        E *= mat.col * F * G * dom / (dgo * dgm);
 
         nray.dir = wo;
         ray = nray;

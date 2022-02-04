@@ -150,7 +150,7 @@ pub fn main() -> Result<(), String>{
             .as_dielectric()
             .with_refraction(2.0)
             .with_roughness(0.1)
-            .with_colour(Vec3{x: 0.1, y: 1.0, z: 0.1})
+            .with_colour(Vec3{ x: 0.8, y: 1.0, z: 0.7 })
             .add_to_scene(&mut scene)
     }.add(&mut scene);
 
