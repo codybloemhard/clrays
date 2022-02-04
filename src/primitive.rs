@@ -25,8 +25,11 @@ impl Intersectable for Primitive {
     fn intersect(&self, ray: Ray, hit: &mut RayHit) {
         unimplemented!()
     }
+
     #[inline]
-    fn clip(&self, aabb: AABB) -> AABB{ unimplemented!()}
+    fn clip(&self, aabb: AABB, self_bound: &AABB) -> AABB{
+        aabb.overlap(*self_bound)
+    }
 }
 
 impl Primitive {

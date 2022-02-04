@@ -20,7 +20,7 @@ pub trait SceneItem{
 pub trait Intersectable {
     fn vertices(&self) -> Vec<Vec3>;
     fn intersect(&self, ray: Ray, hit: &mut RayHit);
-    fn clip(&self, aabb: AABB) -> AABB;
+    fn clip(&self, aabb: AABB, self_bound: &AABB) -> AABB;
 }
 
 pub type MaterialIndex = u32;
@@ -199,7 +199,9 @@ impl Intersectable for Plane {
         inter_plane(ray, self, hit);
     }
     #[inline]
-    fn clip(&self, aabb: AABB) -> AABB{ unimplemented!()}
+    fn clip(&self, aabb: AABB, self_bound: &AABB) -> AABB{
+        aabb.overlap(*self_bound)
+    }
 }
 
 pub struct Sphere{
@@ -226,7 +228,9 @@ impl Intersectable for Sphere {
         inter_sphere(ray, self, hit);
     }
     #[inline]
-    fn clip(&self, aabb: AABB) -> AABB{ unimplemented!()}
+    fn clip(&self, aabb: AABB, self_bound: &AABB) -> AABB{
+        aabb.overlap(*self_bound)
+    }
 }
 
 #[derive(Default,Debug,Clone)]
@@ -260,7 +264,7 @@ impl Intersectable for Triangle {
         inter_triangle(ray, self, hit);
     }
     #[inline]
-    fn clip(&self, aabb: AABB) -> AABB{
+    fn clip(&self, aabb: AABB, _: &AABB) -> AABB{
         let vertices = self.vertices();
         let mut intersections = vec![];
         // of all combinations, check points of intersection with aabb
