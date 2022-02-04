@@ -51,7 +51,7 @@ impl Bvh{
         let binsf = bins as f32;
         let binsf_inf = 1.0 / binsf;
 
-        let mut stack = vec![StackItem{ current, first, count, depth, inserted, testaabb: test_values[0], testside: 0}]; // [(current,first,count,step)]
+        let mut stack = vec![StackItem{ current, first, count, depth, inserted}];
 
         let mut lerps = vec![Vec3::ZERO; bins-1];
         let mut binbounds = vec![AABB::new();bins];
@@ -405,8 +405,8 @@ impl Bvh{
             poolptr += 2;
             let lf = v.left_first;
             // evaluate children
-            stack.push(StackItem {current: lf+1,first: first+l_count,count: count-l_count, depth: depth + 1, inserted, testaabb: test_values[first+l_count], testside: 1 });
-            stack.push(StackItem {current: lf  ,first               ,count: l_count      , depth: depth + 1, inserted, testaabb: test_values[first], testside: 0 });
+            stack.push(StackItem {current: lf+1,first: first+l_count,count: count-l_count, depth: depth + 1, inserted});
+            stack.push(StackItem {current: lf  ,first               ,count: l_count      , depth: depth + 1, inserted});
 
             {
                 for i in first..first+count {
