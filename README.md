@@ -13,11 +13,10 @@
 - [x] basic pathtracer (area lights, materials, speculars, dielectrics, beer's law)
 - [x] frame energy
 - [x] tone mapping: Aces, Hable/Uncharted
-- [ ] microfacet materials
+- [x] microfacet materials
   - [x] GGX-Smith conductor
-  - [ ] GGX-Smith dielectric
+  - [x] GGX-Smith dielectric
   - [x] GGX NDF importance sampling
-  - [ ] GGX VNDF importance sampling
 
 ### CPU
 - [x] primitives: planes, spheres, triangles
@@ -48,6 +47,7 @@ QGMLWY  |Typing | G, L, M, T, S, N                               | U, E, A, O   
 
 ## Possible things to work on
 - rust-gpu rewrite
+- GGX VNDF importance sampling
 - wavefront
 - portals
 - hdr skybox
