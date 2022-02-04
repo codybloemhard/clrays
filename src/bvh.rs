@@ -38,7 +38,8 @@ impl Bvh{
     #[allow(clippy::too_many_arguments)]
     fn subdivide<Q: Intersectable + Clone >(bounds: &mut Vec<AABB>, vs: &mut Vec<Vertex>, items: &mut Vec<Q>, bins: usize, quality: u8, is_toplevel: bool){
         // let alpha = 1.0;
-        let alpha = 0.001;
+        // let alpha = 0.001;
+        let alpha = 0.00001;
 
         let before = items.len();
         let current = 0;
@@ -178,9 +179,6 @@ impl Bvh{
                 }
                 // compute lambda
                 let lambda = best_overlap.surface_area() / root_sa;
-                { // test: expect surface area of child not to exceed root node surface area
-                    assert!(lambda <= 1.0);
-                }
 
                 // find best spatial split
                 if lambda > alpha {
@@ -209,33 +207,7 @@ impl Bvh{
                             lerp_aabbs[lerp_index+1].split_by(axis, lerp.fake_arr(axis), 0); // account for left side next item
                         }
 
-                        {// test: expect each lerp_aabb has same surface area, and not zero
-                            for (lerp_index,lerp) in lerps.iter().enumerate() {
-                                assert_ne!(lerp_aabbs[lerp_index].surface_area(), 0.0);
-                            }
-                        }
-
-                        {// test: expect volume adds up (fails because of f32 precision)
-                            // assert_almost_equal((0..bins).map(|i|lerp_aabbs[i].volume()).sum::<f32>(), top_bound.volume());
-                        }
-                        { // test: rebuilding top_bound from lerp_bounds results in same bounding box
-                            let mut top_bound_rebuild = AABB::new();
-                            for i in (0..bins) {
-                                top_bound_rebuild.combine(lerp_aabbs[i]);
-                            }
-                            assert_eq!(top_bound, top_bound_rebuild);
-                        }
-
                         for index_item in sub_range.clone() { // spatial
-                            { // false test: when item is clipped against top_bound, expect it to have bound already computed for it
-                                // bounds[index_item] is clipped against best_lb or best_rb in a previous iteration
-                                // in such, the top_bound of those items may be smaller than the best_rb
-                                // assert!(bounds[index_item].is_in(&items[index_item].clip(top_bound)));
-                                //... assert!(items[index_item].clip(top_bound).is_in(&bounds[index_item]));
-                                // assert_ne!(bounds[index_item].surface_area(), 0.0);
-                                // assert_ne!(items[index_item].clip(top_bound).surface_area(), 0.0);
-                            }
-                            // let bound = items[index_item].clip(top_bound);
                             let bound = bounds[index_item];
 
                             // start count
@@ -250,36 +222,13 @@ impl Bvh{
 
                             // per bin, construct aabb of triangle clipped
                             let item: &Q = &items[index_item];
+                            let bound = &bounds[index_item];
                             let mut tmpbound = AABB::new();
                             for i in (0..bins) {
-                                let subbound = item.clip(lerp_aabbs[i]);
-                                { // test: expect item clipped against lerp_aabb to be contained in lerp_aabb
-                                    // println!("subbound: {:?}", subbound);
-                                    // println!("lerpboun: {:?}", lerp_aabbs[i]);
-                                    // assert!(subbound.is_in(&lerp_aabbs[i]));
-                                    tmpbound.combine(subbound);
-                                }
+                                let subbound = item.clip(lerp_aabbs[i], bound);
                                 binbounds[i].combine(subbound);
                             }
-                            { // test: expect clipped item to be at least in one of the bins
-                                // println!("tmpbound: {:?}", tmpbound);
-                                assert_ne!(tmpbound.surface_area(), 0.0);
-                            }
                         }
-
-                        { // test: startcount and endcount
-                            assert_eq!(startcounts.iter().sum::<usize>(), count);
-                            assert_eq!(endcounts.iter().sum::<usize>(), count);
-                        }
-
-                        { // test: expect binbounds do not go beyong lerp_aabb
-                            for (i, bound) in binbounds.iter().enumerate() {
-                                // println!("bound: {:?}", bound);
-                                // println!("lerpb: {:?}", lerp_aabbs[i]);
-                                assert!(bound.is_in(&lerp_aabbs[i]));
-                            }
-                        }
-
                         // iterate over bins
                         for i in 1..bins {
                             // reset values
@@ -300,10 +249,6 @@ impl Bvh{
                                 active += startcounts[j];
                                 active -= endcounts[j];
                                 rb.combine(binbounds[j]);
-                            }
-                            { // test: expect in-going and out-going to cancel each other out
-                                assert_eq!(active, 0);
-                                // let duplications = (rs+ls)-count;
                             }
                             let cost = 3.0 + 1.0 + lb.surface_area() * ls as f32 + 1.0 + rb.surface_area() * rs as f32;
                             if cost < best_cost {
@@ -348,18 +293,9 @@ impl Bvh{
             let mut a = first; // first
             let mut b = first + count - 1; // last
             if best_type == 1 { // spatial split
-                println!("using spatial split, improved cost by {}/{}={}", best_spatial_split, best_object_split, best_spatial_split/best_object_split);
-                assert_eq!(b+1, last);
                 while a <= b {
-                    { // test: expect clipped item against top_bound to have some surface
-                        let bound = items[a].clip(top_bound);
-                        assert_ne!(bound, AABB::new());
-                        assert_ne!(bound.surface_area(), 0.0);
-                    }
-                    let bound_left = items[a].clip(best_lb);
-                    // assert!(bound_left.is_in(&best_lb));
-                    let bound_right = items[a].clip(best_rb);
-                    // assert!(bound_right.is_in(&best_rb));
+                    let bound_left = items[a].clip(best_lb, &bounds[a]);
+                    let bound_right = items[a].clip(best_rb, &bounds[a]);
                     if bound_left.surface_area() > 0.0 {
                         bounds[a] = bound_left;
                         if bound_right.surface_area() > 0.0 {
@@ -407,34 +343,6 @@ impl Bvh{
             // evaluate children
             stack.push(StackItem {current: lf+1,first: first+l_count,count: count-l_count, depth: depth + 1, inserted});
             stack.push(StackItem {current: lf  ,first               ,count: l_count      , depth: depth + 1, inserted});
-
-            {
-                for i in first..first+count {
-                    // assert_ne!(bounds[i].surface_area(), 0.0);
-                }
-
-                let top_bound = union_bound(&bounds[first..first+l_count]);
-                for i in first..first+l_count {
-                    // assert!(bounds[i].is_in(&top_bound));
-                    // assert_ne!(items[i].clip(top_bound).surface_area(), 0.0);
-                }
-                for i in first..first+l_count {
-                    // assert!(bounds[i].is_in(&best_lb)); // does not have to be true: unclipped items can reach beyond
-                    // assert_ne!(items[i].clip(best_lb).surface_area(), 0.0);
-                }
-                // assert!(top_bound.is_in(&best_lb)); // the top_bound of all subbounds should be smaller than the bin bound
-
-                let top_bound = union_bound(&bounds[first+l_count..first+count]);
-                for i in first+l_count..first+count {
-                    // assert!(bounds[i].is_in(&top_bound));
-                    // assert_ne!(items[i].clip(top_bound).surface_area(), 0.0);
-                }
-                for i in first+l_count..first+count {
-                    // assert!(bounds[i].is_in(&best_rb));
-                    // assert_ne!(items[i].clip(best_rb).surface_area(), 0.0);
-                }
-                // assert!(top_bound.is_in(&best_rb)); // the top_bound of all subbounds should be smaller than the bin bound
-            }
         }
 
         let after = items.len();
