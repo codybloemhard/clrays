@@ -28,7 +28,7 @@ pub type MaterialIndex = u32;
 #[derive(Clone, PartialEq, Debug)]
 pub struct Material{ // 62 bytes =  2*12 + 9*4 + 2
     pub col: Vec3,
-    pub absorption: Vec3,
+    pub abs_fres: Vec3, // either absorption or fresnell colour depending on the situation
     pub reflectivity: f32,
     pub transparency: f32,
     pub refraction: f32,
@@ -55,7 +55,7 @@ impl Material{
     pub fn basic() -> Self{
         Self{
             col: Vec3::ONE.unhardened(0.05),
-            absorption: Vec3::BLACK,
+            abs_fres: Vec3::BLACK,
             reflectivity: 0.0,
             transparency: 0.0,
             refraction: 1.0,
@@ -71,9 +71,24 @@ impl Material{
         }
     }
 
-    pub fn into_light(mut self, col: Vec3, emittance: f32) -> Self{
+    pub fn as_light(mut self, col: Vec3, emittance: f32) -> Self{
         self.col = col;
         self.emittance = emittance;
+        self
+    }
+
+    pub fn as_checkerboard(mut self) -> Self{
+        self.is_checkerboard = true;
+        self
+    }
+
+    pub fn as_dielectric(mut self) -> Self{
+        self.is_dielectric = true;
+        self
+    }
+
+    pub fn as_conductor(mut self) -> Self{
+        self.is_dielectric = false;
         self
     }
 
@@ -103,7 +118,12 @@ impl Material{
             y: (1.0 - absorption.y).ln(),
             z: (1.0 - absorption.z).ln(),
         };
-        self.absorption = ab;
+        self.abs_fres = ab;
+        self
+    }
+
+    pub fn with_specular(mut self, spec: Vec3) -> Self{
+        self.abs_fres = spec;
         self
     }
 
@@ -114,16 +134,6 @@ impl Material{
 
     pub fn with_texture(mut self, tex: u32) -> Self{
         self.texture = tex;
-        self
-    }
-
-    pub fn as_checkerboard(mut self) -> Self{
-        self.is_checkerboard = true;
-        self
-    }
-
-    pub fn as_dielectric(mut self) -> Self{
-        self.is_dielectric = true;
         self
     }
 
@@ -158,7 +168,7 @@ impl SceneItem for Material{
         let refraction = if self.is_dielectric { self.refraction } else { -1.0 };
         vec![
             self.col.x, self.col.y, self.col.z, self.reflectivity,
-            self.absorption.x, self.absorption.y, self.absorption.z, refraction,
+            self.abs_fres.x, self.abs_fres.y, self.abs_fres.z, refraction,
             self.roughness, self.emittance,
             self.texture as f32, self.normal_map as f32,
             self.roughness_map as f32, self.metalic_map as f32,
@@ -396,6 +406,8 @@ pub struct Scene{
     skybox: u32,
     pub sky_col: Vec3,
     pub sky_intensity: f32,
+    pub sky_min: f32,
+    pub sky_pow: f32,
     pub sky_box: u32,
     pub cam: Camera,
 }
@@ -408,7 +420,7 @@ impl Default for Scene {
 
 impl Scene{
     const SCENE_SIZE: u32 = 11;
-    const SCENE_PARAM_SIZE: usize = 5 * 2 + Self::SCENE_SIZE as usize;
+    const SCENE_PARAM_SIZE: usize = 7 * 2 + Self::SCENE_SIZE as usize;
     const MATERIAL_SIZE: u32 = 15;
     const MATERIAL_INDEX_SIZE: u32 = 1;
     const LIGHT_SIZE: u32 = 7;
@@ -437,7 +449,9 @@ impl Scene{
             textures: Vec::new(),
             skybox: 0,
             sky_col: Vec3::ONE,
-            sky_intensity: 0.0,
+            sky_intensity: 1.0,
+            sky_min: 0.1,
+            sky_pow: 1.0,
             sky_box: 0,
             cam: Camera{
                 pos: Vec3::ZERO,
@@ -494,8 +508,10 @@ impl Scene{
         self.scene_params[10] = self.skybox;
         self.put_in_scene_params(11, self.sky_col);
         self.scene_params[14] = self.sky_intensity.to_bits() as u32;
-        self.put_in_scene_params(15, self.cam.pos);
-        self.put_in_scene_params(18, self.cam.dir);
+        self.scene_params[15] = self.sky_min.to_bits() as u32;
+        self.scene_params[16] = self.sky_pow.to_bits() as u32;
+        self.put_in_scene_params(17, self.cam.pos);
+        self.put_in_scene_params(20, self.cam.dir);
         self.scene_params.to_vec()
     }
 
@@ -654,6 +670,12 @@ impl Scene{
     pub fn set_skybox(&mut self, name: &str){
         self.skybox = self.get_texture(name);
         self.sky_box = self.skybox;
+    }
+
+    pub fn set_sky_intensity(&mut self, int: f32, min: f32, pow: f32){
+        self.sky_intensity = int;
+        self.sky_min = min;
+        self.sky_pow = pow;
     }
 
     pub fn add_light(&mut self, l: Light){

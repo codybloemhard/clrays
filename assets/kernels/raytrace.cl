@@ -11,7 +11,7 @@
 struct Material{
     float3 col;
     float reflectivity;
-    float3 absorption;
+    float3 abs_fres;
     float refraction;
     float roughness;
     float emittance;
@@ -67,7 +67,9 @@ struct Scene{
     uint *bvh;
     uint skybox;
     float3 skycol;
-    float skyintens;
+    float sky_intensity;
+    float sky_min;
+    float sky_pow;
 };
 
 //first byte in array where this type starts
@@ -85,7 +87,7 @@ struct Material ExtractMaterial(uint off, float *arr){
     struct Material mat;
     mat.col = (float3)(arr[off + 0], arr[off + 1], arr[off + 2]);
     mat.reflectivity = arr[off + 3];
-    mat.absorption = (float3)(arr[off + 4], arr[off + 5], arr[off + 6]);
+    mat.abs_fres = (float3)(arr[off + 4], arr[off + 5], arr[off + 6]);
     mat.refraction = arr[off + 7];
     mat.roughness = arr[off + 8] + EPSILON;
     mat.emittance = arr[off + 9];
@@ -745,6 +747,54 @@ float3 RayTrace(struct Ray *ray, struct Scene *scene, uint depth){
     return (diff * (1.0f - refl_mul)) + (refl * refl_mul) + spec;
 }
 
+// -----------------------------------------
+
+float D_GGX(float dnh, float alpha2){
+    float dnh2 = pow(dnh, 2.0f);
+    return alpha2 / (PI * pow(dnh2 * (alpha2 - 1.0f) + 1.0f, 2.0f));
+}
+
+float G_GGX_Smith(float dnw, float alpha2){
+    return 2.0f * dnw / (dnw + sqrt(alpha2 + (1.0f - alpha2) * pow(dnw, 2.0f)));
+}
+
+float3 Schlick(float dih, float3 kSpecular){
+    return kSpecular + ((float3)(1.0f) - kSpecular) * pow(1.0f - max(0.0f, dih), 5.0f);
+}
+
+// takes vectors: to light, -view, normal
+float3 MicroFacet_BRDF(float3 wo, float3 wi, float3 n, float3 kSpecular, float alpha){
+    float3 wh = fast_normalize(wo + wi);
+    float alpha2 = alpha * alpha;
+    float dwin = clamp(dot(wi, n), EPSILON, 1.0f);
+    float dwon = clamp(dot(wo, n), EPSILON, 1.0f);
+    float dwhn = clamp(dot(wh, n), EPSILON, 1.0f);
+
+    float3 F = Schlick(dot(wi, wh), kSpecular);
+    float G = G_GGX_Smith(dwin, alpha2) * G_GGX_Smith(dwon, alpha2);
+    float D = D_GGX(dwhn, alpha2);
+
+    return (F * G * D) / (4.0f * dwin * dwon);
+}
+
+float3 MicroFacet_IS_Tangent(float a2, float r0, float r1)
+{
+    float phi = 2.0f * PI * r0;
+    float theta = acos(sqrt((1.0f - r1) / (r1 * (a2 - 1.0f) + 1.0f)));
+    float cost = cos(theta);
+    float sint = sin(theta);
+    return (float3)(sint * cos(phi), sint * sin(phi), cost);
+}
+
+float3 TangentToWorld(float3 wg, float3 wm){
+    float3 w = fabs(wg.x) > 0.99f ? (float3)(0.0f, 1.0f, 0.0f) : (float3)(1.0f, 0.0f, 0.0f);
+    float3 t = fast_normalize(cross(w, wg));
+    float3 b = cross(t, wg);
+    return wm.x * t + wm.y * b + wm.z * wg;
+}
+
+// -----------------------------------------
+
 // credit: George Marsaglia
 uint Xor32(uint* seed){
     *seed ^= *seed << 13;
@@ -791,13 +841,17 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
 
     float3 E = (float3)(1.0f); // emittance accumulator
     float ncontext = 1.0f; // refraction index of current medium
-    uint tirs = 0; // total internal reflections
     float3 hitpos = ray.pos;
     float3 distacc = (float3)(1.0f);
-    while(tirs < 8){
+    uint rounds = 0;
+
+    while(rounds < 10){
+        rounds++;
         struct RayHit hit = INTER_SCENE(&ray, scene);
         if(hit.t >= MAX_RENDER_DIST){
-            E *= SkyCol(ray.dir, scene);
+            float3 sky_col = SkyCol(ray.dir, scene);
+            if(rounds == 1) return sky_col;
+            E *= sky_col * max(scene->sky_min, pow(length(sky_col), scene->sky_pow)) * scene->sky_intensity;
             break;
         }
 
@@ -810,76 +864,75 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
         struct Ray nray;
         nray.pos = hit.pos + hit.nor * EPSILON;
 
+        // given
+        float a = clamp(mat.roughness, 0.0f, 1.0f);
+        float3 kSpec = mat.abs_fres;
+        float3 wg = hit.nor;
+        float3 wi = ray.dir;
+        float a2 = a * a;
+        float3 wm_tangent = MicroFacet_IS_Tangent(a2, U32tf01(Xor32(seed)), U32tf01(Xor32(seed)));
+        // answers we need
+        float3 F = (float3)(1.0f), wo, wm;
+
         // handle dielectrics
         float mf = mat.refraction;
         if(mf > EPSILON){
-            bool outside = dot(hit.nor, ray.dir) < 0.0;
+            bool outside = dot(wg, wi) < 0.0;
             float n1, n2;
             if(outside){
                 n2 = mf;
                 n1 = ncontext;
             } else {
                 // do we have absorption that we should handle?
-                if(dot(mat.absorption, mat.absorption) > EPSILON){
+                if(dot(mat.abs_fres, mat.abs_fres) > EPSILON){
                     float dist = fast_length(hitpos - hit.pos);
-                    E *= exp(mat.absorption * dist);
+                    E *= exp(mat.abs_fres * dist);
                 }
-                hit.nor *= -1.0f;
+                wg *= -1.0f;
                 n2 = ncontext;
                 n1 = mf;
             }
+            wm = TangentToWorld(wg, wm_tangent);
             hitpos = hit.pos;
             float n = n1 / n2;
-            float cost1 = dot(hit.nor, -ray.dir);
+            float cost1 = dot(wm, -wi);
             float k = 1.0f - n * n * (1.0f - cost1 * cost1);
             float costt = sqrt(k);
-            float3 refldir = reflect(ray.dir, hit.nor);
+            float3 refldir = reflect(wi, wm);
             if(k < 0.0f){ // total internal reflection
-                nray.dir = refldir;
-                nray.pos = hit.pos + hit.nor * EPSILON;
-                ray = nray;
-                tirs++;
-                continue;
+                wo = refldir;
+            } else {
+                float spol = (n1 * cost1 - n2 * costt) / (n1 * cost1 + n2 * costt);
+                float ppol = (n1 * costt - n2 * cost1) / (n1 * costt + n2 * cost1);
+                float fr = 0.5f * (spol * spol + ppol * ppol);
+
+                // choose reflect or refract
+                float decider = U32tf01(Xor32(seed));
+                if(decider <= fr){
+                    wo = refldir;
+                } else {
+                    float c = dot(wm, -wi);
+                    wo = fast_normalize((ray.dir - wm * -c) * n + wm * -sqrt(k));
+                    nray.pos = hit.pos - wg * EPSILON;
+                    ncontext = mf;
+                }
             }
-
-            float spol = (n1 * cost1 - n2 * costt) / (n1 * cost1 + n2 * costt);
-            float ppol = (n1 * costt - n2 * cost1) / (n1 * costt + n2 * cost1);
-            float fr = 0.5f * (spol * spol + ppol * ppol);
-
-            // choose reflect or refract
-            float decider = U32tf01(Xor32(seed));
-            if(decider <= fr){
-                nray.dir = refldir;
-                nray.pos = hit.pos + hit.nor * EPSILON;
-            }else{
-                nray.dir = fast_normalize((ray.dir - hit.nor * -cost1) * n + hit.nor * -sqrt(k));
-                nray.pos = hit.pos - hit.nor * EPSILON;
-                ncontext = mf;
-            }
-
-            ray = nray;
-            continue;
+        } else { // handle conductors
+            wm = TangentToWorld(wg, wm_tangent);
+            wo = reflect(wi, wm);
+            F = Schlick(clamp(dot(wo, wm), EPSILON, 1.0f), kSpec);
         }
 
-        // handle non-dielectrics: blend of specular and diffuse
-        HANDLE_TEXTURES;
+        float dgo = clamp(fabs(dot(wg, wo)), EPSILON, 1.0f);
+        float dgm = clamp(fabs(dot(wg, wm)), EPSILON, 1.0f);
+        float dom = clamp(fabs(dot(wo, wm)), EPSILON, 1.0f);
+        float G = G_GGX_Smith(dgo, a2) * G_GGX_Smith(dgm, a2);
+        E *= mat.col * F * G * dom / (dgo * dgm);
 
-        if(mat.reflectivity > EPSILON){ // mirror
-            float decider = U32tf01(Xor32(seed));
-            if(decider <= mat.reflectivity){
-                nray.dir = reflect(ray.dir, hit.nor);
-                E *= mat.col;
-                ray = nray;
-                continue;
-            }
-        }
-        nray.dir = RandomHemispherePoint(seed, hit.nor);
-        float3 BRDF = mat.col * INV_PI;
-        float INV_PDF = PI2; // PDF = 1 / 2PI
-        float3 Ei = max(dot(hit.nor, nray.dir), 0.0f) * INV_PDF;
-
-        E *= BRDF * Ei;
+        nray.dir = wo;
         ray = nray;
+
+        // HANDLE_TEXTURES;
     }
     return E;
 }
@@ -893,12 +946,14 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
     scene.bvh = bvh;\
     scene.skybox = sc_params[2 * SC_SCENE + 0];\
     scene.skycol = ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 1);\
-    scene.skyintens = as_float(sc_params[2 * SC_SCENE + 4]);\
+    scene.sky_intensity = as_float(sc_params[2 * SC_SCENE + 4]);\
+    scene.sky_min = as_float(sc_params[2 * SC_SCENE + 5]);\
+    scene.sky_pow = as_float(sc_params[2 * SC_SCENE + 6]);\
 
 #define CREATE_RAY(uv)\
     struct Ray ray;\
-    ray.pos = ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 5);\
-    float3 cd = fast_normalize(ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 8));\
+    ray.pos = ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 7);\
+    float3 cd = fast_normalize(ExtractFloat3FromInts(sc_params, 2 * SC_SCENE + 10));\
     float3 hor = fast_normalize(cross(cd, (float3)(0.0f, 1.0f, 0.0f)));\
     float3 ver = fast_normalize(cross(hor, cd));\
     float3 to = ray.pos + cd;\
@@ -937,8 +992,35 @@ float3 PathTracing(const uint w, const uint h, const uint x, const uint y, const
     CREATE_RAY(uv);
 
     float3 col = PathTrace(ray, &scene, &hash);
-    col = pow(col, (float3)(1.0f / GAMMA));
+    // col = pow(col, (float3)(1.0f / GAMMA));
     return col;
+}
+
+float3 AcesTonemap(float3 x){
+    const float a = 2.51;
+    const float b = 0.03;
+    const float c = 2.43;
+    const float d = 0.59;
+    const float e = 0.14;
+    return (x * (a * x + b)) / (x * (c * x + d) + e);
+}
+
+float3 HablePartial(float3 x){
+    float a = 0.15f;
+    float b = 0.50f;
+    float c = 0.10f;
+    float d = 0.20f;
+    float e = 0.02f;
+    float f = 0.30f;
+    return ((x * (a * x + c * b) + d * e) / (x * (a * x + b) + d * f)) - e / f;
+}
+
+float3 HableTonemap(float3 x){
+    float exposure_bias = 4.0f; // was 2, but this seems to match aces brightness better
+    float3 curr = HablePartial(x * exposure_bias);
+    float3 w = (float3)(11.2f);
+    float3 white_scale = (float3)(1.0f) / HablePartial(w);
+    return clamp(curr * white_scale, 0.0f, 1.0f);
 }
 
 __kernel void raytracing(
@@ -1005,8 +1087,15 @@ __kernel void image_from_floatmap(
     uint y = get_global_id(1);
     uint pixid = (x + y * w);
     uint pix_float = pixid * 3;
-    float r = clamp(floatmap[pix_float + 0] * mult, 0.0f, 1.0f) * 255.0f;
-    float g = clamp(floatmap[pix_float + 1] * mult, 0.0f, 1.0f) * 255.0f;
-    float b = clamp(floatmap[pix_float + 2] * mult, 0.0f, 1.0f) * 255.0f;
-    imagemap[pixid] = ((uint)((uchar)r) << 16) + ((uint)((uchar)g) << 8) + (uint)((uchar)b);
+    float3 c = (float3)(
+                floatmap[pix_float + 0] * mult,
+                floatmap[pix_float + 1] * mult,
+                floatmap[pix_float + 2] * mult
+    );
+    //c = AcesTonemap(c);
+    c = HableTonemap(c);
+    c = clamp(c, 0.0f, 1.0f);
+    c = pow(c, (float3)(1.0f / GAMMA));
+    c *= 255.0f;
+    imagemap[pixid] = ((uint)((uchar)c.r) << 16) + ((uint)((uchar)c.g) << 8) + (uint)((uchar)c.b);
 }

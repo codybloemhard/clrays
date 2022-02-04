@@ -5,14 +5,18 @@
 - [x] custom keybindings
 - [x] skycolour, skybox: sphere
 - [x] export frame
+- [x] mesh: triangle meshes (.obj)
 - [x] BVH: binning + SAH + top-level
-- [ ] BVH: 4 way
+- [x] SBVH
 
 ### GPU
 - [x] basic pathtracer (area lights, materials, speculars, dielectrics, beer's law)
 - [x] frame energy
-- [ ] Utilize BVH
-- [ ] Microfacet materials
+- [x] tone mapping: Aces, Hable/Uncharted
+- [x] microfacet materials
+  - [x] GGX-Smith conductor
+  - [x] GGX-Smith dielectric
+  - [x] GGX NDF importance sampling
 
 ### CPU
 - [x] primitives: planes, spheres, triangles
@@ -26,11 +30,10 @@
 - [x] AA: randomly sampled
 - [x] textures: albedo, normal, roughness, metalic
 - [x] barrel distortion, fish eye lens
-- [x] mesh: triangle meshes (.obj)
 - [x] progressive anti aliasing
 - [x] adaptive resolution
 - [x] bilinear texture sampling for all supported texture maps
-- [x] Utilize top-level BVH
+- [x] utilize top-level BVH
 
 ## Controls
 
@@ -43,6 +46,9 @@ QWERTY  |Gaming | Q, E, W, S, A, D                               | I, K, J, L   
 QGMLWY  |Typing | G, L, M, T, S, N                               | U, E, A, O                  | F                 | B
 
 ## Possible things to work on
+- rust-gpu rewrite
+- GGX VNDF importance sampling
+- wavefront
 - portals
 - hdr skybox
 - sphere skybox only tophalf option
@@ -62,3 +68,22 @@ QGMLWY  |Typing | G, L, M, T, S, N                               | U, E, A, O   
 - Multiple importance samplign (MIS)
 - Spectral rendering
 - motion blur
+- path regularization option (biased)
+- energy clamp option (biased)
+
+## Sources
+1. [Tonemapping; Matt Taylor (2019)](https://64.github.io/tonemapping/)
+2. [Tonemapping; Krzysztof Narkowicz (2016)](https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/)
+3. [Microfacets; Brian Karis (2013)](http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html)
+4. [Microfacets; Walter et al. (2007)](https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf)
+5. [Microfacets; Joe Schutte (2018)](https://schuttejoe.github.io/post/ggximportancesamplingpart1/)
+6. [Microfacets; Jacco Bikker (2016)](https://www.cs.uu.nl/docs/vakken/magr/portfolio/INFOMAGR/lecture13.pdf)
+7. [Fast AABB intersection; NVIDIA (2018)](https://www.jcgt.org/published/0007/03/04/paper-lowres.pdf)
+8. [Recursion-less gpu tree traversal adapted from nvidia article](https://developer.nvidia.com/blog/thinking-parallel-part-ii-tree-traversal-gpu/)
+9. [Wang hash found here](https://riptutorial.com/opencl/example/20715/using-thomas-wang-s-integer-hash-function)
+10. [Random vector in hemisphere; UMONS](https://angms.science/doc/RM/randUnitVec.pdf)
+11. [random vector in the hemisphere along normal; Shadertoy](https://www.shadertoy.com/view/4s3cRr)
+12. On fast Construction of SAH-based Bounding Volume Hierarchies; Iglo Wald
+<!---
+[Microfacets; Eric Heitz (2018)]https://jcgt.org/published/0007/04/01/paper.pdf
+--->

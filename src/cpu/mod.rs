@@ -212,7 +212,7 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, con
     let is_inbound = ray.dir.dot(hit.nor) < 0.0;
     let mat = &scene.mats[hit.mat as usize];
     let refraction = mat.refraction;
-    let absorption = mat.absorption;
+    let absorption = mat.abs_fres;
     let normal = if is_inbound { hit.nor } else { hit.nor.neged() };
     // return hit.nor;
 
