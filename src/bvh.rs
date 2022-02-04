@@ -37,8 +37,8 @@ pub struct Vertex{
 impl Bvh{
     #[allow(clippy::too_many_arguments)]
     fn subdivide<Q: Intersectable + Clone >(bounds: &mut Vec<AABB>, vs: &mut Vec<Vertex>, items: &mut Vec<Q>, bins: usize, quality: u8, is_toplevel: bool){
-        let alpha = 1.0;
-        // let alpha = 0.001;
+        // let alpha = 1.0;
+        let alpha = 0.001;
 
         let before = items.len();
         let current = 0;
@@ -373,7 +373,8 @@ impl Bvh{
                         bounds[a] = bound_right;
                         bounds.swap(a, b);
                         items.swap(a, b);
-                        b -= 1;
+                        if b == 0 { a += 1; }
+                        else { b -= 1; }
                     } else {
                         panic!("both left and right are empty");
                     }
@@ -386,7 +387,8 @@ impl Bvh{
                     } else {
                         bounds.swap(a, b);
                         items.swap(a, b);
-                        b -= 1;
+                        if b == 0 { a += 1; }
+                        else { b -= 1; }
                     }
                 }
             }
@@ -626,6 +628,5 @@ fn union_bound(bounds: &[AABB]) -> AABB {
     for other in bounds{
         bound.combine(*other);
     }
-    bound
-    // bound.grown(Vec3::EPSILON)
+    bound.grown(Vec3::EPSILON)
 }

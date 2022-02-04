@@ -171,7 +171,7 @@ impl Vec3{
     #[inline]
     pub fn normalize(&mut self){
         let l = self.len();
-        if l == 0.0 { return; }
+        if l.abs() < EPSILON { return; }
         self.x /= l;
         self.y /= l;
         self.z /= l;
