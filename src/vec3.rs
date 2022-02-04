@@ -362,7 +362,24 @@ impl Vec3{
     }
 
     pub fn less_eq(self, o: Self) -> bool{
-        self.x <= o.x && self.y <= o.y && self.z <= o.z
+        self.x - EPSILON <= o.x && self.y - EPSILON<= o.y && self.z - EPSILON <= o.z
+    }
+
+    pub fn update_by_axis(&mut self, axis: Axis, value: f32) {
+        match axis {
+            Axis::X => self.x = value,
+            Axis::Y => self.y = value,
+            Axis::Z => self.z = value,
+        };
+    }
+
+    #[inline]
+    pub fn inv(self) -> Self {
+        Vec3 {
+            x: if self.x.abs() > EPSILON { 1.0 / self.x } else { f32::MAX },
+            y: if self.y.abs() > EPSILON { 1.0 / self.y } else { f32::MAX },
+            z: if self.z.abs() > EPSILON { 1.0 / self.z } else { f32::MAX },
+        }
     }
 }
 

@@ -219,5 +219,74 @@ impl AABB {
     pub fn contains_vertex(self, vertex: Vec3) -> bool {
         self.min.less_eq(vertex) && vertex.less_eq(self.max)
     }
+
+    /// find intersection that the ray will have with the bounding box
+    #[inline]
+    pub fn ray_intersections(self, ray: Ray, max_t: f32) -> Vec<Vec3> {
+        let mut intersections: Vec<Vec3> = vec![];
+        // per split plane of aabb compute intersections with ray
+        for axis in [Axis::X, Axis::Y, Axis::Z] {
+            let dt = ray.dir.fake_arr(axis);
+            let p = ray.pos.fake_arr(axis);
+            for value in [self.min.fake_arr(axis), self.max.fake_arr(axis)] {
+                if (p-value).abs() < EPSILON{ // intersection on aabb boundary plane
+                    intersections.push(ray.pos);
+                } else if dt.abs() > EPSILON { // ensure non zero for direction movement
+                    let t = (value-p) / dt;
+                    if t > 0.0 && t <= max_t {
+                        intersections.push(ray.travel(t))
+                    }
+                }
+            }
+        }
+        // filter intersections within domain
+        intersections.into_iter().filter(|int| self.contains_vertex(*int)).collect()
+    }
+
+    #[inline]
+    pub fn split_by(&mut self, axis: Axis, value: f32, side: usize) {
+        if side == 0 {
+            self.min.update_by_axis(axis, value);
+        } else {
+            self.max.update_by_axis(axis, value);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::aabb::AABB;
+    use crate::cpu::inter::Ray;
+    use crate::vec3::Vec3;
+
+    #[test]
+    fn ray_intersections() {
+        let aabb = AABB {
+            min: Vec3::ZERO,
+            max: Vec3::ONE
+        };
+        let ray = Ray {
+            pos: Vec3::ONE.scaled(-1.0),
+            dir: Vec3::ONE.scaled(1.0)
+        };
+        let intersections = aabb.ray_intersections(ray, 1.0);
+        assert!(intersections.contains(&aabb.min));
+        assert!(!intersections.contains(&aabb.max));
+        assert_ne!(AABB::from_points(&intersections), aabb);
+        assert!(AABB::from_points(&intersections).is_in(&aabb));
+
+        let aabb = AABB {
+            min: Vec3::ZERO,
+            max: Vec3::ONE
+        };
+        let ray = Ray {
+            pos: Vec3::ONE.scaled(-1.0),
+            dir: Vec3::ONE.scaled(2.0)
+        };
+        let intersections = aabb.ray_intersections(ray, 1.0);
+        assert!(intersections.contains(&aabb.min));
+        assert!(intersections.contains(&aabb.max));
+        assert_eq!(AABB::from_points(&intersections), aabb);
+    }
 }
 

@@ -20,7 +20,7 @@ pub trait SceneItem{
 pub trait Intersectable {
     fn vertices(&self) -> Vec<Vec3>;
     fn intersect(&self, ray: Ray, hit: &mut RayHit);
-    fn intersect_axis(&self, axis: Axis, value: f32, bound: AABB) -> Vec<Vec3>;
+    fn clip(&self, aabb: AABB) -> AABB;
 }
 
 pub type MaterialIndex = u32;
@@ -199,9 +199,7 @@ impl Intersectable for Plane {
         inter_plane(ray, self, hit);
     }
     #[inline]
-    fn intersect_axis(&self, axis: Axis, value: f32, bound: AABB) -> Vec<Vec3>{
-        unimplemented!();
-    }
+    fn clip(&self, aabb: AABB) -> AABB{ unimplemented!()}
 }
 
 pub struct Sphere{
@@ -228,21 +226,7 @@ impl Intersectable for Sphere {
         inter_sphere(ray, self, hit);
     }
     #[inline]
-    fn intersect_axis(&self, axis: Axis, value: f32, bound: AABB) -> Vec<Vec3>{
-        // todo: convert to more precise sphere intersection
-        if bound.min.fake_arr(axis) < value && bound.max.fake_arr(axis) > value {
-            match axis {
-                Axis::X => vec![Vec3 { x: value, y: bound.min.y, z: bound.min.z},
-                                Vec3 { x: value, y: bound.max.y, z: bound.max.z}],
-                Axis::Y => vec![Vec3 { x: bound.min.x, y: value, z: bound.min.z},
-                                Vec3 { x: bound.max.x, y: value, z: bound.max.z}],
-                Axis::Z => vec![Vec3 { x: bound.min.x, y: bound.min.y, z: value},
-                                Vec3 { x: bound.max.x, y: bound.max.y, z: value}],
-            }
-        } else {
-            vec![]
-        }
-    }
+    fn clip(&self, aabb: AABB) -> AABB{ unimplemented!()}
 }
 
 #[derive(Default,Debug,Clone)]
@@ -276,32 +260,24 @@ impl Intersectable for Triangle {
         inter_triangle(ray, self, hit);
     }
     #[inline]
-    fn intersect_axis(&self, axis: Axis, value: f32) -> Vec<Vec3>{
-        // separate vertices left side of axis
-        let mut left = vec![];
-        let mut right = vec![];
-        // obtain sides of axis-aligned plane
-        for vertex in self.vertices() {
-            if vertex.fake_arr(axis) < value {
-                left.push(vertex)
-            } else {
-                right.push(vertex)
+    fn clip(&self, aabb: AABB) -> AABB{
+        let vertices = self.vertices();
+        let mut intersections = vec![];
+        // of all combinations, check points of intersection with aabb
+        for i in (0..vertices.len()-1) {
+            for j in (i+1..vertices.len()) {
+                let v0 = vertices[i];
+                let v1 = vertices[j];
+                intersections.append(&mut aabb.ray_intersections(Ray { pos: v0, dir: v1.subed(v0) }, 1.0));
             }
         }
-        // find intersections in plane for left and right
-        let mut points = vec![];
-        for l in left {
-            for r in &right{
-                // ray-axis intersection
-                let v = r.subed(l);
-                let p0 = l;
-                let d = value;
-                let t = (d-p0.fake_arr(axis)) / v.fake_arr(axis);
-                let p = v.scaled(t).added(p0);
-                points.push(p);
+        // separate vertices inside and outside of aabb
+        for v in vertices {
+            if aabb.contains_vertex(v) {
+                intersections.push(v);
             }
         }
-        points
+        AABB::from_points(&intersections)
     }
 }
 impl Triangle {
@@ -861,4 +837,50 @@ impl Scene{
         self.top_bvh = Bvh::from_primitives(&mut aabbs, &mut prims);
         self.primitives = prims;
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::aabb::{AABB, Axis};
+    use crate::scene::{Intersectable, Triangle};
+    use crate::vec3::Vec3;
+    use crate::bvh::Bvh;
+    use crate::mesh::Mesh;
+
+    #[test]
+    fn aabb_overlap() {
+        let aabb1 = AABB {min: Vec3 {x: 0.0, y: 0.0, z: 0.0}, max: Vec3 {x: 0.9, y: 0.8, z: 0.8}};
+        let aabb2 = AABB {min: Vec3 {x: 0.3, y: 0.4, z: 0.5}, max: Vec3 {x: 1.0, y: 1.0, z: 1.0}};
+        let overlap = aabb1.overlap(aabb2);
+        assert!(overlap.eq(&AABB {min: Vec3 {x: 0.3, y: 0.4, z: 0.5}, max: Vec3 {x: 0.9, y: 0.8, z: 0.8}}));
+        assert!(aabb1.overlap(AABB::new()).eq(&AABB::new()));
+    }
+
+    #[test]
+    fn aabb_clip() {
+        let aabb = AABB {min: Vec3 {x: 0.0, y: 0.0, z: 0.0}, max: Vec3 {x: 1.0, y: 1.0, z: 1.0}};
+        let tri = Triangle {
+            a: Vec3 {x: 0.0, y: 0.0, z: 0.0},
+            b: Vec3 {x: 1.0, y: 1.0, z: 1.0},
+            c: Vec3 {x: 1.0, y: 1.0, z: 0.0},
+            mat: 0
+        };
+        assert!(tri.clip(aabb).is_equal(&aabb));
+        // triangle is smaller than aabb
+        assert!(tri.scaled(0.5).clip(aabb).is_equal(&AABB{min:Vec3::ZERO,max:Vec3::ONE.scaled(0.5)}));
+        // triangle has offset to aabb
+        assert!(tri.translated(Vec3::ONE.scaled(0.5)).clip(aabb).is_equal(&AABB{min:Vec3::ONE.scaled(0.5),max:Vec3::ONE}));
+
+        let aabb = AABB {min: Vec3::ONE, max: Vec3::ONE.scaled(2.0)};
+        let tri = Triangle {
+            a: Vec3::ZERO,
+            b: Vec3::ONE.scaled(100.0),
+            c: Vec3 {x: 100.0, y: 100.0, z: 0.0},
+            mat: 0
+        };
+        // triangle is larger than aabb
+        assert!(tri.clip(aabb).is_equal(&aabb));
+
+    }
+
 }

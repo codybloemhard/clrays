@@ -25,21 +25,8 @@ impl Intersectable for Primitive {
     fn intersect(&self, ray: Ray, hit: &mut RayHit) {
         unimplemented!()
     }
-
-    fn intersect_axis(&self, axis: Axis, value: f32, bound: AABB) -> Vec<Vec3> {
-        if bound.min.fake_arr(axis) < value && bound.max.fake_arr(axis) > value {
-            match axis {
-                Axis::X => vec![Vec3 { x: value, y: bound.min.y, z: bound.min.z},
-                                Vec3 { x: value, y: bound.max.y, z: bound.max.z}],
-                Axis::Y => vec![Vec3 { x: bound.min.x, y: value, z: bound.min.z},
-                                Vec3 { x: bound.max.x, y: value, z: bound.max.z}],
-                Axis::Z => vec![Vec3 { x: bound.min.x, y: bound.min.y, z: value},
-                                Vec3 { x: bound.max.x, y: bound.max.y, z: value}],
-            }
-        } else {
-            vec![]
-        }
-    }
+    #[inline]
+    fn clip(&self, aabb: AABB) -> AABB{ unimplemented!()}
 }
 
 impl Primitive {
@@ -91,6 +78,7 @@ impl Primitive {
             },
             Shape::SPHERE => scene.spheres[self.index].intersect(ray, hit),
             Shape::TRIANGLE => scene.triangles[self.index].intersect(ray, hit),
+            Shape::PLANE => unimplemented!()
         }
         (0, 1)
     }

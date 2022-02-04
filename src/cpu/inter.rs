@@ -41,6 +41,11 @@ impl Ray{
             (self.dir.z < 0.0) as usize,
         ]
     }
+    
+    #[inline]
+    pub fn travel(self, t: f32) -> Vec3 {
+        self.pos.added(self.dir.scaled(t))
+    }
 }
 
 #[derive(Clone)]
