@@ -183,9 +183,9 @@ fn debug_trace(ray: Ray, scene: &Scene) -> Vec3{
     }
 
     Vec3 {
-        x: if aabb_hits > 50 && aabb_hits <= 200 { (aabb_hits-50) as f32 / 150.0 } else { 0.0 },
-        y: if aabb_hits <= 20 { aabb_hits as f32 / 20.0 } else { 0.0 },
-        z: if aabb_hits > 20 && aabb_hits <= 50 { (aabb_hits-20) as f32 / 30.0 } else { 0.0 },
+        x: if aabb_hits > 50 && aabb_hits <= 200 { 0.2 + 0.8 * ((aabb_hits-50) as f32 / 150.0) } else { 0.0 },
+        y: if aabb_hits <= 20 { 0.2 + 0.8 * (aabb_hits as f32 / 20.0) } else { 0.0 },
+        z: if aabb_hits > 20 && aabb_hits <= 50 { 0.2 + 0.8 * ((aabb_hits-20) as f32 / 30.0) } else { 0.0 },
     }
 }
 
@@ -214,6 +214,7 @@ fn whitted_trace(ray: Ray, scene: &Scene, tps: &[u32], ts: &[u8], depth: u8, con
     let refraction = mat.refraction;
     let absorption = mat.absorption;
     let normal = if is_inbound { hit.nor } else { hit.nor.neged() };
+    // return hit.nor;
 
     let mut reflectivity = mat.reflectivity;
     let mut transparency = mat.transparency;
