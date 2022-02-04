@@ -76,19 +76,19 @@ pub fn main() -> Result<(), String>{
     scene.set_skybox("sky");
     scene.set_sky_intensity(10.0, 0.1, 2.0);
 
-    Plane{
-        pos: Vec3::new(0.0, -1.0, 0.0),
-        nor: Vec3::UP,
-        mat: Material::basic()
-            .as_conductor()
-            .with_roughness(0.2)
-            .with_specular(ALUMINIUM_SPEC)
-            .with_texture(scene.get_texture("stone-alb"))
-            .with_normal_map(scene.get_texture("stone-nor"))
-            .with_roughness_map(scene.get_texture("stone-rou"))
-            .with_tex_scale(4.0)
-            .add_to_scene(&mut scene)
-    }.add(&mut scene);
+    // Plane{
+    //     pos: Vec3::new(0.0, -1.0, 0.0),
+    //     nor: Vec3::UP,
+    //     mat: Material::basic()
+    //         .as_conductor()
+    //         .with_roughness(0.00)
+    //         .with_specular(ALUMINIUM_SPEC)
+    //         .with_texture(scene.get_texture("stone-alb"))
+    //         .with_normal_map(scene.get_texture("stone-nor"))
+    //         .with_roughness_map(scene.get_texture("stone-rou"))
+    //         .with_tex_scale(4.0)
+    //         .add_to_scene(&mut scene)
+    // }.add(&mut scene);
 
     Sphere{
         pos: Vec3::new(2.0, 0.0, -5.0),

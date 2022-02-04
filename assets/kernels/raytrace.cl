@@ -841,12 +841,11 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
 
     float3 E = (float3)(1.0f); // emittance accumulator
     float ncontext = 1.0f; // refraction index of current medium
-    uint tirs = 0; // total internal reflections
     float3 hitpos = ray.pos;
     float3 distacc = (float3)(1.0f);
     uint rounds = 0;
 
-    while(tirs < 8 && rounds < 20){
+    while(rounds < 10){
         rounds++;
         struct RayHit hit = INTER_SCENE(&ray, scene);
         if(hit.t >= MAX_RENDER_DIST){
@@ -872,9 +871,8 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
         float3 wi = ray.dir;
         float a2 = a * a;
         float3 wm_tangent = MicroFacet_IS_Tangent(a2, U32tf01(Xor32(seed)), U32tf01(Xor32(seed)));
-        float3 wm = TangentToWorld(wg, wm_tangent);
         // answers we need
-        float3 F = (float3)(1.0f), wo;
+        float3 F = (float3)(1.0f), wo, wm;
 
         // handle dielectrics
         float mf = mat.refraction;
@@ -894,15 +892,15 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
                 n2 = ncontext;
                 n1 = mf;
             }
+            wm = TangentToWorld(wg, wm_tangent);
             hitpos = hit.pos;
             float n = n1 / n2;
-            float cost1 = dot(wg, -wi);
+            float cost1 = dot(wm, -wi);
             float k = 1.0f - n * n * (1.0f - cost1 * cost1);
             float costt = sqrt(k);
             float3 refldir = reflect(wi, wm);
             if(k < 0.0f){ // total internal reflection
                 wo = refldir;
-                tirs++;
             } else {
                 float spol = (n1 * cost1 - n2 * costt) / (n1 * cost1 + n2 * costt);
                 float ppol = (n1 * costt - n2 * cost1) / (n1 * costt + n2 * cost1);
@@ -914,12 +912,13 @@ float3 PathTrace(struct Ray ray, struct Scene *scene, uint* seed){
                     wo = refldir;
                 } else {
                     float c = dot(wm, -wi);
-                    wo = fast_normalize((ray.dir - wg * -c) * n + wm * -sqrt(k));
+                    wo = fast_normalize((ray.dir - wm * -c) * n + wm * -sqrt(k));
                     nray.pos = hit.pos - wg * EPSILON;
                     ncontext = mf;
                 }
             }
         } else { // handle conductors
+            wm = TangentToWorld(wg, wm_tangent);
             wo = reflect(wi, wm);
             F = Schlick(clamp(dot(wo, wm), EPSILON, 1.0f), kSpec);
         }
