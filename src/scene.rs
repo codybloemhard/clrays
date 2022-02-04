@@ -771,7 +771,7 @@ impl Scene{
     pub fn add_small_in_large_dragon(&mut self) -> MeshIndex {
         let mut triangles = Mesh::load_model("assets/models/dragon.obj");
         // scale triangles by a factor 100
-        let mut scale = 10.0;
+        let mut scale = 1.0;
         let mut new_triangles = vec![];
         for i in 0..4 {
             for tri in &triangles {
@@ -782,7 +782,7 @@ impl Scene{
                     mat: 0
                 })
             }
-            scale *= 10.0;
+            scale *= 0.5;
         }
         triangles.append(&mut new_triangles);
         let mesh = Mesh {
