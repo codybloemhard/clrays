@@ -175,18 +175,17 @@ fn debug_trace(ray: Ray, scene: &Scene) -> Vec3{
     aabb_hits += a;
     dep += b;
 
-    let lim1 = 10.0;
+    let lim1 = 0.0;
     let lim2 = 100.0;
 
-    if aabb_hits < lim1 as usize {
-        Vec3::uni(dep as f32 / lim1)
-    } else {
-        // zero is blue, 100 is red
-        Vec3 {
-            x: dep as f32 / lim2,
-            y: 0.0,
-            z: 1.0 - dep as f32 / lim2,
-        }
+    if aabb_hits > 200 {
+        return Vec3::ONE;
+    }
+
+    Vec3 {
+        x: if aabb_hits > 50 && aabb_hits <= 200 { (aabb_hits-50) as f32 / 150.0 } else { 0.0 },
+        y: if aabb_hits <= 20 { aabb_hits as f32 / 20.0 } else { 0.0 },
+        z: if aabb_hits > 20 && aabb_hits <= 50 { (aabb_hits-20) as f32 / 30.0 } else { 0.0 },
     }
 }
 
