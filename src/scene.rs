@@ -681,31 +681,32 @@ impl Scene{
         vec![
             // 0
             Triangle{a:Vec3{x:0.0,y:0.0,z:0.0},b:Vec3{x:1.0,y:0.0,z:0.0},c:Vec3{x:0.0,y:1.0,z:0.0},mat:0},
-            Triangle{a:Vec3{x:1.0,y:1.0,z:0.0},b:Vec3{x:1.0,y:0.0,z:0.0},c:Vec3{x:0.0,y:1.0,z:0.0},mat:0},
+            Triangle{a:Vec3{x:1.0,y:1.0,z:0.0},c:Vec3{x:1.0,y:0.0,z:0.0},b:Vec3{x:0.0,y:1.0,z:0.0},mat:0},
             // 1
             Triangle{a:Vec3{x:0.0,y:0.0,z:0.0},b:Vec3{x:0.0,y:1.0,z:0.0},c:Vec3{x:0.0,y:0.0,z:1.0},mat:0},
-            Triangle{a:Vec3{x:0.0,y:1.0,z:1.0},b:Vec3{x:0.0,y:1.0,z:0.0},c:Vec3{x:0.0,y:0.0,z:1.0},mat:0},
+            Triangle{a:Vec3{x:0.0,y:1.0,z:1.0},c:Vec3{x:0.0,y:1.0,z:0.0},b:Vec3{x:0.0,y:0.0,z:1.0},mat:0},
             // 2
             Triangle{a:Vec3{x:0.0,y:0.0,z:0.0},b:Vec3{x:1.0,y:0.0,z:0.0},c:Vec3{x:0.0,y:0.0,z:1.0},mat:0},
-            Triangle{a:Vec3{x:1.0,y:0.0,z:1.0},b:Vec3{x:1.0,y:0.0,z:0.0},c:Vec3{x:0.0,y:0.0,z:1.0},mat:0},
+            Triangle{a:Vec3{x:1.0,y:0.0,z:1.0},c:Vec3{x:1.0,y:0.0,z:0.0},b:Vec3{x:0.0,y:0.0,z:1.0},mat:0},
             // 3
             Triangle{a:Vec3{x:1.0,y:0.0,z:0.0},b:Vec3{x:1.0,y:1.0,z:0.0},c:Vec3{x:1.0,y:0.0,z:1.0},mat:0},
-            Triangle{a:Vec3{x:1.0,y:1.0,z:1.0},b:Vec3{x:1.0,y:1.0,z:0.0},c:Vec3{x:1.0,y:0.0,z:1.0},mat:0},
+            Triangle{a:Vec3{x:1.0,y:1.0,z:1.0},c:Vec3{x:1.0,y:1.0,z:0.0},b:Vec3{x:1.0,y:0.0,z:1.0},mat:0},
             // 4
             Triangle{a:Vec3{x:0.0,y:1.0,z:0.0},b:Vec3{x:1.0,y:1.0,z:0.0},c:Vec3{x:0.0,y:1.0,z:1.0},mat:0},
-            Triangle{a:Vec3{x:1.0,y:1.0,z:1.0},b:Vec3{x:1.0,y:1.0,z:0.0},c:Vec3{x:0.0,y:1.0,z:1.0},mat:0},
+            Triangle{a:Vec3{x:1.0,y:1.0,z:1.0},c:Vec3{x:1.0,y:1.0,z:0.0},b:Vec3{x:0.0,y:1.0,z:1.0},mat:0},
             // 5
             Triangle{a:Vec3{x:0.0,y:0.0,z:1.0},b:Vec3{x:1.0,y:0.0,z:1.0},c:Vec3{x:0.0,y:1.0,z:1.0},mat:0},
-            Triangle{a:Vec3{x:1.0,y:1.0,z:1.0},b:Vec3{x:1.0,y:0.0,z:1.0},c:Vec3{x:0.0,y:1.0,z:1.0},mat:0},
+            Triangle{a:Vec3{x:1.0,y:1.0,z:1.0},c:Vec3{x:1.0,y:0.0,z:1.0},b:Vec3{x:0.0,y:1.0,z:1.0},mat:0},
         ]
     }
-    pub fn random_box(&mut self) -> Vec<Triangle> {
-        let scale = random::<f32>() * 10.0;
-        let pos = Vec3::new_random();
-        let ori = Orientation{ yaw: random::<f32>(), roll: random::<f32>() };
+    pub fn random_box(&mut self,s:f32,p:f32,o:f32) -> Vec<Triangle> {
+        let scale = random::<f32>() * s;
+        let pos = Vec3::new_random().scaled(p);
+        let ori = Orientation{ yaw: random::<f32>() * o, roll: random::<f32>() * o };
         self.make_box()
             .iter_mut()
             .map(|tri| (*tri)
+                .translated(Vec3::ONE.scaled(-0.5))
                 .scaled(scale)
                 .rotated(ori)
                 .translated(pos)
@@ -713,10 +714,21 @@ impl Scene{
             .collect()
     }
     pub fn awful(&mut self) -> MeshIndex {
-        // rotate triangles
         let mut triangles = vec![];
-        for i in 1..1000 {
-            triangles.append(&mut self.random_box());
+        // generate a hundred small boxes in center
+        for i in 1..100 {
+            triangles.append(&mut self.random_box(1.0,1.0,0.0));
+        }
+        // generate ten large boxes in center
+        for i in 1..10 {
+            triangles.append(
+                &mut self.make_box()
+                    .iter_mut()
+                    .map(|tri| (*tri)
+                        .translated(Vec3::ONE.scaled(-0.5))
+                        .scaled(1000.0)
+                    )
+                    .collect());
         }
 
         let mesh = Mesh {

@@ -47,9 +47,9 @@ impl Vec3{
     #[inline]
     pub fn new_random() -> Self{
         Self {
-            x: (random::<f32>() - 0.5) * MAX_RENDER_DIST,
-            y: (random::<f32>() - 0.5) * MAX_RENDER_DIST,
-            z: (random::<f32>() - 0.5) * MAX_RENDER_DIST
+            x: random::<f32>(),
+            y: random::<f32>(),
+            z: random::<f32>()
         }
     }
 
