@@ -97,7 +97,7 @@ impl AABB {
 
     #[inline]
     pub fn overlap(self, other: Self) -> AABB {
-        AABB {
+        let aabb = AABB {
             min: Vec3 {
                 x: self.min.x.max(other.min.x),
                 y: self.min.y.max(other.min.y),
@@ -108,6 +108,11 @@ impl AABB {
                 y: self.max.y.min(other.max.y),
                 z: self.max.z.min(other.max.z),
             }
+        };
+        if aabb.surface_area() > 0.0 {
+            aabb
+        } else {
+            AABB::new()
         }
     }
 
