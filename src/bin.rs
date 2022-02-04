@@ -210,36 +210,57 @@ pub fn main() -> Result<(), String>{
     //         .add_to_scene(&mut scene)
     // }.add(&mut scene);
 
-    let mut dragon = Model{
-        pos: Default::default(),
-        rot: Default::default(),
-        mat: Material::basic().with_colour(Vec3::new(1.0, 0.5, 0.4)).add_to_scene(&mut scene),
-        // mat: Material::basic().as_dielectric().with_refraction(WATER_REFRACTION).add_to_scene(&mut scene),
-        mesh: scene.add_mesh("assets/models/dragon.obj".parse().unwrap())
-    };
-
-    let mut small_in_large_dragon = Model {
-        pos: Default::default(),
-        rot: Default::default(),
-        mat: Material::basic().with_colour(Vec3::new(1.0, 0.5, 0.4)).add_to_scene(&mut scene),
-        // mat: Material::basic().as_dielectric().with_refraction(WATER_REFRACTION).add_to_scene(&mut scene),
-        mesh: scene.add_small_in_large_dragon()
-    };
-
-    // 10000 dragons = 1 billion triangles
-    for _ in 0..0 {
-        let rad = 20.0;
-        let pos = Vec3 {
-            x: rand::random::<f32>() * rad - rad * 0.5,
-            y: rand::random::<f32>() * rad - rad * 0.5,
-            z: rand::random::<f32>() * rad - rad * 0.5,
-        };
-        let mut ori = Orientation { yaw: 0.0, roll: 0.0 };
-        let theta = rand::random::<f32>() * 2.0 * PI;
-        ori.yaw = theta;
-        dragon.pos = pos;
-        dragon.rot = Vec3::from_orientation( &ori);
-        scene.add_model(dragon);
+    let type_of_sbvh_test = 1;
+    match type_of_sbvh_test {
+        0 => {
+            let mut dragon = Model{
+                pos: Default::default(),
+                rot: Default::default(),
+                mat: Material::basic().with_colour(Vec3::new(1.0, 0.5, 0.4)).add_to_scene(&mut scene),
+                // mat: Material::basic().as_dielectric().with_refraction(WATER_REFRACTION).add_to_scene(&mut scene),
+                mesh: scene.add_mesh("assets/models/dragon.obj".parse().unwrap())
+            };
+            // 10000 dragons = 1 billion triangles
+            for _ in 0..10000 {
+                let rad = 20.0;
+                let pos = Vec3 {
+                    x: rand::random::<f32>() * rad - rad * 0.5,
+                    y: rand::random::<f32>() * rad - rad * 0.5,
+                    z: rand::random::<f32>() * rad - rad * 0.5,
+                };
+                let mut ori = Orientation { yaw: 0.0, roll: 0.0 };
+                let theta = rand::random::<f32>() * 2.0 * PI;
+                ori.yaw = theta;
+                dragon.pos = pos;
+                dragon.rot = Vec3::from_orientation( &ori);
+                scene.add_model(dragon);
+            }
+        },
+        1 => {
+            let mut small_in_large_dragon = Model {
+                pos: Default::default(),
+                rot: Default::default(),
+                mat: Material::basic().with_colour(Vec3::new(1.0, 0.5, 0.4)).add_to_scene(&mut scene),
+                // mat: Material::basic().as_dielectric().with_refraction(WATER_REFRACTION).add_to_scene(&mut scene),
+                mesh: scene.add_small_in_large_dragon()
+            };
+            small_in_large_dragon.pos = Vec3 { x: 0.0, y: 0.0, z: 0.0 };
+            small_in_large_dragon.rot= Vec3::from_orientation(&Orientation { yaw: 0.0, roll: 0.0 });
+            scene.add_model(small_in_large_dragon);
+        },
+        2 => {
+            let mut awful = Model {
+                pos: Default::default(),
+                rot: Default::default(),
+                mat: Material::basic().with_colour(Vec3::new(1.0, 0.5, 0.4)).add_to_scene(&mut scene),
+                // mat: Material::basic().as_dielectric().with_refraction(WATER_REFRACTION).add_to_scene(&mut scene),
+                mesh: scene.awful()
+            };
+            awful.pos = Vec3 { x: 0.0, y: 0.0, z: 0.0 };
+            awful.rot= Vec3::from_orientation(&Orientation { yaw: 0.0, roll: 0.0 });
+            scene.add_model(awful);
+        },
+        _ => {}
     }
 
     Light{
