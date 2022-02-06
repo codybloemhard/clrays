@@ -488,7 +488,7 @@ impl Scene{
         let mut buffer = vec![0; 2 + bvhs * 2];
 
         buffer[2] = buffer.len() as u32; // bvh start
-        buffer[3] = self.meshes[self.top_bvh.mesh_index as usize].start.try_into().unwrap(); // bvh mesh
+        buffer[3] = 0; // top level doesn't have a mesh
         for v in &self.top_bvh.vertices{
             buffer.push(v.bound.min.x.to_bits() as u32);
             buffer.push(v.bound.min.y.to_bits() as u32);
