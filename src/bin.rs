@@ -28,14 +28,17 @@ pub fn main() -> Result<(), String>{
         exit(0)
     }
 
+    let mut gpu = true;
+
     let args: Vec<String> = env::args().collect();
     if args.len() == 2 {
         let target = &args[1];
-        if target == "cpu" { scene.stype = RenderType::Whitted }
-        else if *target == "gpu" { scene.stype = RenderType::GI }
+        if target == "cpu" { gpu = false; }
+        else if *target == "gpu" { gpu = true; }
         else { select_target_msg() }
     } else { select_target_msg() }
 
+    scene.stype = RenderType::GI;
     let render_type = scene.stype;
 
     match render_type{
@@ -65,19 +68,30 @@ pub fn main() -> Result<(), String>{
     let (w, h) = (1920, 1080);
 
     let mut window = window::Window::new("ClRays", w as u32, h as u32);
-    match render_type {
-        RenderType::GI => {
-            let mut tracer_gpu = unpackdb!(trace_processor::GpuPath::new((w, h), &mut scene, &mut info), "Could not create GpuPath!");
-            // let mut tracer_gpu = unpackdb!(trace_processor::GpuWhitted::new((w, h), &mut scene, &mut info), "Could not create GpuPath!");
+
+    macro_rules! run{
+        ($tracer:ident) => {
             info.stop_time();
             info.print_info();
-            window.run(fps_input_fn, log_update_fn, &mut state, &mut tracer_gpu, &mut scene)
-        },
-        RenderType::Whitted => {
-            let mut tracer_cpu = trace_processor::CpuWhitted::new(w as usize, h as usize, 32, &mut scene, &mut info);
-            info.stop_time();
-            info.print_info();
-            window.run(fps_input_fn, log_update_fn, &mut state, &mut tracer_cpu, &mut scene)
+            return window.run(fps_input_fn, log_update_fn, &mut state, &mut $tracer, &mut scene);
         }
+    }
+
+    match (gpu, render_type){
+        (true, RenderType::GI) => {
+            let mut tracer_gpu = unpackdb!(trace_processor::GpuPath::new((w, h), &mut scene, &mut info), "Could not create GpuPath!");
+            run!(tracer_gpu);
+        },
+        (true, RenderType::Whitted) => {
+            let mut tracer_gpu = unpackdb!(trace_processor::GpuWhitted::new((w, h), &mut scene, &mut info), "Could not create GpuPath!");
+            run!(tracer_gpu);
+        },
+        (false, RenderType::Whitted) => {
+            let mut tracer_cpu = trace_processor::CpuWhitted::new(w as usize, h as usize, 32, &mut scene, &mut info);
+            run!(tracer_cpu);
+        },
+        (on_gpu, rtype) => {
+            panic!("Combination of {} and {:?} is not supported!", if on_gpu { "gpu" } else { "cpu" }, rtype);
+        },
     }
 }
