@@ -329,14 +329,14 @@ impl Default for Camera{
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
-pub enum SceneType{
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum RenderType{
     Whitted,
     GI,
 }
 
 pub struct Scene{
-    pub stype: SceneType,
+    pub stype: RenderType,
     pub spheres: Vec<Sphere>,
     pub planes: Vec<Plane>,
     pub lights: Vec<Light>,
@@ -380,7 +380,7 @@ impl Scene{
 
     pub fn new() -> Self{
         Self{
-            stype: SceneType::GI,
+            stype: RenderType::GI,
             spheres: Vec::new(),
             planes: Vec::new(),
             triangles: Vec::new(),
@@ -617,13 +617,13 @@ impl Scene{
     }
 
     pub fn add_light(&mut self, l: Light){
-        if self.stype == SceneType::GI { return; }
+        if self.stype == RenderType::GI { return; }
         self.lights.push(l);
     }
 
     pub fn is_not_ok(&self, mat: MaterialIndex) -> bool{
         let e = self.mats[mat as usize].emittance;
-        e > 0.0 && self.stype == SceneType::Whitted
+        e > 0.0 && self.stype == RenderType::Whitted
     }
 
     pub fn add_sphere(&mut self, s: Sphere){

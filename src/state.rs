@@ -1,4 +1,4 @@
-use crate::scene::Scene;
+use crate::scene::{ Scene, RenderType };
 use crate::vec3::Vec3;
 
 use sdl2::event::Event;
@@ -41,6 +41,7 @@ pub struct Settings{
     pub start_in_focus_mode: bool,
     pub max_render_depth: u8,
     pub calc_frame_energy: bool,
+    pub render_type: RenderType,
 }
 
 impl Default for Settings{
@@ -51,6 +52,7 @@ impl Default for Settings{
             start_in_focus_mode: false,
             max_render_depth: 5,
             calc_frame_energy: false,
+            render_type: RenderType::GI,
         }
     }
 }
@@ -125,13 +127,21 @@ pub fn std_update_fn(dt: f32, state: &mut State) -> LoopRequest {
 }
 
 pub fn log_update_fn(dt: f32, state: &mut State) -> LoopRequest {
-    if state.last_frame == RenderMode::Reduced{
-        println!("{:?}({}): {} ms, ", state.last_frame, state.reduced_rate, dt);
-    } else if state.last_frame == RenderMode::Full{
-        println!("{:?}({}): {} ms, ", state.last_frame, state.samples_taken, dt);
-        if state.frame_energy > 0.01{
-            println!("Frame Energy: {}", state.frame_energy);
-        }
+    match state.settings.render_type{
+        RenderType::GI => {
+            if state.frame_energy > 0.01{
+                println!("{} ms\nFrame Energy: {}", dt, state.frame_energy);
+            } else {
+                print!("{} ms, ", dt);
+            }
+        },
+        RenderType::Whitted => {
+            if state.last_frame == RenderMode::Reduced{
+                println!("{:?}({}): {} ms, ", state.last_frame, state.reduced_rate, dt);
+            } else if state.last_frame == RenderMode::Full{
+                println!("{:?}({}): {} ms, ", state.last_frame, state.samples_taken, dt);
+            }
+        },
     }
     std_update_fn(dt, state)
 }
