@@ -8,10 +8,13 @@ use clr::scene::{ Scene, RenderType };
 use clr::info::{ Info };
 use clr::state::{ State, Settings, log_update_fn, fps_input_fn };
 use clr::scenes::{ gi_scene::gi_scene, whitted_scene::whitted_scene };
+use clr::config::Config;
 
 use sdl2::keyboard::Keycode;
+
 use std::env;
 use std::process::exit;
+use std::path::Path;
 
 pub fn main() -> Result<(), String>{
     // clr::test(clr::test_platform::PlatformTest::OpenCl2);
@@ -20,28 +23,18 @@ pub fn main() -> Result<(), String>{
 
     let mut scene = Scene::new();
 
-    fn select_target_msg() {
-        println!("Run program with:");
-        println!("cargo run --release -- cpu");
-        println!("or");
-        println!("cargo run --release -- gpu");
-        exit(0)
-    }
-
-    let mut gpu = true;
-
     let args: Vec<String> = env::args().collect();
-    if args.len() == 2 {
-        let target = &args[1];
-        if target == "cpu" { gpu = false; }
-        else if *target == "gpu" { gpu = true; }
-        else { select_target_msg() }
-    } else { select_target_msg() }
+    let config = if args.len() == 2 {
+        let conf = &args[1];
+        Config::read(Path::new(conf)).expect("Could not read config!")
+    } else {
+        panic!("Please pass a toml configuration file as an argument!");
+    };
+    let config = config.parse().expect("Could not parse config!");
 
-    scene.stype = RenderType::GI;
-    let render_type = scene.stype;
+    scene.stype = config.render_type;
 
-    match render_type{
+    match config.render_type{
         RenderType::GI => gi_scene(&mut scene),
         RenderType::Whitted => whitted_scene(&mut scene),
     }
@@ -57,7 +50,7 @@ pub fn main() -> Result<(), String>{
         start_in_focus_mode: false,
         max_render_depth: 4,
         calc_frame_energy: false,
-        render_type: render_type,
+        render_type: config.render_type,
     };
 
     // let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O, T), settings);
@@ -77,7 +70,7 @@ pub fn main() -> Result<(), String>{
         }
     }
 
-    match (gpu, render_type){
+    match (config.gpu, config.render_type){
         (true, RenderType::GI) => {
             let mut tracer_gpu = unpackdb!(trace_processor::GpuPath::new((w, h), &mut scene, &mut info), "Could not create GpuPath!");
             run!(tracer_gpu);
