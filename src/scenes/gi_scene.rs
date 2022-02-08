@@ -11,11 +11,7 @@ pub fn gi_scene(scene: &mut Scene){
         move_sensitivity: 0.1,
         look_sensitivity: 0.05,
         fov: 80.0,
-        chromatic_aberration_shift: 2,
-        chromatic_aberration_strength: 0.3,
-        vignette_strength: 0.1,
-        angle_radius: 0.0,
-        distortion_coefficient: 2.0
+        .. Default::default()
     };
 
     scene.sky_col = Vec3::BLUE.unhardened(0.1);

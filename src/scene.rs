@@ -311,6 +311,24 @@ pub struct Camera{
     pub distortion_coefficient: f32
 }
 
+impl Default for Camera{
+    fn default() -> Self{
+        Self{
+            pos: Vec3::ZERO,
+            dir: Vec3::BACKWARD,
+            ori: Orientation { yaw: 0.0, roll: 0.0 },
+            move_sensitivity: 0.1,
+            look_sensitivity: 0.05,
+            fov: 90.0,
+            chromatic_aberration_shift: 0,
+            chromatic_aberration_strength: 0.0,
+            vignette_strength: 0.0,
+            angle_radius: 0.0,
+            distortion_coefficient: 1.0
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq)]
 pub enum SceneType{
     Whitted,
@@ -385,19 +403,7 @@ impl Scene{
             sky_min: 0.1,
             sky_pow: 1.0,
             sky_box: 0,
-            cam: Camera{
-                pos: Vec3::ZERO,
-                dir: Vec3::BACKWARD,
-                ori: Orientation { yaw: 0.0, roll: 0.0 },
-                move_sensitivity: 0.1,
-                look_sensitivity: 0.05,
-                fov: 90.0,
-                chromatic_aberration_shift: 2,
-                chromatic_aberration_strength: 0.2,
-                vignette_strength: 0.1,
-                angle_radius: 0.0,
-                distortion_coefficient: 1.0
-            },
+            cam: Camera::default(),
         }
     }
 
