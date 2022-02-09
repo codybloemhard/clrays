@@ -7,7 +7,6 @@
 - [x] export frame
 - [x] mesh: triangle meshes (.obj)
 - [x] BVH: binning + SAH + top-level
-- [ ] SBVH
 
 ### GPU
 - [x] basic pathtracer (area lights, materials, speculars, dielectrics, beer's law)
@@ -45,6 +44,13 @@ Layout  | Style | Move: up, down, forward, backward, left, right | Look: up, dow
 QWERTY  |Gaming | Q, E, W, S, A, D                               | I, K, J, L                  | U                 | O
 QGMLWY  |Typing | G, L, M, T, S, N                               | U, E, A, O                  | F                 | B
 
+## wip
+- make post processing configureable
+- reintroduce SBVH as choice
+- rewrite cpu bvh traversal on bufferized bvh
+- gpu top level bvh traversal
+- reintroduce texture maps on gpu
+
 ## Possible things to work on
 - rust-gpu rewrite
 - GGX VNDF importance sampling
@@ -70,6 +76,7 @@ QGMLWY  |Typing | G, L, M, T, S, N                               | U, E, A, O   
 - motion blur
 - path regularization option (biased)
 - energy clamp option (biased)
+- ray marching
 
 ## Sources
 1. [Tonemapping; Matt Taylor (2019)](https://64.github.io/tonemapping/)

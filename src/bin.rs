@@ -13,7 +13,6 @@ use clr::config::Config;
 use sdl2::keyboard::Keycode;
 
 use std::env;
-use std::process::exit;
 use std::path::Path;
 
 pub fn main() -> Result<(), String>{
@@ -24,17 +23,23 @@ pub fn main() -> Result<(), String>{
     let mut scene = Scene::new();
 
     let args: Vec<String> = env::args().collect();
-    let config = if args.len() == 2 {
+    let conf = if args.len() == 2 {
         let conf = &args[1];
         Config::read(Path::new(conf)).expect("Could not read config!")
     } else {
         panic!("Please pass a toml configuration file as an argument!");
     };
-    let config = config.parse().expect("Could not parse config!");
+    let conf = conf.parse().expect("Could not parse config!");
 
-    scene.stype = config.render_type;
+    if let Some(title) = conf.title{
+        println!("Loaded config with title: '{}'", title);
+    } else {
+        println!("Loaded config!");
+    }
 
-    match config.render_type{
+    scene.stype = conf.render_type;
+
+    match conf.render_type{
         RenderType::GI => gi_scene(&mut scene),
         RenderType::Whitted => whitted_scene(&mut scene),
     }
@@ -45,22 +50,18 @@ pub fn main() -> Result<(), String>{
     scene.pack_textures(&mut info);
 
     let settings = Settings{
-        aa_samples: 8,
-        max_reduced_ms: 40.0,
-        start_in_focus_mode: false,
-        max_render_depth: 4,
-        calc_frame_energy: false,
-        render_type: config.render_type,
+        aa_samples: conf.aa_samples,
+        max_reduced_ms: conf.max_reduced_ms,
+        start_in_focus_mode: conf.start_in_focus_mode,
+        max_render_depth: conf.render_depth,
+        calc_frame_energy: conf.frame_energy,
+        render_type: conf.render_type,
     };
 
     // let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O, T), settings);
     let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O, F, B, W), settings);
 
-    // let (w, h) = (960, 540);
-    // let (w, h) = (1600, 900);
-    let (w, h) = (1920, 1080);
-
-    let mut window = window::Window::new("ClRays", w as u32, h as u32);
+    let mut window = window::Window::new("ClRays", conf.w, conf.h);
 
     macro_rules! run{
         ($tracer:ident) => {
@@ -70,17 +71,17 @@ pub fn main() -> Result<(), String>{
         }
     }
 
-    match (config.gpu, config.render_type){
+    match (conf.gpu, conf.render_type){
         (true, RenderType::GI) => {
-            let mut tracer_gpu = unpackdb!(trace_processor::GpuPath::new((w, h), &mut scene, &mut info), "Could not create GpuPath!");
+            let mut tracer_gpu = unpackdb!(trace_processor::GpuPath::new((conf.w, conf.h), &mut scene, &mut info), "Could not create GpuPath!");
             run!(tracer_gpu);
         },
         (true, RenderType::Whitted) => {
-            let mut tracer_gpu = unpackdb!(trace_processor::GpuWhitted::new((w, h), &mut scene, &mut info), "Could not create GpuPath!");
+            let mut tracer_gpu = unpackdb!(trace_processor::GpuWhitted::new((conf.w, conf.h), &mut scene, &mut info), "Could not create GpuPath!");
             run!(tracer_gpu);
         },
         (false, RenderType::Whitted) => {
-            let mut tracer_cpu = trace_processor::CpuWhitted::new(w as usize, h as usize, 32, &mut scene, &mut info);
+            let mut tracer_cpu = trace_processor::CpuWhitted::new(conf.w as usize, conf.h as usize, 32, &mut scene, &mut info);
             run!(tracer_cpu);
         },
         (on_gpu, rtype) => {
