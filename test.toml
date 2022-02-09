@@ -1,5 +1,5 @@
 title = "Test configuration"
 gpu = true
-render_type = "gi"
+render_type = "test"
 width = 1920
 height = 1080

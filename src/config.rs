@@ -24,7 +24,7 @@ pub struct Config{
 pub struct ParsedConf{
     pub title: Option<String>,
     pub gpu: bool,
-    pub render_type: RenderType,
+    pub render_type: Option<RenderType>, // None means run tests and exit
     pub w: u32,
     pub h: u32,
     pub aa_samples: usize,
@@ -47,8 +47,9 @@ impl Config{
         let title = self.title;
         let gpu = self.gpu;
         let render_type = match self.render_type.to_lowercase().as_ref(){
-            "gi" => RenderType::GI,
-            "whitted" => RenderType::Whitted,
+            "gi" => Some(RenderType::GI),
+            "whitted" => Some(RenderType::Whitted),
+            "test" => None,
             _ => return Err(format!("Target '{}' is not supported!", self.render_type))
         };
         let w = if self.width == 0 { 1024 } else { self.width };

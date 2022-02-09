@@ -5,6 +5,7 @@
 - [x] custom keybindings
 - [x] skycolour, skybox: sphere
 - [x] export frame
+- [x] primitives: planes, spheres, triangles
 - [x] mesh: triangle meshes (.obj)
 - [x] BVH: binning + SAH + top-level
 
@@ -18,8 +19,6 @@
   - [x] GGX NDF importance sampling
 
 ### CPU
-- [x] primitives: planes, spheres, triangles
-- [x] material
 - [x] blinn shading
 - [x] reflection
 - [x] refraction
@@ -64,7 +63,6 @@ QGMLWY  |Typing | G, L, M, T, S, N                               | U, E, A, O   
 - optimize pow: gamma correct images before upload
 - optimize vector loading: use vload3 and allign the buffer for it
 - preprocess kernel: optimize branches away, insert constants
-- sRGB now, use aces, linear colours
 - Next event estimation (NEE)
 - Russian roulette (RR)
 - Importance sampling of BRDF

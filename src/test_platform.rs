@@ -61,7 +61,7 @@ pub fn test_sdl_window(){
         canvas.present();
         std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
         f += 1;
-        if f > 1000 { break; }
+        if f > 120 { break; }
     }
 }
 
@@ -100,9 +100,9 @@ pub fn test_sdl_audio(){
     let device = audio_subsystem.open_playback(None, &desired_spec, |spec| {
         // initialize the audio callback
         SquareWave {
-            phase_inc: 440.0 / spec.freq as f32,
+            phase_inc: 110.0 / spec.freq as f32,
             phase: 0.0,
-            volume: 0.25
+            volume: 0.1
         }
     }).unwrap();
 
@@ -110,7 +110,7 @@ pub fn test_sdl_audio(){
     device.resume();
 
     // Play for 2 seconds
-    std::thread::sleep(Duration::from_millis(10000));
+    std::thread::sleep(Duration::from_millis(1000));
 }
 
 pub fn test_opencl0(){

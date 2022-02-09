@@ -16,7 +16,6 @@ use std::env;
 use std::path::Path;
 
 pub fn main() -> Result<(), String>{
-    // clr::test(clr::test_platform::PlatformTest::OpenCl2);
     let mut info = Info::new();
     info.start_time();
 
@@ -37,9 +36,18 @@ pub fn main() -> Result<(), String>{
         println!("Loaded config!");
     }
 
-    scene.stype = conf.render_type;
+    let render_type = if let Some(rt) = conf.render_type{ rt }
+    else {
+        clr::test(clr::test_platform::PlatformTest::OpenCl0);
+        clr::test(clr::test_platform::PlatformTest::OpenCl1);
+        clr::test(clr::test_platform::PlatformTest::OpenCl2);
+        clr::test(clr::test_platform::PlatformTest::SdlAudio);
+        clr::test(clr::test_platform::PlatformTest::SdlWindow);
+        return Ok(());
+    };
+    scene.stype = render_type;
 
-    match conf.render_type{
+    match render_type{
         RenderType::GI => gi_scene(&mut scene),
         RenderType::Whitted => whitted_scene(&mut scene),
     }
@@ -55,7 +63,7 @@ pub fn main() -> Result<(), String>{
         start_in_focus_mode: conf.start_in_focus_mode,
         max_render_depth: conf.render_depth,
         calc_frame_energy: conf.frame_energy,
-        render_type: conf.render_type,
+        render_type: render_type,
     };
 
     // let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O, T), settings);
@@ -71,7 +79,7 @@ pub fn main() -> Result<(), String>{
         }
     }
 
-    match (conf.gpu, conf.render_type){
+    match (conf.gpu, render_type){
         (true, RenderType::GI) => {
             let mut tracer_gpu = unpackdb!(trace_processor::GpuPath::new((conf.w, conf.h), &mut scene, &mut info), "Could not create GpuPath!");
             run!(tracer_gpu);
