@@ -19,8 +19,6 @@ pub fn main() -> Result<(), String>{
     let mut info = Info::new();
     info.start_time();
 
-    let mut scene = Scene::new();
-
     let args: Vec<String> = env::args().collect();
     let conf = if args.len() == 2 {
         let conf = &args[1];
@@ -30,7 +28,7 @@ pub fn main() -> Result<(), String>{
     };
     let conf = conf.parse().expect("Could not parse config!");
 
-    if let Some(title) = conf.base.title{
+    if let Some(title) = conf.base.title.clone(){
         println!("Loaded config with title: '{}'", title);
     } else {
         println!("Loaded config!");
@@ -45,6 +43,9 @@ pub fn main() -> Result<(), String>{
         clr::test(clr::test_platform::PlatformTest::SdlWindow);
         return Ok(());
     };
+
+
+    let mut scene = Scene::new(&conf);
     scene.stype = render_type;
 
     match render_type{

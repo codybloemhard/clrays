@@ -10,11 +10,13 @@ use std::path::Path;
 pub struct Config{
     base: Base,
     cpu: Option<Cpu>,
+    post: Option<Post>,
 }
 
 pub struct ConfigParsed{
     pub base: BaseParsed,
     pub cpu: CpuParsed,
+    pub post: PostParsed,
 }
 
 impl Config{
@@ -29,20 +31,22 @@ impl Config{
     pub fn parse(self) -> Result<ConfigParsed, String>{
         let base = self.base.parse()?;
         let cpu = self.cpu.unwrap_or_default().parse();
+        let post = self.post.unwrap_or_default().parse();
         Ok(ConfigParsed{
-            base, cpu
+            base, cpu, post
         })
     }
 }
 
 #[derive(Deserialize, Clone)]
-pub struct Base{
+struct Base{
     title: Option<String>,
     gpu: bool,
     render_type: String,
     width: u32,
     height: u32,
     frame_energy: Option<bool>,
+    fisheye: Option<bool>,
 }
 
 pub struct BaseParsed{
@@ -52,6 +56,7 @@ pub struct BaseParsed{
     pub w: u32,
     pub h: u32,
     pub frame_energy: bool,
+    pub fisheye: bool,
 }
 
 impl Base{
@@ -67,14 +72,15 @@ impl Base{
         let w = if self.width == 0 { 1024 } else { self.width };
         let h = if self.height == 0 { 1024 } else { self.height };
         let frame_energy = self.frame_energy.unwrap_or(false);
+        let fisheye = self.fisheye.unwrap_or(false);
         Ok(BaseParsed{
-            title, gpu, render_type, w, h, frame_energy
+            title, gpu, render_type, w, h, frame_energy, fisheye
         })
     }
 }
 
-#[derive(Deserialize, Clone)]
-pub struct Cpu{
+#[derive(Deserialize, Clone, Default, Debug)]
+struct Cpu{
     aa_samples: Option<usize>,
     render_depth: Option<u8>,
     max_reduced_ms: Option<f32>,
@@ -88,17 +94,6 @@ pub struct CpuParsed{
     pub start_in_focus_mode: bool,
 }
 
-impl Default for Cpu{
-    fn default() -> Self{
-        Self{
-            aa_samples: Some(8),
-            render_depth: Some(5),
-            max_reduced_ms: Some(40.0),
-            start_in_focus_mode: Some(false),
-        }
-    }
-}
-
 impl Cpu{
     pub fn parse(self) -> CpuParsed{
         let aa_samples = self.aa_samples.unwrap_or(1).max(1);
@@ -107,6 +102,34 @@ impl Cpu{
         let start_in_focus_mode = self.start_in_focus_mode.unwrap_or(false);
         CpuParsed{
             aa_samples, render_depth, max_reduced_ms, start_in_focus_mode
+        }
+    }
+}
+
+#[derive(Deserialize, Clone, Default, Debug)]
+struct Post{
+    chromatic_aberration_shift: Option<usize>,
+    chromatic_aberration_strength: Option<f32>,
+    vignette_strength: Option<f32>,
+    distortion_coefficient: Option<f32>,
+}
+
+pub struct PostParsed{
+    pub chromatic_aberration_shift: usize,
+    pub chromatic_aberration_strength: f32,
+    pub vignette_strength: f32,
+    pub distortion_coefficient: f32,
+}
+
+impl Post{
+    pub fn parse(self) -> PostParsed{
+        let chromatic_aberration_shift = self.chromatic_aberration_shift.unwrap_or(0);
+        let chromatic_aberration_strength = self.chromatic_aberration_strength.unwrap_or(0.0);
+        let vignette_strength = self.vignette_strength.unwrap_or(0.0);
+        let distortion_coefficient = self.distortion_coefficient.unwrap_or(1.0);
+        PostParsed{
+            chromatic_aberration_shift, chromatic_aberration_strength,
+            vignette_strength, distortion_coefficient,
         }
     }
 }

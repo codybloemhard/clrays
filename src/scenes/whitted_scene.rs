@@ -1,4 +1,4 @@
-use crate::scene::{ Scene, Camera, SceneItem, Material, Light, Model, };
+use crate::scene::{ Scene, SceneItem, Material, Light, Model, };
 use crate::vec3::{ Vec3 };
 use crate::consts::*;
 use crate::vec3::Orientation;
@@ -6,19 +6,12 @@ use crate::vec3::Orientation;
 pub const USE_WIDE_ANGLE: bool = false;
 
 pub fn whitted_scene(scene: &mut Scene){
-    scene.cam = Camera{
-        pos: Vec3::new(0.0, 1.5, 6.0),
-        dir: Vec3::BACKWARD,
-        ori: Vec3::BACKWARD.normalized().orientation(),
-        move_sensitivity: 0.1,
-        look_sensitivity: 0.05,
-        fov: 80.0,
-        chromatic_aberration_shift: 2,
-        chromatic_aberration_strength: 0.3,
-        vignette_strength: 0.1,
-        angle_radius: if USE_WIDE_ANGLE { FRAC_2_PI } else { 0.0 },
-        distortion_coefficient: 2.0
-    };
+    scene.cam.pos = Vec3::new(0.0, 1.5, 6.0);
+    scene.cam.dir = Vec3::BACKWARD;
+    scene.cam.ori = Vec3::BACKWARD.normalized().orientation();
+    scene.cam.move_sensitivity = 0.1;
+    scene.cam.look_sensitivity = 0.05;
+    scene.cam.fov = 80.0;
 
     let mut dragon = Model{
         pos: Default::default(),
@@ -29,7 +22,7 @@ pub fn whitted_scene(scene: &mut Scene){
     };
 
     // 10000 dragons = 1 billion triangles
-    for _ in 0..10 {
+    for _ in 0..5 {
         let rad = 20.0;
         let pos = Vec3 {
             x: rand::random::<f32>() * rad - rad * 0.5,
@@ -46,7 +39,7 @@ pub fn whitted_scene(scene: &mut Scene){
 
     Light{
         pos: Vec3::new(0.0, 3.0, 0.0),
-        intensity: 10000.0,
+        intensity: 1000.0,
         col: Vec3::ONE,
     }.add(scene);
 }

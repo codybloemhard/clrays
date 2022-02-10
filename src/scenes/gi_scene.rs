@@ -1,18 +1,15 @@
-use crate::scene::{ Scene, Camera, SceneItem, Material, Plane, Sphere };
+use crate::scene::{ Scene, SceneItem, Material, Plane, Sphere };
 use crate::vec3::{ Vec3 };
 use crate::trace_tex::{ TexType };
 use crate::consts::*;
 
 pub fn gi_scene(scene: &mut Scene){
-    scene.cam = Camera{
-        pos: Vec3::new(0.0, 1.5, 6.0),
-        dir: Vec3::BACKWARD,
-        ori: Vec3::BACKWARD.normalized().orientation(),
-        move_sensitivity: 0.1,
-        look_sensitivity: 0.05,
-        fov: 80.0,
-        .. Default::default()
-    };
+    scene.cam.pos = Vec3::new(0.0, 1.5, 6.0);
+    scene.cam.dir = Vec3::BACKWARD;
+    scene.cam.ori = Vec3::BACKWARD.normalized().orientation();
+    scene.cam.move_sensitivity = 0.1;
+    scene.cam.look_sensitivity = 0.05;
+    scene.cam.fov = 80.0;
 
     scene.sky_col = Vec3::BLUE.unhardened(0.1);
     scene.add_texture("wood", "assets/textures/wood.png", TexType::Vector3c8bpc);

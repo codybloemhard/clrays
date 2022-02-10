@@ -7,6 +7,8 @@ use crate::mesh::Mesh;
 use crate::aabb::AABB;
 use crate::primitive::{ Primitive, Shape };
 use crate::cpu::inter::{ Ray, RayHit, inter_plane, inter_sphere, inter_triangle };
+use crate::config::ConfigParsed;
+use crate::consts::FRAC_2_PI;
 
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -311,8 +313,8 @@ pub struct Camera{
     pub distortion_coefficient: f32
 }
 
-impl Default for Camera{
-    fn default() -> Self{
+impl Camera{
+    fn new(conf: &ConfigParsed) -> Self{
         Self{
             pos: Vec3::ZERO,
             dir: Vec3::BACKWARD,
@@ -320,11 +322,11 @@ impl Default for Camera{
             move_sensitivity: 0.1,
             look_sensitivity: 0.05,
             fov: 90.0,
-            chromatic_aberration_shift: 0,
-            chromatic_aberration_strength: 0.0,
-            vignette_strength: 0.0,
-            angle_radius: 0.0,
-            distortion_coefficient: 1.0
+            chromatic_aberration_shift: conf.post.chromatic_aberration_shift,
+            chromatic_aberration_strength: conf.post.chromatic_aberration_strength,
+            vignette_strength: conf.post.vignette_strength,
+            angle_radius: if conf.base.fisheye { FRAC_2_PI } else { 0.0 },
+            distortion_coefficient: conf.post.distortion_coefficient,
         }
     }
 }
@@ -362,12 +364,6 @@ pub struct Scene{
     pub cam: Camera,
 }
 
-impl Default for Scene {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Scene{
     const SCENE_SIZE: u32 = 11;
     const SCENE_PARAM_SIZE: usize = 7 * 2 + Self::SCENE_SIZE as usize;
@@ -378,7 +374,7 @@ impl Scene{
     const SPHERE_SIZE: u32 = 4 + Self::MATERIAL_INDEX_SIZE;
     const TRIANGLE_SIZE: u32 = 9 + Self::MATERIAL_INDEX_SIZE;
 
-    pub fn new() -> Self{
+    pub fn new(config: &ConfigParsed) -> Self{
         Self{
             stype: RenderType::GI,
             spheres: Vec::new(),
@@ -403,7 +399,7 @@ impl Scene{
             sky_min: 0.1,
             sky_pow: 1.0,
             sky_box: 0,
-            cam: Camera::default(),
+            cam: Camera::new(config),
         }
     }
 

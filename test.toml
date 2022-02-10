@@ -1,6 +1,8 @@
 [base]
 title = "Test configuration"
-gpu = true
-render_type = "gi"
+gpu = false
+render_type = "whitted"
 width = 1920
 height = 1080
+
+[post]
