@@ -1,5 +1,6 @@
+[base]
 title = "Test configuration"
 gpu = true
-render_type = "test"
+render_type = "gi"
 width = 1920
 height = 1080

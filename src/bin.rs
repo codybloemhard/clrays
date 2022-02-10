@@ -30,13 +30,13 @@ pub fn main() -> Result<(), String>{
     };
     let conf = conf.parse().expect("Could not parse config!");
 
-    if let Some(title) = conf.title{
+    if let Some(title) = conf.base.title{
         println!("Loaded config with title: '{}'", title);
     } else {
         println!("Loaded config!");
     }
 
-    let render_type = if let Some(rt) = conf.render_type{ rt }
+    let render_type = if let Some(rt) = conf.base.render_type{ rt }
     else {
         clr::test(clr::test_platform::PlatformTest::OpenCl0);
         clr::test(clr::test_platform::PlatformTest::OpenCl1);
@@ -58,18 +58,18 @@ pub fn main() -> Result<(), String>{
     scene.pack_textures(&mut info);
 
     let settings = Settings{
-        aa_samples: conf.aa_samples,
-        max_reduced_ms: conf.max_reduced_ms,
-        start_in_focus_mode: conf.start_in_focus_mode,
-        max_render_depth: conf.render_depth,
-        calc_frame_energy: conf.frame_energy,
+        aa_samples: conf.cpu.aa_samples,
+        max_reduced_ms: conf.cpu.max_reduced_ms,
+        start_in_focus_mode: conf.cpu.start_in_focus_mode,
+        max_render_depth: conf.cpu.render_depth,
+        calc_frame_energy: conf.base.frame_energy,
         render_type: render_type,
     };
 
     // let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O, T), settings);
     let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O, F, B, W), settings);
 
-    let mut window = window::Window::new("ClRays", conf.w, conf.h);
+    let mut window = window::Window::new("ClRays", conf.base.w, conf.base.h);
 
     macro_rules! run{
         ($tracer:ident) => {
@@ -79,17 +79,17 @@ pub fn main() -> Result<(), String>{
         }
     }
 
-    match (conf.gpu, render_type){
+    match (conf.base.gpu, render_type){
         (true, RenderType::GI) => {
-            let mut tracer_gpu = unpackdb!(trace_processor::GpuPath::new((conf.w, conf.h), &mut scene, &mut info), "Could not create GpuPath!");
+            let mut tracer_gpu = unpackdb!(trace_processor::GpuPath::new((conf.base.w, conf.base.h), &mut scene, &mut info), "Could not create GpuPath!");
             run!(tracer_gpu);
         },
         (true, RenderType::Whitted) => {
-            let mut tracer_gpu = unpackdb!(trace_processor::GpuWhitted::new((conf.w, conf.h), &mut scene, &mut info), "Could not create GpuPath!");
+            let mut tracer_gpu = unpackdb!(trace_processor::GpuWhitted::new((conf.base.w, conf.base.h), &mut scene, &mut info), "Could not create GpuPath!");
             run!(tracer_gpu);
         },
         (false, RenderType::Whitted) => {
-            let mut tracer_cpu = trace_processor::CpuWhitted::new(conf.w as usize, conf.h as usize, 32, &mut scene, &mut info);
+            let mut tracer_cpu = trace_processor::CpuWhitted::new(conf.base.w as usize, conf.base.h as usize, 32, &mut scene, &mut info);
             run!(tracer_cpu);
         },
         (on_gpu, rtype) => {
