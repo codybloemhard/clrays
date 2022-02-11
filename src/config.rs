@@ -1,6 +1,7 @@
 use crate::scene::RenderType;
 
 use serde::Deserialize;
+use sdl2::keyboard::Keycode;
 
 use std::fs::File;
 use std::io::Read;
@@ -11,12 +12,14 @@ pub struct Config{
     base: Base,
     cpu: Option<Cpu>,
     post: Option<Post>,
+    controls: Option<Controls>,
 }
 
 pub struct ConfigParsed{
     pub base: BaseParsed,
     pub cpu: CpuParsed,
     pub post: PostParsed,
+    pub controls: ControlsParsed,
 }
 
 impl Config{
@@ -32,8 +35,9 @@ impl Config{
         let base = self.base.parse()?;
         let cpu = self.cpu.unwrap_or_default().parse();
         let post = self.post.unwrap_or_default().parse();
+        let controls = self.controls.unwrap_or_default().parse();
         Ok(ConfigParsed{
-            base, cpu, post
+            base, cpu, post, controls
         })
     }
 }
@@ -140,6 +144,54 @@ impl Post{
         PostParsed{
             chromatic_aberration_shift, chromatic_aberration_strength,
             vignette_strength, distortion_coefficient, tone_map,
+        }
+    }
+}
+
+#[derive(Deserialize, Clone, Default, Debug)]
+struct Controls{
+    move_forward: Option<String>,
+    move_backward: Option<String>,
+    move_left: Option<String>,
+    move_right: Option<String>,
+    move_up: Option<String>,
+    move_down: Option<String>,
+    look_up: Option<String>,
+    look_down: Option<String>,
+    look_left: Option<String>,
+    look_right: Option<String>,
+    export_frame: Option<String>,
+    toggle_focus_mode: Option<String>,
+    toggle_show_bvh: Option<String>,
+}
+
+pub struct ControlsParsed{
+    pub key_map: Vec<Option<Keycode>>,
+}
+
+impl Controls{
+    fn parse(self) -> ControlsParsed{
+        fn parse_kc(x: Option<String>) -> Option<Keycode>{
+            match x{
+                None => None,
+                Some(y) => Keycode::from_name(&y),
+            }
+        }
+        let mf = parse_kc(self.move_forward);
+        let mb = parse_kc(self.move_backward);
+        let ml = parse_kc(self.move_left);
+        let mr = parse_kc(self.move_right);
+        let mu = parse_kc(self.move_up);
+        let md = parse_kc(self.move_down);
+        let ll = parse_kc(self.look_left);
+        let lr = parse_kc(self.look_right);
+        let lu = parse_kc(self.look_up);
+        let ld = parse_kc(self.look_down);
+        let ef = parse_kc(self.export_frame);
+        let tfm = parse_kc(self.toggle_focus_mode);
+        let tsb = parse_kc(self.toggle_show_bvh);
+        ControlsParsed{
+            key_map: vec![mf, mb, ml, mr, mu, md, lu, ld, ll, lr, tfm, ef, tsb],
         }
     }
 }

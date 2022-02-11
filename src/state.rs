@@ -1,5 +1,6 @@
 use crate::scene::{ Scene, RenderType };
 use crate::vec3::Vec3;
+use crate::config::ControlsParsed;
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -14,18 +15,7 @@ pub enum LoopRequest{
 }
 
 const KEYS_AMOUNT: usize = 13;
-pub type Keymap = [Keycode; KEYS_AMOUNT];
-
-#[macro_export]
-macro_rules! build_keymap{
-    ($mfo:ident,$mba:ident,$mle:ident,$mri:ident,$mup:ident,$mdo:ident,
-     $lup:ident,$ldo:ident,$lle:ident,$lri:ident,$foc:ident,$scr:ident,
-     $bvh:ident) => {
-        [Keycode::$mfo, Keycode::$mba, Keycode::$mle, Keycode::$mri, Keycode::$mup, Keycode::$mdo,
-         Keycode::$lup, Keycode::$ldo, Keycode::$lle, Keycode::$lri, Keycode::$foc, Keycode::$scr,
-         Keycode::$bvh]
-    }
-}
+pub type Keymap = Vec<Option<Keycode>>;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum RenderMode{
@@ -83,9 +73,9 @@ pub struct State{
 }
 
 impl State{
-    pub fn new(key_map: Keymap, settings: Settings) -> Self{
+    pub fn new(conf: &ControlsParsed, settings: Settings) -> Self{
         Self{
-            key_map,
+            key_map: conf.key_map.clone(),
             keys: [false; KEYS_AMOUNT],
             render_mode: RenderMode::Reduced,
             last_frame: RenderMode::None,
@@ -170,26 +160,26 @@ pub fn fps_input_fn(events: &[Event], scene: &mut Scene, state: &mut State) -> L
             Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                 return LoopRequest::Stop;
             },
-            Event::KeyDown { keycode: Some(x), .. } if *x == state.key_map[10] => {
+            Event::KeyDown { keycode: Some(x), .. } if Some(*x) == state.key_map[10] => {
                 state.toggle_focus_mode();
             },
-            Event::KeyDown { keycode: Some(x), .. } if *x == state.key_map[11] => {
+            Event::KeyDown { keycode: Some(x), .. } if Some(*x) == state.key_map[11] => {
                 return LoopRequest::Export;
             },
-            Event::KeyDown { keycode: Some(x), .. } if *x == state.key_map[12] => {
+            Event::KeyDown { keycode: Some(x), .. } if Some(*x) == state.key_map[12] => {
                 print!("Toggle BVH rendering");
                 state.toggle_show_bvh();
             },
             Event::KeyDown { keycode: Some(x), repeat: false, .. } => {
                 for (i, binding) in state.key_map.iter().enumerate(){
-                    if x == binding{
+                    if Some(*x) == *binding{
                         state.keys[i] = true;
                     }
                 }
             },
             Event::KeyUp { keycode: Some(x), repeat: false, .. } => {
                 for (i, binding) in state.key_map.iter().enumerate(){
-                    if x == binding{
+                    if Some(*x) == *binding{
                         state.keys[i] = false;
                     }
                 }

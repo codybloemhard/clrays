@@ -7,3 +7,16 @@ height = 1080
 
 [post]
 tone_map = "hable"
+
+[controls]
+move_forward = "M"
+move_backward = "T"
+move_left = "S"
+move_right = "N"
+move_up = "G"
+move_down = "L"
+look_left = "A"
+look_right = "O"
+look_up = "U"
+look_down = "E"
+export_frame = "F"

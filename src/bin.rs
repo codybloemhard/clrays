@@ -10,8 +10,6 @@ use clr::state::{ State, Settings, log_update_fn, fps_input_fn };
 use clr::scenes::{ gi_scene::gi_scene, whitted_scene::whitted_scene };
 use clr::config::Config;
 
-use sdl2::keyboard::Keycode;
-
 use std::env;
 use std::path::Path;
 
@@ -67,8 +65,7 @@ pub fn main() -> Result<(), String>{
         render_type: render_type,
     };
 
-    // let mut state = State::new(build_keymap!(W, S, A, D, Q, E, I, K, J, L, U, O, T), settings);
-    let mut state = State::new(build_keymap!(M, T, S, N, G, L, U, E, A, O, F, B, W), settings);
+    let mut state = State::new(&conf.controls, settings);
 
     let mut window = window::Window::new("ClRays", conf.base.w, conf.base.h);
 
