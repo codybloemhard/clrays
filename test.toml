@@ -1,8 +1,9 @@
 [base]
 title = "Test configuration"
-gpu = false
-render_type = "whitted"
+gpu = true
+render_type = "gi"
 width = 1920
 height = 1080
 
 [post]
+tone_map = "hable"

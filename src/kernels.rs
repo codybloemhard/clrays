@@ -50,7 +50,7 @@ pub struct ImageKernel{
 }
 
 impl ImageKernel{
-    pub fn new(name: &str, (w, h): (u32, u32), program: &Program, queue: &Queue, input: &ClBufferRW<f32>) -> Result<Self, ocl::Error>{
+    pub fn new(name: &str, (w, h): (u32, u32), tm: u32, program: &Program, queue: &Queue, input: &ClBufferRW<f32>) -> Result<Self, ocl::Error>{
         let dirty = false;
         let buffer = ClBufferRW::<u32>::new(queue, w as usize * h as usize, 0)?;
         let kernel = Kernel::builder()
@@ -61,7 +61,8 @@ impl ImageKernel{
             .arg(input.get_ocl_buffer())
             .arg(buffer.get_ocl_buffer())
             .arg(w as u32)
-            .arg(1.0f32)
+            .arg(1.0f32) // scaling
+            .arg(tm) // tonemap
             .build()?;
         Ok(Self{ buffer, kernel, dirty })
     }

@@ -44,7 +44,6 @@ QWERTY  |Gaming | Q, E, W, S, A, D                               | I, K, J, L   
 QGMLWY  |Typing | G, L, M, T, S, N                               | U, E, A, O                  | F                 | B
 
 ## wip
-- make post processing configureable
 - reintroduce SBVH as choice
 - rewrite cpu bvh traversal on bufferized bvh
 - gpu top level bvh traversal

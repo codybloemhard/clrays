@@ -1081,7 +1081,8 @@ __kernel void image_from_floatmap(
     __global float *floatmap,
     __global uint *imagemap,
     const uint w,
-    const float mult
+    const float mult,
+    const uint tonemap
 ){
     uint x = get_global_id(0);
     uint y = get_global_id(1);
@@ -1092,8 +1093,11 @@ __kernel void image_from_floatmap(
                 floatmap[pix_float + 1] * mult,
                 floatmap[pix_float + 2] * mult
     );
-    //c = AcesTonemap(c);
-    c = HableTonemap(c);
+    if(tonemap == 1){
+        c = AcesTonemap(c);
+    } else if(tonemap == 2){
+        c = HableTonemap(c);
+    }
     c = clamp(c, 0.0f, 1.0f);
     c = pow(c, (float3)(1.0f / GAMMA));
     c *= 255.0f;

@@ -6,6 +6,7 @@ use crate::misc::load_source;
 use crate::cpu::{ whitted };
 use crate::vec3::Vec3;
 use crate::state::{ RenderMode, State };
+use crate::config::ConfigParsed;
 
 use ocl::{ Queue };
 
@@ -65,13 +66,14 @@ pub struct GpuPath{
 }
 
 impl GpuPath{
-    pub fn new((width, height): (u32, u32), scene: &mut Scene, info: &mut Info) -> Result<Self, String>{
+    pub fn new((width, height): (u32, u32), scene: &mut Scene, conf: &ConfigParsed, info: &mut Info) -> Result<Self, String>{
         let src = unpackdb!(load_source("assets/kernels/raytrace.cl"), "Could not load GpuPath's kernel!");
         info.set_time_point("Loading source file");
         let (_, _, _, program, queue) = unpackdb!(create_five(&src), "Could not init GpuPath's program and queue!");
         info.set_time_point("Creating OpenCL objects");
         let trace_kernel = unpackdb!(TraceKernelPath::new("pathtracing", (width, height), &program, &queue, scene, info), "Could not create GpuPath's trace kernel!");
-        let image_kernel = unpackdb!(ImageKernel::new("image_from_floatmap", (width, height), &program, &queue, trace_kernel.get_buffer()), "Could not create GpuPath's image kernel!");
+        let tm = conf.post.tone_map as u32;
+        let image_kernel = unpackdb!(ImageKernel::new("image_from_floatmap", (width, height), tm, &program, &queue, trace_kernel.get_buffer()), "Could not create GpuPath's image kernel!");
         let clear_kernel = unpackdb!(ClearKernel::new("clear", (width, height), &program, &queue, trace_kernel.get_buffer()), "Could not create GpuPath's clear kernel!");
         info.set_time_point("Last time stamp");
         Ok(Self{

@@ -112,13 +112,18 @@ struct Post{
     chromatic_aberration_strength: Option<f32>,
     vignette_strength: Option<f32>,
     distortion_coefficient: Option<f32>,
+    tone_map: Option<String>,
 }
+
+#[derive(Clone, Copy, Debug)]
+pub enum ToneMap{ None = 0, Aces = 1, Hable = 2 }
 
 pub struct PostParsed{
     pub chromatic_aberration_shift: usize,
     pub chromatic_aberration_strength: f32,
     pub vignette_strength: f32,
     pub distortion_coefficient: f32,
+    pub tone_map: ToneMap,
 }
 
 impl Post{
@@ -127,9 +132,14 @@ impl Post{
         let chromatic_aberration_strength = self.chromatic_aberration_strength.unwrap_or(0.0);
         let vignette_strength = self.vignette_strength.unwrap_or(0.0);
         let distortion_coefficient = self.distortion_coefficient.unwrap_or(1.0);
+        let tone_map = match self.tone_map.map(|s| s.to_lowercase()).as_deref(){
+            Some("aces") => ToneMap::Aces,
+            Some("hable") => ToneMap::Hable,
+            _ => ToneMap::None,
+        };
         PostParsed{
             chromatic_aberration_shift, chromatic_aberration_strength,
-            vignette_strength, distortion_coefficient,
+            vignette_strength, distortion_coefficient, tone_map,
         }
     }
 }

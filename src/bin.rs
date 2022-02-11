@@ -82,7 +82,7 @@ pub fn main() -> Result<(), String>{
 
     match (conf.base.gpu, render_type){
         (true, RenderType::GI) => {
-            let mut tracer_gpu = unpackdb!(trace_processor::GpuPath::new((conf.base.w, conf.base.h), &mut scene, &mut info), "Could not create GpuPath!");
+            let mut tracer_gpu = unpackdb!(trace_processor::GpuPath::new((conf.base.w, conf.base.h), &mut scene, &conf, &mut info), "Could not create GpuPath!");
             run!(tracer_gpu);
         },
         (true, RenderType::Whitted) => {
