@@ -122,7 +122,7 @@ pub fn log_update_fn(dt: f32, state: &mut State) -> LoopRequest {
             if state.frame_energy > 0.01{
                 println!("{} ms\nFrame Energy: {}", dt, state.frame_energy);
             } else {
-                print!("{} ms, ", dt);
+                print!("{}: {} ms, ", state.samples_taken, dt);
             }
         },
         RenderType::Whitted => {
