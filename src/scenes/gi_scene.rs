@@ -1,4 +1,5 @@
-use crate::scene::{ Scene, SceneItem, Material, Plane, Sphere };
+use crate::scene::{ Scene, SceneItem, Plane, Sphere };
+use crate::material::Material;
 use crate::vec3::{ Vec3 };
 use crate::trace_tex::{ TexType };
 use crate::consts::*;

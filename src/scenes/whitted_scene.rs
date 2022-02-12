@@ -1,4 +1,5 @@
-use crate::scene::{ Scene, SceneItem, Material, Light, Model, };
+use crate::scene::{ Scene, SceneItem, Light, Model, };
+use crate::material::Material;
 use crate::vec3::{ Vec3 };
 use crate::consts::*;
 use crate::vec3::Orientation;

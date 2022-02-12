@@ -1,4 +1,5 @@
-use crate::scene::{ Sphere, Plane, Triangle, MaterialIndex };
+use crate::scene::{ Sphere, Plane, Triangle };
+use crate::material::MaterialIndex;
 use crate::vec3::Vec3;
 use crate::aabb::AABB;
 use crate::consts::*;

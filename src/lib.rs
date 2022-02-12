@@ -26,6 +26,7 @@ pub mod bvh;
 pub mod primitive;
 pub mod scenes;
 pub mod config;
+pub mod material;
 
 pub fn test(t: test_platform::PlatformTest){
     test_platform::run_platform_test(t);

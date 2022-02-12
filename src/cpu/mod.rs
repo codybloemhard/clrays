@@ -1,4 +1,5 @@
-use crate::scene::{ Scene, Material };
+use crate::scene::Scene;
+use crate::material::Material;
 use crate::vec3::Vec3;
 use crate::state::{ RenderMode, State };
 use crate::consts::*;
