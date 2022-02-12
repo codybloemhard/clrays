@@ -13,6 +13,7 @@ pub struct Config{
     cpu: Option<Cpu>,
     post: Option<Post>,
     controls: Option<Controls>,
+    camera: Option<Camera>,
 }
 
 pub struct ConfigParsed{
@@ -20,6 +21,7 @@ pub struct ConfigParsed{
     pub cpu: CpuParsed,
     pub post: PostParsed,
     pub controls: ControlsParsed,
+    pub camera: CameraParsed,
 }
 
 impl Config{
@@ -36,8 +38,9 @@ impl Config{
         let cpu = self.cpu.unwrap_or_default().parse();
         let post = self.post.unwrap_or_default().parse();
         let controls = self.controls.unwrap_or_default().parse();
+        let camera = self.camera.unwrap_or_default().parse();
         Ok(ConfigParsed{
-            base, cpu, post, controls
+            base, cpu, post, controls, camera
         })
     }
 }
@@ -50,7 +53,6 @@ struct Base{
     width: u32,
     height: u32,
     frame_energy: Option<bool>,
-    fisheye: Option<bool>,
 }
 
 pub struct BaseParsed{
@@ -60,7 +62,6 @@ pub struct BaseParsed{
     pub w: u32,
     pub h: u32,
     pub frame_energy: bool,
-    pub fisheye: bool,
 }
 
 impl Base{
@@ -76,9 +77,8 @@ impl Base{
         let w = if self.width == 0 { 1024 } else { self.width };
         let h = if self.height == 0 { 1024 } else { self.height };
         let frame_energy = self.frame_energy.unwrap_or(false);
-        let fisheye = self.fisheye.unwrap_or(false);
         Ok(BaseParsed{
-            title, gpu, render_type, w, h, frame_energy, fisheye
+            title, gpu, render_type, w, h, frame_energy
         })
     }
 }
@@ -163,10 +163,14 @@ struct Controls{
     export_frame: Option<String>,
     toggle_focus_mode: Option<String>,
     toggle_show_bvh: Option<String>,
+    move_sensitivity: Option<f32>,
+    look_sensitivity: Option<f32>,
 }
 
 pub struct ControlsParsed{
     pub key_map: Vec<Option<Keycode>>,
+    pub move_sens: f32,
+    pub look_sens: f32,
 }
 
 impl Controls{
@@ -190,8 +194,33 @@ impl Controls{
         let ef = parse_kc(self.export_frame);
         let tfm = parse_kc(self.toggle_focus_mode);
         let tsb = parse_kc(self.toggle_show_bvh);
+        let move_sens = self.move_sensitivity.unwrap_or(0.1);
+        let look_sens = self.look_sensitivity.unwrap_or(0.05);
         ControlsParsed{
             key_map: vec![mf, mb, ml, mr, mu, md, lu, ld, ll, lr, tfm, ef, tsb],
+            move_sens, look_sens,
+        }
+    }
+}
+
+
+#[derive(Deserialize, Clone, Default, Debug)]
+struct Camera{
+    fisheye: Option<bool>,
+    fov: Option<f32>,
+}
+
+pub struct CameraParsed{
+    pub fisheye: bool,
+    pub fov: f32,
+}
+
+impl Camera{
+    fn parse(self) -> CameraParsed{
+        let fisheye = self.fisheye.unwrap_or(false);
+        let fov = self.fov.unwrap_or(90.0).min(1.0).max(180.0);
+        CameraParsed{
+            fisheye, fov
         }
     }
 }

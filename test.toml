@@ -8,6 +8,9 @@ height = 1080
 [post]
 tone_map = "hable"
 
+[camera]
+fov = 80
+
 [controls]
 move_forward = "M"
 move_backward = "T"
@@ -20,3 +23,5 @@ look_right = "O"
 look_up = "U"
 look_down = "E"
 export_frame = "F"
+move_sensitivity = 0.1
+look_sensitivity = 0.05

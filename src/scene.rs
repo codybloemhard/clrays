@@ -319,13 +319,13 @@ impl Camera{
             pos: Vec3::ZERO,
             dir: Vec3::BACKWARD,
             ori: Orientation { yaw: 0.0, roll: 0.0 },
-            move_sensitivity: 0.1,
-            look_sensitivity: 0.05,
-            fov: 90.0,
+            move_sensitivity: conf.controls.move_sens,
+            look_sensitivity: conf.controls.look_sens,
+            fov: conf.camera.fov,
             chromatic_aberration_shift: conf.post.chromatic_aberration_shift,
             chromatic_aberration_strength: conf.post.chromatic_aberration_strength,
             vignette_strength: conf.post.vignette_strength,
-            angle_radius: if conf.base.fisheye { FRAC_2_PI } else { 0.0 },
+            angle_radius: if conf.camera.fisheye { FRAC_2_PI } else { 0.0 },
             distortion_coefficient: conf.post.distortion_coefficient,
         }
     }

@@ -9,9 +9,6 @@ pub fn whitted_scene(scene: &mut Scene){
     scene.cam.pos = Vec3::new(0.0, 1.5, 6.0);
     scene.cam.dir = Vec3::BACKWARD;
     scene.cam.ori = Vec3::BACKWARD.normalized().orientation();
-    scene.cam.move_sensitivity = 0.1;
-    scene.cam.look_sensitivity = 0.05;
-    scene.cam.fov = 80.0;
 
     let mut dragon = Model{
         pos: Default::default(),
