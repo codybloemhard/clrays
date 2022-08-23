@@ -42,7 +42,6 @@ pub fn main() -> Result<(), String>{
         return Ok(());
     };
 
-
     let mut scene = Scene::new(&conf);
     scene.stype = render_type;
 
