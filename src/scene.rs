@@ -284,18 +284,18 @@ impl Scene{
         //scene
         self.scene_params[10] = self.skybox;
         self.put_in_scene_params(11, self.sky_col);
-        self.scene_params[14] = self.sky_intensity.to_bits() as u32;
-        self.scene_params[15] = self.sky_min.to_bits() as u32;
-        self.scene_params[16] = self.sky_pow.to_bits() as u32;
+        self.scene_params[14] = self.sky_intensity.to_bits();
+        self.scene_params[15] = self.sky_min.to_bits();
+        self.scene_params[16] = self.sky_pow.to_bits();
         self.put_in_scene_params(17, self.cam.pos);
         self.put_in_scene_params(20, self.cam.dir);
         self.scene_params.to_vec()
     }
 
     fn put_in_scene_params(&mut self, i: usize, v: Vec3){
-        self.scene_params[i    ] = v.x.to_bits() as u32;
-        self.scene_params[i + 1] = v.y.to_bits() as u32;
-        self.scene_params[i + 2] = v.z.to_bits() as u32;
+        self.scene_params[i    ] = v.x.to_bits();
+        self.scene_params[i + 1] = v.y.to_bits();
+        self.scene_params[i + 2] = v.z.to_bits();
     }
 
     pub fn get_textures_buffer(&self) -> Vec<u8>{
@@ -335,12 +335,12 @@ impl Scene{
         buffer[2] = buffer.len() as u32; // bvh start
         buffer[3] = 0; // top level doesn't have a mesh
         for v in &self.top_bvh.vertices{
-            buffer.push(v.bound.min.x.to_bits() as u32);
-            buffer.push(v.bound.min.y.to_bits() as u32);
-            buffer.push(v.bound.min.z.to_bits() as u32);
-            buffer.push(v.bound.max.x.to_bits() as u32);
-            buffer.push(v.bound.max.y.to_bits() as u32);
-            buffer.push(v.bound.max.z.to_bits() as u32);
+            buffer.push(v.bound.min.x.to_bits());
+            buffer.push(v.bound.min.y.to_bits());
+            buffer.push(v.bound.min.z.to_bits());
+            buffer.push(v.bound.max.x.to_bits());
+            buffer.push(v.bound.max.y.to_bits());
+            buffer.push(v.bound.max.z.to_bits());
             buffer.push(v.left_first.try_into().unwrap());
             buffer.push(v.count.try_into().unwrap());
         }
@@ -349,12 +349,12 @@ impl Scene{
             buffer[(i + 1) * 2 + 2] = buffer.len() as u32; // bvh start
             buffer[(i + 1) * 2 + 3] = self.meshes[sbvh.mesh_index as usize].start.try_into().unwrap(); // bvh mesh
             for v in &sbvh.vertices{
-                buffer.push(v.bound.min.x.to_bits() as u32);
-                buffer.push(v.bound.min.y.to_bits() as u32);
-                buffer.push(v.bound.min.z.to_bits() as u32);
-                buffer.push(v.bound.max.x.to_bits() as u32);
-                buffer.push(v.bound.max.y.to_bits() as u32);
-                buffer.push(v.bound.max.z.to_bits() as u32);
+                buffer.push(v.bound.min.x.to_bits());
+                buffer.push(v.bound.min.y.to_bits());
+                buffer.push(v.bound.min.z.to_bits());
+                buffer.push(v.bound.max.x.to_bits());
+                buffer.push(v.bound.max.y.to_bits());
+                buffer.push(v.bound.max.z.to_bits());
                 buffer.push(v.left_first.try_into().unwrap());
                 buffer.push(v.count.try_into().unwrap());
             }
@@ -368,19 +368,19 @@ impl Scene{
 
         buffer[1] = buffer.len() as u32; // start models
         for model in &self.models{
-            buffer.push(model.pos.x.to_bits() as u32);
-            buffer.push(model.pos.y.to_bits() as u32);
-            buffer.push(model.pos.z.to_bits() as u32);
-            buffer.push(model.rot.x.to_bits() as u32);
-            buffer.push(model.rot.y.to_bits() as u32);
-            buffer.push(model.rot.z.to_bits() as u32);
+            buffer.push(model.pos.x.to_bits());
+            buffer.push(model.pos.y.to_bits());
+            buffer.push(model.pos.z.to_bits());
+            buffer.push(model.rot.x.to_bits());
+            buffer.push(model.rot.y.to_bits());
+            buffer.push(model.rot.z.to_bits());
             buffer.push(model.mat);
             buffer.push(model.mesh);
         }
         buffer
     }
 
-    pub fn bufferize<T: SceneItem>(vec: &mut Vec<f32>, start: &mut usize, list: &[T], stride: usize){
+    pub fn bufferize<T: SceneItem>(vec: &mut [f32], start: &mut usize, list: &[T], stride: usize){
         for (i, item) in list.iter().enumerate(){
             let off = i * stride;
             let data = item.get_data();
@@ -392,7 +392,7 @@ impl Scene{
     }
 
     pub fn add_texture(&mut self, name: &str, path: &str, ttype: TexType){
-        if self.ghost_textures.get(name).is_some(){
+        if self.ghost_textures.contains_key(name){
             println!("Error: Texture name is already used: {}", name);
             return;
         }
@@ -486,7 +486,7 @@ impl Scene{
         } else {
             assert!(self.meshes.len() < MeshIndex::MAX as usize);
             // todo: mesh references to index of first triangle, including count
-            let mut triangles = Mesh::load_model(&*mesh_name);
+            let mut triangles = Mesh::load_model(&mesh_name);
             let mesh = Mesh {
                 name: mesh_name,
                 start: self.triangles.len(),
@@ -545,7 +545,7 @@ impl Scene{
             aabbs.push(aabb);
             prims.push(Primitive {
                 shape_type: Shape::MODEL,
-                index: i as usize
+                index: i,
             });
         }
         // build bvh over aabbs

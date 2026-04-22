@@ -148,31 +148,22 @@ pub fn test_opencl1(){
                 buffer[get_global_id(0)] += scalar;
             }
         "#;
-        let (_,_,_,program,queue) = match create_five(src){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
+        let (_,_,_,program,queue) = create_five(src)?;
         let dims = 1 << 20;
-        let buffer = match Buffer::<f32>::builder()
+        let buffer = Buffer::<f32>::builder()
         .queue(queue.clone())
         .flags(flags::MEM_READ_WRITE)
         .len(dims)
         .fill_val(0f32)
-        .build(){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
-        let kernel = match Kernel::builder()
+        .build()?;
+        let kernel = Kernel::builder()
         .program(&program)
         .name("add")
         .queue(queue.clone())
         .global_work_size(dims)
         .arg(&buffer)
-        .arg(&10f32)
-        .build(){
-            Ok(x) => x,
-            Err(e) => return Err(e),
-        };
+        .arg(10f32)
+        .build()?;
         unsafe {
             match kernel.cmd().queue(&queue).enq(){
                 Ok(_) => {},

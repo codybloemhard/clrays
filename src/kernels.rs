@@ -60,7 +60,7 @@ impl ImageKernel{
             .global_work_size([w, h])
             .arg(input.get_ocl_buffer())
             .arg(buffer.get_ocl_buffer())
-            .arg(w as u32)
+            .arg(w)
             .arg(1.0f32) // scaling
             .arg(tm) // tonemap
             .build()?;
@@ -137,8 +137,8 @@ impl TraceKernelWhitted{
         kbuilder.queue(queue.clone());
         kbuilder.global_work_size([w, h]);
         kbuilder.arg(buffer.get_ocl_buffer());
-        kbuilder.arg(w as u32);
-        kbuilder.arg(h as u32);
+        kbuilder.arg(w);
+        kbuilder.arg(h);
         kbuilder.arg(scene_params.get_ocl_buffer());
         kbuilder.arg(scene_items.get_ocl_buffer());
         kbuilder.arg(bvh.get_ocl_buffer());
@@ -231,8 +231,8 @@ impl TraceKernelPath{
         kbuilder.queue(queue.clone());
         kbuilder.global_work_size([w, h]);
         kbuilder.arg(buffer.get_ocl_buffer());
-        kbuilder.arg(w as u32);
-        kbuilder.arg(h as u32);
+        kbuilder.arg(w);
+        kbuilder.arg(h);
         kbuilder.arg(0u32);
         kbuilder.arg(scene_params.get_ocl_buffer());
         kbuilder.arg(scene_items.get_ocl_buffer());

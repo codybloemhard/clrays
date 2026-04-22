@@ -211,11 +211,11 @@ pub fn fps_input_fn(events: &[Event], scene: &mut Scene, state: &mut State) -> L
                 cam.pos.add(Vec3::DOWN.neged().scaled(ms));
             },
             6 => { // Look Up;
-                cam.ori.roll = (cam.ori.roll + ls).min(FRAC_PI_2).max(-FRAC_PI_2);
+                cam.ori.roll = (cam.ori.roll + ls).clamp(-FRAC_PI_2, FRAC_PI_2);
                 cam.dir = Vec3::from_orientation(&cam.ori);
             },
             7 => { // Look Down;
-                cam.ori.roll = (cam.ori.roll - ls).min(FRAC_PI_2).max(-FRAC_PI_2);
+                cam.ori.roll = (cam.ori.roll - ls).clamp(-FRAC_PI_2, FRAC_PI_2);
                 cam.dir = Vec3::from_orientation(&cam.ori);
             },
             8 => { // Look Left;

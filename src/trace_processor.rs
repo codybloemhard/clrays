@@ -137,7 +137,7 @@ impl CpuWhitted{
             float_buffer,
             texture_params,
             textures,
-            rng: rand::thread_rng(),
+            rng: rand::rng(),
         }
     }
 }

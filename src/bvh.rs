@@ -5,12 +5,11 @@ use crate::vec3::Vec3;
 use crate::consts::{ EPSILON };
 use crate::primitive::Primitive;
 
+#[derive(Default)]
 pub enum ContainerType {
+    #[default]
     MESH,
     TOP
-}
-impl Default for ContainerType {
-    fn default() -> Self { ContainerType::MESH }
 }
 
 #[derive(Default)]
@@ -30,7 +29,7 @@ pub struct Vertex{
 
 impl Bvh{
     #[allow(clippy::too_many_arguments)]
-    fn subdivide<Q>(bounds: &mut Vec<AABB>, vs: &mut Vec<Vertex>, items: &mut Vec<Q>, bins: usize, quality: u8){
+    fn subdivide<Q>(bounds: &mut [AABB], vs: &mut [Vertex], items: &mut [Q], bins: usize, quality: u8){
         let current = 0;
         let first = 0;
         let mut poolptr = 2;
@@ -63,8 +62,7 @@ impl Bvh{
         let mut depth_timers = vec![];
         let mut depth_items = vec![];
 
-        while !stack.is_empty() {
-            let x = stack.pop().unwrap();
+        while let Some(x) = stack.pop() {
             // println!("{:?}", x);
             depth = x.depth;
             if depth >= depth_timers.len() {
@@ -205,7 +203,7 @@ impl Bvh{
         }
     }
 
-    pub fn from_primitives(bounds: &mut Vec<AABB>, primitives: &mut Vec<Primitive>) -> Self{
+    pub fn from_primitives(bounds: &mut [AABB], primitives: &mut [Primitive]) -> Self{
         let bins = 12;
         let quality = 1;
         let n = primitives.len();
@@ -220,12 +218,12 @@ impl Bvh{
         }
     }
 
-    pub fn from_mesh(mesh_index: MeshIndex, triangles: &mut Vec<Triangle>, bins: usize) -> Self{
+    pub fn from_mesh(mesh_index: MeshIndex, triangles: &mut [Triangle], bins: usize) -> Self{
         let quality = 1;
         let n = triangles.len();
         assert!(n > 0);
         let mut vs = vec![Vertex::default(); n * 2];
-        let mut bounds = (0..n).into_iter().map(|i|
+        let mut bounds = (0..n).map(|i|
             AABB::from_points(&[triangles[i].a, triangles[i].b, triangles[i].c])
         ).collect::<Vec<_>>();
         Self::subdivide::<Triangle>(&mut bounds, &mut vs, triangles, bins, quality);
@@ -259,13 +257,13 @@ impl Bvh{
                 match bvh.container_type {
                     ContainerType::MESH => { // triangle from mesh
                         let mesh = &scene.meshes[bvh.mesh_index as usize];
-                        for i in (v.left_first) as usize..(v.left_first+v.count) as usize {
+                        for i in v.left_first..(v.left_first + v.count) {
                             // intersect triangle
                             mesh.get_triangle(i, scene).intersect(ray, hit);
                         }
                     },
                     ContainerType::TOP => { // primitive from scene
-                        for i in (v.left_first) as usize..(v.left_first+v.count) as usize {
+                        for i in (v.left_first)..(v.left_first + v.count) {
                             // intersect primitive
                             let primitive = &scene.primitives[i];
                             let (_a, _b) = primitive.intersect(ray, scene, hit);
@@ -274,11 +272,11 @@ impl Bvh{
                         }
                     }
                 }
-                (a, v.count as usize + b)
+                (a, v.count + b)
             } else { // vertex
                 let nodes = [
-                    v.left_first as usize,
-                    v.left_first as usize + 1,
+                    v.left_first,
+                    v.left_first + 1,
                 ];
 
                 let ts = [
@@ -321,13 +319,13 @@ impl Bvh{
                 match bvh.container_type {
                     ContainerType::MESH => { // triangle from mesh
                         let mesh = &scene.meshes[bvh.mesh_index as usize];
-                        for i in (v.left_first) as usize..(v.left_first+v.count) as usize {
+                        for i in (v.left_first)..(v.left_first + v.count) {
                             // intersect triangle
                             if dist_triangle(ray, &mesh.get_triangle(i, scene)) < dist { return true; }
                         }
                     },
                     ContainerType::TOP => { // primitive from scene
-                        for i in (v.left_first) as usize..(v.left_first+v.count) as usize {
+                        for i in (v.left_first)..(v.left_first + v.count) {
                             // intersect primitive
                             let primitive = &scene.primitives[i];
                             if primitive.occluded(ray, scene, dist) { return true; }
@@ -337,8 +335,8 @@ impl Bvh{
                 hit.t < dist
             } else { // vertex
                 let nodes = [
-                    v.left_first as usize,
-                    v.left_first as usize + 1,
+                    v.left_first,
+                    v.left_first + 1,
                 ];
 
                 let ts = [

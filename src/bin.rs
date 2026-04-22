@@ -61,7 +61,7 @@ pub fn main() -> Result<(), String>{
         start_in_focus_mode: conf.cpu.start_in_focus_mode,
         max_render_depth: conf.cpu.render_depth,
         calc_frame_energy: conf.base.frame_energy,
-        render_type: render_type,
+        render_type,
     };
 
     let mut state = State::new(&conf.controls, settings);

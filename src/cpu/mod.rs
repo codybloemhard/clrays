@@ -14,7 +14,7 @@ use inter::*;
 pub fn whitted(
     w: usize, h: usize, threads: usize,
     scene: &Scene, tex_params: &[u32], textures: &[u8],
-    screen: &mut Vec<u32>, acc: &mut Vec<Vec3>, state: &mut State, rng: &mut ThreadRng
+    screen: &mut [u32], acc: &mut Vec<Vec3>, state: &mut State, rng: &mut ThreadRng
 ){
     let reduce = match state.render_mode{
         RenderMode::Reduced => state.reduced_rate,
@@ -50,7 +50,7 @@ pub fn whitted(
     let target_strip_h = (rh / threads) + 1;
     let target_strip_l = target_strip_h * rw;
     let strips: Vec<&mut[Vec3]> = acc.chunks_mut(target_strip_l).take(threads).collect();
-    let seeds = (0..threads).map(|_| rng.gen::<u32>()).collect::<Vec<_>>();
+    let seeds = (0..threads).map(|_| rng.random::<u32>()).collect::<Vec<_>>();
 
     crossbeam_utils::thread::scope(|s|{
         let mut handlers = Vec::new();
@@ -129,12 +129,12 @@ pub fn whitted(
                     if ash > 0 && ast > EPSILON{
                         let r = acc[((x.max(ash) - ash) / reduce).min(rw - 1) + ((y.max(ash) - ash) / reduce).min(rh - 1) * rw].x;
                         let b = acc[((x.min(w - ash - 1) + ash) / reduce).min(rw - 1) + ((y.min(h - ash - 1) + ash) / reduce).min(rh - 1) * rw].z;
-                        let abr_str = (uv.x * uv.y * 8.0).powf(ast).min(1.0).max(0.0);
+                        let abr_str = (uv.x * uv.y * 8.0).powf(ast).clamp(0.0, 1.0);
                         col.mix(Vec3::new(r, col.y, b), 1.0 - abr_str);
                     }
                     uv.x *= 1.0 - uv.x;
                     uv.y *= 1.0 - uv.y;
-                    let vignette = (uv.x * uv.y * 32.0).powf(vst).min(1.0).max(0.0);
+                    let vignette = (uv.x * uv.y * 32.0).powf(vst).clamp(0.0, 1.0);
                     col.div_scalar_fast(samples_taken as f32);
                     col.scale(vignette);
                     col.clamp(0.0, 1.0);
@@ -340,8 +340,8 @@ fn initial_ray_dir(pos: Vec3, cd: Vec3, x: f32, y: f32, rw: f32, rh: f32, aa_u: 
                    aspect: f32, uv_dist: f32, angle: f32, radius: f32, theta_mid: f32, phi_mid: f32, dist_coef: f32,
                    is_wide: bool) -> Vec3
 {
-    let u = (x as f32 + aa_u) / rw as f32;
-    let v = (y as f32 + aa_v) / rh as f32;
+    let u = (x + aa_u) / rw;
+    let v = (y + aa_v) / rh;
     if !is_wide {
         // normal
         let hor = cd.crossed(Vec3::UP).normalized_fast();
@@ -369,8 +369,8 @@ fn initial_ray_dir(pos: Vec3, cd: Vec3, x: f32, y: f32, rw: f32, rh: f32, aa_u: 
         let dy = r * rho.sin();
 
         // circular screen
-        let off_x = x as f32 - rw as f32 * 0.5;
-        let off_y = y as f32 - rh as f32 * 0.5;
+        let off_x = x - rw * 0.5;
+        let off_y = y - rh * 0.5;
         let off_len = (off_x * off_x + off_y * off_y).sqrt();
         if off_len > radius {
             Vec3::ZERO

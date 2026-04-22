@@ -58,7 +58,7 @@ impl Info{
             }
             max = new_max;
         }
-        return format!("{} {}", size / max, "TB");
+        format!("{} {}", size / max, "TB")
     }
 
     pub fn start_time(&mut self){

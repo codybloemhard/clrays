@@ -258,11 +258,11 @@ impl Vec3{
     #[inline]
     pub fn div(&mut self, o: Self){
         if o.x != 0.0 { self.x /= o.x; }
-        else { self.x = std::f32::MAX; }
+        else { self.x = f32::MAX; }
         if o.y != 0.0 { self.y /= o.y; }
-        else { self.y = std::f32::MAX; }
+        else { self.y = f32::MAX; }
         if o.z != 0.0 { self.z /= o.z; }
-        else { self.z = std::f32::MAX; }
+        else { self.z = f32::MAX; }
     }
 
     #[inline]

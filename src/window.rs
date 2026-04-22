@@ -42,7 +42,7 @@ impl Window
             .build(),
             "Could not create window!");
         let _gl_contex = window.gl_create_context().unwrap(); // needs to exist
-        #[allow(dead_code)]
+        #[allow(dead_code, clippy::let_unit_value)]
         let _gl = gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void);
 
         let mut event_pump = unpackdb!(contex.event_pump(), "Could not get sdl event pump!");
