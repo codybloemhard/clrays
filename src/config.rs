@@ -203,7 +203,6 @@ impl Controls{
     }
 }
 
-
 #[derive(Deserialize, Clone, Default, Debug)]
 struct Camera{
     fisheye: Option<bool>,
@@ -218,7 +217,7 @@ pub struct CameraParsed{
 impl Camera{
     fn parse(self) -> CameraParsed{
         let fisheye = self.fisheye.unwrap_or(false);
-        let fov = self.fov.unwrap_or(90.0).min(1.0).max(180.0);
+        let fov = self.fov.unwrap_or(90.0).max(1.0).min(180.0);
         CameraParsed{
             fisheye, fov
         }
